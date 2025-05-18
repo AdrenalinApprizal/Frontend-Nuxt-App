@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+.bg-gradient-blue {
+  background: radial-gradient(
+    circle,
+    rgba(27, 62, 136, 0.8) 0%,
+    rgba(27, 62, 136, 0) 70%
+  );
+}

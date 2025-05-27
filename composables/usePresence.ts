@@ -18,6 +18,7 @@ interface ApiResponse {
   data?: any;
   status?: number;
   statusText?: string;
+  error?: boolean;
 }
 
 // Define update status request
@@ -26,8 +27,23 @@ interface StatusUpdateRequest {
   status: PresenceStatus;
 }
 
-// Path for presence service API
-const PRESENCE_PATH = "/presence";
+// Define WebSocket message types
+interface WebSocketStatusUpdate {
+  type: "status_update";
+  user_id: string;
+  status: PresenceStatus;
+  last_active: string;
+}
+
+interface WebSocketPresenceSync {
+  type: "presence_sync";
+  statuses: UserPresence[];
+}
+
+type WebSocketMessage = WebSocketStatusUpdate | WebSocketPresenceSync;
+
+// Path for presence service API - using proxy to avoid CORS issues
+const PRESENCE_PATH = "/presence"; // Remove /api/proxy prefix as it's handled by $api
 
 // Define the store
 export const usePresenceStore = defineStore("presence", () => {
@@ -39,6 +55,7 @@ export const usePresenceStore = defineStore("presence", () => {
   const deviceId = ref<string>("");
   const wsConnection = ref<WebSocket | null>(null);
   const isWsConnected = ref(false);
+  const isActive = ref(true); // Add missing isActive state variable
 
   // Get Nuxt app instance for access to API
   const nuxtApp = useNuxtApp();
@@ -65,21 +82,33 @@ export const usePresenceStore = defineStore("presence", () => {
     error.value = null;
 
     try {
+      console.log(`[Presence] Validating token directly with presence service`);
       const response = await $api.get(
-        `${PRESENCE_PATH}/debug/token?token=${token}`
+        `${PRESENCE_PATH}/debug/token?token=${token}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        }
       );
       return response;
     } catch (err: any) {
       error.value = err.message || "Failed to validate token";
-      console.error("Error validating token:", err);
-      throw err;
+      console.error("[Presence] Error validating token:", err);
+      return {
+        error: true,
+        message: err.message || "Failed to validate token",
+        status: err.status || 500,
+        statusText: err.statusText || "Internal Server Error",
+      };
     } finally {
       isLoading.value = false;
     }
   }
 
   /**
-   * Update user's online/offline status (PUT method)
+   * Update user's online/offline status (POST method for initial status)
    */
   async function updateStatusPut(status: PresenceStatus): Promise<ApiResponse> {
     isLoading.value = true;
@@ -89,21 +118,42 @@ export const usePresenceStore = defineStore("presence", () => {
       // Ensure device ID is generated
       const device = ensureDeviceId();
 
-      const data: StatusUpdateRequest = {
+      const requestBody: StatusUpdateRequest = {
         device_id: device,
         status: status,
       };
 
-      const response = await $api.put(`${PRESENCE_PATH}/status`, data);
+      // Debug logging for request details
+      console.log(
+        `[Presence] Setting initial status to ${status} with device ID ${device}`
+      );
+      console.log(`[Presence] Request URL: ${PRESENCE_PATH}/status`);
+      console.log(`[Presence] Request body:`, requestBody);
 
-      // Update current status
-      currentStatus.value = status;
+      // Using POST for initial status update with detailed logging
+      const response = await $api.post(`${PRESENCE_PATH}/status`, requestBody, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      // Only update current status if the request was successful
+      if (!response?.error) {
+        currentStatus.value = status;
+      }
 
       return response;
     } catch (err: any) {
-      error.value = err.message || "Failed to update status";
-      console.error("Error updating status:", err);
-      throw err;
+      const errorMsg = err.message || "Failed to update status";
+      error.value = errorMsg;
+      console.error("[Presence] Error updating initial status:", err);
+      return {
+        error: true,
+        message: errorMsg,
+        status: err.status || 500,
+        statusText: err.statusText || "Internal Server Error",
+      };
     } finally {
       isLoading.value = false;
     }
@@ -122,21 +172,46 @@ export const usePresenceStore = defineStore("presence", () => {
       // Ensure device ID is generated
       const device = ensureDeviceId();
 
-      const data: StatusUpdateRequest = {
+      const requestBody: StatusUpdateRequest = {
         device_id: device,
         status: status,
       };
 
-      const response = await $api.post(`${PRESENCE_PATH}/status`, data);
+      // Debug logging for request details
+      console.log(
+        `[Presence] Updating subsequent status to ${status} with device ID ${device}`
+      );
+      console.log(`[Presence] Request URL: ${PRESENCE_PATH}/status`);
+      console.log(`[Presence] Request body:`, requestBody);
 
-      // Update current status
-      currentStatus.value = status;
+      // Make the API call with detailed options
+      const response = await $api.post(`${PRESENCE_PATH}/status`, requestBody, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      // Log response and update local state only on success
+      console.log(`[Presence] Status update response:`, response);
+
+      if (!response?.error) {
+        currentStatus.value = status;
+      } else {
+        console.warn(`[Presence] Status update failed:`, response.error);
+      }
 
       return response;
     } catch (err: any) {
-      error.value = err.message || "Failed to update status";
-      console.error("Error updating status:", err);
-      throw err;
+      const errorMsg = err.message || "Failed to update status";
+      error.value = errorMsg;
+      console.error("[Presence] Error updating status:", err);
+      return {
+        error: true,
+        message: errorMsg,
+        status: err.status || 500,
+        statusText: err.statusText || "Internal Server Error",
+      };
     } finally {
       isLoading.value = false;
     }
@@ -153,8 +228,16 @@ export const usePresenceStore = defineStore("presence", () => {
       // Convert array to comma-separated string
       const userIdsParam = userIds.join(",");
 
+      console.log(`[Presence] Getting status for users: ${userIdsParam}`);
+      console.log(
+        `[Presence] Request URL: ${PRESENCE_PATH}/users?user_ids=${userIdsParam}`
+      );
+
       const response = await $api.get(
-        `${PRESENCE_PATH}/users?user_ids=${userIdsParam}`
+        `${PRESENCE_PATH}/users?user_ids=${userIdsParam}`,
+        {
+          credentials: "include",
+        }
       );
 
       // Update local cache of user statuses
@@ -166,9 +249,15 @@ export const usePresenceStore = defineStore("presence", () => {
 
       return response;
     } catch (err: any) {
-      error.value = err.message || "Failed to get users status";
-      console.error("Error getting users status:", err);
-      throw err;
+      const errorMsg = err.message || "Failed to get users status";
+      error.value = errorMsg;
+      console.error("[Presence] Error getting users status:", err);
+      return {
+        error: true,
+        message: errorMsg,
+        status: err.status || 500,
+        statusText: err.statusText || "Internal Server Error",
+      };
     } finally {
       isLoading.value = false;
     }
@@ -182,6 +271,9 @@ export const usePresenceStore = defineStore("presence", () => {
     error.value = null;
 
     try {
+      console.log(`[Presence] Getting status for user: ${userId}`);
+      console.log(`[Presence] Request URL: ${PRESENCE_PATH}/${userId}`);
+
       const response = await $api.get(`${PRESENCE_PATH}/${userId}`);
 
       // Update local cache with the user's status
@@ -191,9 +283,15 @@ export const usePresenceStore = defineStore("presence", () => {
 
       return response;
     } catch (err: any) {
-      error.value = err.message || "Failed to get user status";
-      console.error(`Error getting status for user ${userId}:`, err);
-      throw err;
+      const errorMsg = err.message || "Failed to get user status";
+      error.value = errorMsg;
+      console.error(`[Presence] Error getting status for user ${userId}:`, err);
+      return {
+        error: true,
+        message: errorMsg,
+        status: err.status || 500,
+        statusText: err.statusText || "Internal Server Error",
+      };
     } finally {
       isLoading.value = false;
     }
@@ -202,69 +300,125 @@ export const usePresenceStore = defineStore("presence", () => {
   /**
    * Establish WebSocket connection for real-time presence updates
    */
-  function connectWebSocket(token?: string): void {
-    // Close existing connection if any
-    if (wsConnection.value) {
-      wsConnection.value.close();
+  // Connect to WebSocket with retry logic
+  async function connectWebSocket(
+    token: string,
+    maxRetries = 3
+  ): Promise<void> {
+    if (wsConnection.value?.readyState === WebSocket.OPEN) {
+      console.log("[Presence] WebSocket already connected");
+      return;
     }
 
-    isWsConnected.value = false;
+    let retries = 0;
+    const connect = (): void => {
+      try {
+        console.log("[Presence] Attempting WebSocket connection...");
+        // Use the proxy path for WebSocket connection
+        // If we're in development mode, try both localhost and the dynamic hostname
+        let wsUrl;
 
-    try {
-      // Get the base WebSocket URL
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
-      let wsUrl = `${protocol}//${host}/api/proxy${PRESENCE_PATH}/ws`;
+        // Determine if we're running in development mode
+        const isDev =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
 
-      // Add token if provided
-      if (token) {
-        wsUrl += `?token=${token}`;
-      }
-
-      wsConnection.value = new WebSocket(wsUrl);
-
-      // Setup event handlers
-      wsConnection.value.onopen = () => {
-        console.log("[Presence WebSocket] Connected");
-        isWsConnected.value = true;
-      };
-
-      wsConnection.value.onclose = () => {
-        console.log("[Presence WebSocket] Disconnected");
-        isWsConnected.value = false;
-      };
-
-      wsConnection.value.onerror = (err) => {
-        console.error("[Presence WebSocket] Error:", err);
-        error.value = "WebSocket connection error";
-        isWsConnected.value = false;
-      };
-
-      wsConnection.value.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          // Handle different message types
-          if (data.type === "status_update" && data.user_id && data.status) {
-            // Update user status in our local cache
-            userStatuses.value.set(data.user_id, {
-              user_id: data.user_id,
-              status: data.status,
-              last_active: data.timestamp || new Date().toISOString(),
-            });
-
-            console.log(
-              `[Presence WebSocket] User ${data.user_id} is now ${data.status}`
-            );
-          }
-        } catch (err) {
-          console.error("[Presence WebSocket] Failed to parse message:", err);
+        if (isDev) {
+          // In development, try to use the same hostname as the current page
+          const protocol =
+            window.location.protocol === "https:" ? "wss:" : "ws:";
+          const host = window.location.host; // This includes hostname:port
+          wsUrl = `${protocol}//${host}/api/proxy/presence/ws?token=${token}`;
+          console.log("[Presence] Using proxied WebSocket URL:", wsUrl);
+        } else {
+          wsUrl = `ws://localhost:8085/presence/ws?token=${token}`;
+          console.log("[Presence] Using direct WebSocket URL:", wsUrl);
         }
-      };
-    } catch (err) {
-      console.error("[Presence WebSocket] Setup error:", err);
-      error.value = "Failed to setup WebSocket connection";
+
+        // Log presence connection attempt
+        console.log("[Presence] Attempting WebSocket connection to:", wsUrl);
+
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log("[Presence] WebSocket connected successfully");
+          isWsConnected.value = true;
+          isActive.value = true; // Set presence as active when connection is established
+          wsConnection.value = ws;
+        };
+
+        ws.onclose = (event) => {
+          console.log(
+            "[Presence] WebSocket connection closed:",
+            event.code,
+            event.reason
+          );
+          isWsConnected.value = false;
+          wsConnection.value = null;
+
+          // Attempt to reconnect if not max retries
+          if (retries < maxRetries) {
+            retries++;
+            console.log(
+              `[Presence] Attempting reconnect ${retries}/${maxRetries}...`
+            );
+            setTimeout(connect, 2000 * retries); // Exponential backoff
+          } else {
+            console.log(
+              "[Presence] Max reconnection attempts reached - giving up"
+            );
+            // Set presence as inactive but don't block the app functionality
+            isActive.value = false;
+          }
+        };
+
+        ws.onerror = (event) => {
+          console.error("[Presence] WebSocket error:", event);
+          error.value = "Failed to connect to presence service";
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data) as WebSocketMessage;
+            handleWebSocketMessage(data);
+          } catch (err) {
+            console.error("[Presence] Error handling WebSocket message:", err);
+          }
+        };
+      } catch (err) {
+        console.error("[Presence] Error creating WebSocket connection:", err);
+        if (retries < maxRetries) {
+          retries++;
+          setTimeout(connect, 2000 * retries);
+        }
+      }
+    };
+
+    connect();
+  }
+
+  // Handle incoming WebSocket messages
+  function handleWebSocketMessage(data: WebSocketMessage): void {
+    if (data.type === "status_update") {
+      updateUserStatus(data.user_id, data.status, data.last_active);
+    } else if (data.type === "presence_sync") {
+      data.statuses.forEach((status) => {
+        updateUserStatus(status.user_id, status.status, status.last_active);
+      });
     }
+  }
+
+  // Update a user's status in the local state
+  function updateUserStatus(
+    userId: string,
+    status: PresenceStatus,
+    lastActive: string
+  ): void {
+    userStatuses.value.set(userId, {
+      user_id: userId,
+      status,
+      last_active: lastActive,
+    });
   }
 
   /**
@@ -276,6 +430,7 @@ export const usePresenceStore = defineStore("presence", () => {
       wsConnection.value = null;
     }
     isWsConnected.value = false;
+    isActive.value = false; // Set as inactive when disconnected
   }
 
   /**
@@ -298,7 +453,7 @@ export const usePresenceStore = defineStore("presence", () => {
   function setInitialStatus(
     status: PresenceStatus = "online"
   ): Promise<ApiResponse> {
-    // Use the PUT method to update status when setting initial status
+    // Use the updateStatusPut function which now uses POST internally
     return updateStatusPut(status);
   }
 
@@ -310,6 +465,13 @@ export const usePresenceStore = defineStore("presence", () => {
     return updateStatusPost(status);
   }
 
+  /**
+   * Check if presence service is active and functioning
+   */
+  function checkActive(): boolean {
+    return isActive.value && isWsConnected.value;
+  }
+
   return {
     // State
     currentStatus,
@@ -318,6 +480,7 @@ export const usePresenceStore = defineStore("presence", () => {
     error,
     deviceId,
     isWsConnected,
+    isActive, // Export the isActive state
 
     // Methods
     validateToken,
@@ -331,6 +494,7 @@ export const usePresenceStore = defineStore("presence", () => {
     getLastActive,
     setInitialStatus,
     updateStatus,
+    checkActive,
   };
 });
 

@@ -58,9 +58,6 @@ export const useNotifications = () => {
     if (authStore.token) {
       // Use Bearer prefix by default for notifications (standard OAuth format)
       headers["Authorization"] = `Bearer ${authStore.token}`;
-
-      // Store the token format we're using for debugging
-      console.log("[DEBUG] Using 'Bearer' prefix for notification service");
     }
 
     return headers;

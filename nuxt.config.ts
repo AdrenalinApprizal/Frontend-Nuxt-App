@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { defineNuxtConfig } from "nuxt/config";
+
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
@@ -23,6 +25,7 @@ export default defineNuxtConfig({
 
     // Public keys that are exposed to the client
     public: {
+      dev: process.env.NODE_ENV !== "production",
       apiBaseUrl:
         process.env.NUXT_PUBLIC_API_BASE_URL || "http://localhost:8081/api",
       apiAuthUrl:

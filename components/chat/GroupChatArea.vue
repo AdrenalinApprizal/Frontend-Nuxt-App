@@ -202,7 +202,11 @@
                     }`"
                   >
                     {{
-                      formatTimestamp(message.timestamp || message.created_at)
+                      formatTimestamp(
+                        message.timestamp ||
+                          message.sent_at ||
+                          message.created_at
+                      )
                     }}
                   </span>
                 </div>
@@ -356,6 +360,7 @@ import { useNuxtApp } from "#app";
 import SearchOnGroup from "./SearchOnGroup.vue";
 import GroupInfoPanel from "./GroupInfoPanel.vue";
 import { useFiles } from "~/composables/useFiles";
+import { useMessagesStore } from "~/composables/useMessages";
 
 // Initialize presence service
 const presence = usePresence();
@@ -408,9 +413,6 @@ const format = (date: Date, formatStr: string) => {
 // Initialize Nuxt app to access plugins like toast
 const { $toast } = useNuxtApp();
 
-// API base URL
-const API_BASE_URL = "http://localhost:8082";
-
 interface Attachment {
   type: "image" | "file";
   url: string;
@@ -431,6 +433,7 @@ interface GroupMessage {
   group_id?: string;
   created_at?: string;
   updated_at?: string;
+  sent_at?: string; // Add sent_at field for proper timestamp handling
   timestamp?: string;
   isCurrentUser?: boolean;
   isEdited?: boolean;
@@ -488,6 +491,7 @@ const props = defineProps<{
 // Store access
 const groupsStore = useGroupsStore();
 const authStore = useAuthStore();
+const messagesStore = useMessagesStore();
 
 // Main state
 const inputMessage = ref("");
@@ -576,12 +580,13 @@ const canLoadMoreMessages = computed(() => {
 
 // Initialize component when mounted
 onMounted(async () => {
-  console.log("===== GROUP CHAT AREA MOUNTED =====");
-  console.log("Group ID:", props.groupId);
-  console.log("Group Name:", props.groupName);
-
-  // Fetch group data
-  await loadGroupData();
+  // Use prop messages if available, otherwise fetch from API
+  if (props.groupMessages && props.groupMessages.length > 0) {
+    messages.value = props.groupMessages;
+  } else {
+    // Fetch group data
+    await loadGroupData();
+  }
 
   // Initial scroll to bottom
   nextTick(() => {
@@ -618,10 +623,9 @@ async function loadGroupData() {
       fetchGroupMessages(),
     ]);
 
-    // Process messages to identify the current user's messages
-    processMessages();
+    // No need to call processMessages here as it will be triggered by the storeMessages watcher
+    // This prevents duplicate processing
   } catch (error) {
-    console.error("Error loading group data:", error);
     if ($toast) {
       $toast.error("Failed to load group data");
     }
@@ -634,33 +638,25 @@ async function loadGroupData() {
 function processMessages() {
   const userId = currentUser.value?.id;
 
-  messages.value = storeMessages.value.map((message) => ({
-    ...message,
-    isCurrentUser:
-      message.sender_id === userId || message.sender?.id === userId,
-  }));
+  if (!storeMessages.value || storeMessages.value.length === 0) {
+    return;
+  }
+
+  messages.value = storeMessages.value.map((message) => {
+    const isCurrentUser =
+      message.sender_id === userId || message.sender?.id === userId;
+    return {
+      ...message,
+      isCurrentUser,
+    };
+  });
 }
 
 // Fetch group messages from the API
 async function fetchGroupMessages(page = 1, limit = 20) {
   try {
-    // Use our API endpoint
-    const response = await fetch(
-      `${API_BASE_URL}/api/groups/${props.groupId}/messages?page=${page}&limit=${limit}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    const data = await response.json();
+    // Use the groupsStore to fetch messages for consistency
+    const data = await groupsStore.getGroupMessages(props.groupId, page, limit);
 
     // Process the messages
     const userId = currentUser.value?.id;
@@ -685,7 +681,6 @@ async function fetchGroupMessages(page = 1, limit = 20) {
 
     return data;
   } catch (error) {
-    console.error(`Error fetching messages for group ${props.groupId}:`, error);
     if ($toast) {
       $toast.error("Failed to load messages");
     }
@@ -702,7 +697,6 @@ async function loadMoreMessages() {
     const nextPage = groupsStore.messagesPagination.current_page + 1;
     await fetchGroupMessages(nextPage);
   } catch (error) {
-    console.error("Error loading more messages:", error);
     if ($toast) {
       $toast.error("Failed to load more messages");
     }
@@ -711,10 +705,10 @@ async function loadMoreMessages() {
   }
 }
 
-// Update messages when group ID changes or when store messages change
+// Only watch for group ID changes to prevent infinite loop
 watch(
-  [() => props.groupId, storeMessages],
-  async ([newGroupId]) => {
+  () => props.groupId,
+  async (newGroupId) => {
     if (newGroupId) {
       await loadGroupData();
 
@@ -728,6 +722,19 @@ watch(
   },
   { immediate: true }
 );
+
+// Separate watch for store messages to update UI without triggering fetch
+watch(storeMessages, () => {
+  // Only sync messages from store without fetching again
+  processMessages();
+
+  // Scroll to bottom for new messages
+  nextTick(() => {
+    if (messagesEndRef.value && messages.value.length > 0) {
+      messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+    }
+  });
+});
 
 // Format timestamp for display
 function formatTimestamp(dateString?: string): string {
@@ -767,7 +774,9 @@ const updateGroup = async (updatedGroup: any) => {
       avatar: updatedGroup.avatar,
     });
   } catch (error) {
-    console.error("Error updating group:", error);
+    if ($toast) {
+      $toast.error("Failed to update group");
+    }
   }
 };
 
@@ -811,16 +820,14 @@ const handleFileChange = async (event: Event) => {
 
       // Langsung menggunakan endpoint API /messages/media
       const formData = new FormData();
-      formData.append("media", file);
-      formData.append("group_id", props.groupId);
-      formData.append("content", "File attachment");
+      formData.append("file", file);
+      formData.append("media_type", file.type);
+      formData.append("related_to", props.groupId);
 
-      const response = await fetch(`${API_BASE_URL}/api/messages/media`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
+      const response = await fetch(`/api/proxy/messages/media`, {
+        method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -837,7 +844,6 @@ const handleFileChange = async (event: Event) => {
         fileInputRef.value.value = "";
       }
     } catch (error) {
-      console.error("Error sending file:", error);
       if ($toast) {
         $toast.error("Failed to send file. Please try again.");
       }
@@ -890,18 +896,14 @@ const handleImageChange = async (event: Event) => {
 
       // Langsung menggunakan endpoint API /messages/media
       const formData = new FormData();
-      formData.append("media", file);
-      formData.append("group_id", props.groupId);
-      formData.append("content", "Image attachment");
-      // Menambahkan parameter type untuk memberitahu server bahwa ini adalah gambar
-      formData.append("type", "image");
+      formData.append("file", file);
+      formData.append("media_type", file.type);
+      formData.append("related_to", props.groupId);
 
-      const response = await fetch(`${API_BASE_URL}/api/messages/media`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
+      const response = await fetch(`/api/proxy/messages/media`, {
+        method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -918,7 +920,6 @@ const handleImageChange = async (event: Event) => {
         imageInputRef.value.value = "";
       }
     } catch (error) {
-      console.error("Error sending image:", error);
       if ($toast) {
         $toast.error("Failed to send image. Please try again.");
       }
@@ -935,112 +936,76 @@ const handleImageChange = async (event: Event) => {
   }
 };
 
-// Handle send message with optimistic updates and retry capability
-const handleSendMessage = async () => {
-  if (!inputMessage.value.trim() && !editingMessageId.value) return;
+// Send a new message
+const handleSendMessage = async (messageContentOrEvent?: string | Event) => {
+  // Handle both direct string calls and event-based calls
+  let messageContent: string;
+
+  if (typeof messageContentOrEvent === "string") {
+    messageContent = messageContentOrEvent;
+  } else {
+    // Event-based call, use the input value
+    messageContent = inputMessage.value;
+  }
+
+  if (!messageContent.trim() || !props.groupId) {
+    return;
+  }
+
+  const tempId = `temp-${Date.now()}`; // Define tempId at the top of the function
 
   try {
-    if (editingMessageId.value) {
-      // Handle editing existing message
-      messages.value = messages.value.map((message) => {
-        if (message.id === editingMessageId.value) {
-          return {
-            ...message,
-            content: inputMessage.value,
-            isEdited: true,
-          };
-        }
-        return message;
-      });
+    isSending.value = true;
 
-      editingMessageId.value = null;
-      inputMessage.value = "";
-    } else {
-      // Generate a temporary ID for optimistic update
-      const tempId = `temp-${Date.now()}`;
-      const messageContent = inputMessage.value;
-      isSending.value = true;
+    // Create temporary message with unique ID
+    const tempMessage = {
+      id: tempId,
+      content: messageContent,
+      sender: {
+        id: currentUser.value?.id || "user",
+        name: currentUser.value?.name || "You",
+      },
+      timestamp: new Date().toISOString(),
+      isCurrentUser: true,
+      pending: true,
+    };
 
-      // Optimistic update - add message to UI immediately
-      const newMessage: GroupMessage = {
-        id: tempId,
-        content: messageContent,
-        sender: {
-          id: currentUser.value?.id || "user",
-          name: currentUser.value?.name || "You",
-        },
-        timestamp: new Date().toISOString(),
-        isCurrentUser: true,
-        pending: true, // Flag to indicate this message is pending
-      };
+    // Add temporary message to the UI
+    messages.value = [...messages.value, tempMessage];
 
-      messages.value.push(newMessage);
+    // Clear input early for better UX
+    inputMessage.value = "";
 
-      // Clear input early for better UX
-      inputMessage.value = "";
-
-      // Scroll to bottom immediately for better UX
-      nextTick(() => {
-        if (messagesEndRef.value) {
-          messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-        }
-      });
-
-      try {
-        // Send message to API
-        await fetch(`${API_BASE_URL}/api/groups/${props.groupId}/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-          body: JSON.stringify({
-            content: messageContent,
-            type: "text",
-          }),
-        });
-
-        // Update message status on success
-        messages.value = messages.value.map((msg) => {
-          if (msg.id === tempId) {
-            return {
-              ...msg,
-              pending: false,
-            };
-          }
-          return msg;
-        });
-
-        // Refresh server messages to get actual ID and status
-        await fetchGroupMessages();
-      } catch (sendError) {
-        console.error("Error sending message:", sendError);
-
-        // Mark message as failed but keep it in UI
-        messages.value = messages.value.map((msg) => {
-          if (msg.id === tempId) {
-            return {
-              ...msg,
-              pending: false,
-              failed: true,
-            };
-          }
-          return msg;
-        });
-
-        // Show error with retry option
-        if ($toast) {
-          $toast.error("Failed to send message. Click here to retry.", {
-            onClick: () => retryMessage(tempId, messageContent),
-          });
-        }
+    // Scroll to bottom immediately
+    nextTick(() => {
+      if (messagesEndRef.value) {
+        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
       }
+    });
+
+    // Send actual message
+    await groupsStore.sendGroupMessage(props.groupId, messageContent);
+
+    // Remove temporary message and fetch fresh messages
+    messages.value = messages.value.filter((msg) => msg.id !== tempId);
+
+    await groupsStore.getGroupMessages(props.groupId);
+
+    if ($toast) {
+      $toast.success("Message sent successfully");
     }
   } catch (error) {
-    console.error("Error in message flow:", error);
     if ($toast) {
-      $toast.error("Failed to process message");
+      $toast.error("Failed to send message");
     }
+
+    // Update UI to show message failed
+    messages.value = messages.value.map((msg) => {
+      if (msg.id === tempId) {
+        return { ...msg, pending: false, failed: true };
+      }
+      return msg;
+    });
   } finally {
     isSending.value = false;
   }
@@ -1064,18 +1029,8 @@ const retryMessage = async (tempId: string, content: string) => {
       return msg;
     });
 
-    // Try to send again
-    await fetch(`${API_BASE_URL}/api/groups/${props.groupId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-      },
-      body: JSON.stringify({
-        content,
-        type: "text",
-      }),
-    });
+    // Try to send again using the store
+    await groupsStore.sendGroupMessage(props.groupId, content);
 
     // Update UI on success
     messages.value = messages.value.map((msg) => {
@@ -1097,8 +1052,6 @@ const retryMessage = async (tempId: string, content: string) => {
       $toast.success("Message sent successfully");
     }
   } catch (error) {
-    console.error("Error retrying message:", error);
-
     // Mark as failed again
     messages.value = messages.value.map((msg) => {
       if (msg.id === tempId) {
@@ -1212,12 +1165,10 @@ const handleUnsendMessage = async (messageId: string) => {
   try {
     // Send delete request to API
     const response = await fetch(
-      `${API_BASE_URL}/api/groups/${props.groupId}/messages/${messageId}`,
+      `/api/proxy/groups/${props.groupId}/messages/${messageId}`,
       {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
+        credentials: "include",
       }
     );
 
@@ -1239,7 +1190,6 @@ const handleUnsendMessage = async (messageId: string) => {
 
     showDropdown.value = null;
   } catch (error) {
-    console.error("Error deleting message:", error);
     if ($toast) {
       $toast.error("Failed to unsend message");
     }

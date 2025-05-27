@@ -270,6 +270,8 @@
 import { ref, computed } from "vue";
 import { useNuxtApp } from "#app";
 import { useGroupsStore } from "~/composables/useGroups";
+import { useFriendsStore } from "~/composables/useFriends";
+import { useAuthStore } from "~/composables/useAuth";
 
 interface GroupMember {
   id: string;
@@ -308,11 +310,9 @@ const showAddMembers = ref(false);
 const activeMemberMenu = ref<string | null>(null);
 const searchFriend = ref("");
 
-// Mock current user as the first admin in the group
-const currentUserId = computed(() => {
-  const admin = props.group.members.find((member) => member.role === "admin");
-  return admin?.id || "user";
-});
+// Get current user from auth store
+const authStore = useAuthStore();
+const currentUserId = computed(() => authStore.user?.id || "");
 
 // Check if current user is an admin
 const isAdmin = computed(() => {
@@ -321,14 +321,21 @@ const isAdmin = computed(() => {
   );
 });
 
-// Mock friends data (in a real app, this would come from an API)
-const friends = ref<Friend[]>([
-  { id: "101", name: "Emma Thompson", avatar: undefined },
-  { id: "102", name: "Michael Brown", avatar: undefined },
-  { id: "103", name: "Sophia Williams", avatar: undefined },
-  { id: "104", name: "Daniel Johnson", avatar: undefined },
-  { id: "105", name: "Olivia Davis", avatar: undefined },
-]);
+// Get friends from the store
+const friendsStore = useFriendsStore();
+const friends = computed<Friend[]>(() => {
+  // Fetch friends if not already loaded
+  if (friendsStore.friends.length === 0) {
+    friendsStore.getFriends();
+  }
+
+  return friendsStore.friends.map((friend) => ({
+    id: friend.id,
+    name: friend.name || "Unknown",
+    avatar: friend.profile_picture_url,
+    selected: false,
+  }));
+});
 
 // Filter friends that are not in the group already
 const filteredFriends = computed(() => {
@@ -344,6 +351,13 @@ const filteredFriends = computed(() => {
 // Get selected friends
 const selectedFriends = computed(() => {
   return friends.value.filter((friend) => friend.selected);
+});
+
+// Make sure we load friends data
+onMounted(() => {
+  if (friendsStore.friends.length === 0) {
+    friendsStore.getFriends();
+  }
 });
 
 // Check if member is current user
@@ -413,7 +427,6 @@ const toggleMemberBlock = async (member: GroupMember) => {
       );
     }
   } catch (error: any) {
-    console.error("Error toggling block status:", error);
     if ($toast) {
       $toast.error(error.message || "Failed to update block status");
     }
@@ -454,19 +467,34 @@ const addSelectedMembers = () => {
 };
 
 // Leave group
-const leaveGroup = () => {
-  // In a real app, you would call an API here
-  const { $toast } = useNuxtApp();
-  $toast.info("You have left the group");
-  emit("close");
+const leaveGroup = async () => {
+  try {
+    await groupsStore.leaveGroup(props.group.id);
+    $toast.success("You have left the group");
+    emit("close");
+  } catch (error: any) {
+    $toast.error(error.message || "Failed to leave the group");
+  }
 };
 
 // Delete group
-const deleteGroup = () => {
-  // In a real app, you would call an API here
-  const { $toast } = useNuxtApp();
-  $toast.info("Group deleted successfully");
-  emit("close");
+const deleteGroup = async () => {
+  try {
+    // Since groupsStore doesn't have a deleteGroup method, we'll use the API directly
+    // and then update our local state
+    const { $api } = useNuxtApp();
+    await $api.delete(`/groups/${props.group.id}`);
+
+    // Update local state by removing the group from the store
+    groupsStore.$patch({
+      groups: groupsStore.groups.filter((g) => g.id !== props.group.id),
+    });
+
+    $toast.success("Group deleted successfully");
+    emit("close");
+  } catch (error: any) {
+    $toast.error(error.message || "Failed to delete the group");
+  }
 };
 
 // Close dropdown when clicking outside

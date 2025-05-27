@@ -2,7 +2,7 @@
   <div class="h-screen flex">
     <!-- Group list -->
     <div class="w-80 border-r border-gray-200 flex-shrink-0">
-      <ChatGroupsList />
+      <GroupsList />
     </div>
 
     <!-- Empty chat area with placeholder -->

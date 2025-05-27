@@ -63,14 +63,6 @@
     <template v-else>
       <!-- Friend Requests Section -->
       <div v-if="pendingRequests.length > 0" class="mb-5">
-        <!-- Debug information to see if this section is reached -->
-        <div class="bg-yellow-100 p-2 mb-2 text-xs">
-          Debug: Found {{ pendingRequests.length }} requests
-          <div v-if="pendingRequests.length > 0">
-            First request: {{ JSON.stringify(pendingRequests[0]) }}
-          </div>
-        </div>
-        
         <div v-if="requestsHidden">
           <!-- Collapsed view - shows a summary with count -->
           <div
@@ -268,7 +260,7 @@
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start">
                   <h3 class="font-medium text-gray-900 truncate text-sm">
-                    {{ friend.name }}
+                    {{ friend.first_name }} {{ friend.last_name }}
                   </h3>
                   <span class="text-xs text-gray-500 ml-1">
                     {{
@@ -357,11 +349,13 @@
 <script setup lang="ts">
 import { useFriendsStore } from "~/composables/useFriends";
 import { usePresence } from "~/composables/usePresence";
+import { useRuntimeConfig } from "#app";
 
 const route = useRoute();
 const { $toast } = useNuxtApp();
 const friendsStore = useFriendsStore();
 const presence = usePresence(); // Add presence composable
+const config = useRuntimeConfig();
 
 // Import auth store to get current user info
 import { useAuthStore } from "~/composables/useAuth";
@@ -381,22 +375,24 @@ let searchTimer: NodeJS.Timeout;
 // On component mount, fetch friends and pending requests
 onMounted(async () => {
   console.log("[FriendsList] Component mounted, fetching data...");
-  
+
   try {
     // Get friends data first
     await friendsStore.getFriends();
     console.log("[FriendsList] Friends data fetched");
-    
+
     // Then explicitly fetch pending requests
     const requestsResponse = await friendsStore.getPendingRequests();
-    console.log(`[FriendsList] Pending requests fetched: ${friendsStore.pendingRequests.length} found`);
-    
+    console.log(
+      `[FriendsList] Pending requests fetched: ${friendsStore.pendingRequests.length} found`
+    );
+
     // Make sure pending requests section is visible if there are requests
     if (friendsStore.pendingRequests.length > 0) {
       requestsHidden.value = false;
       console.log("[FriendsList] Showing pending requests section");
     }
-    
+
     // Update friends status
     if (friendsStore.friends.length > 0) {
       updateFriendsStatus();
@@ -456,7 +452,7 @@ async function refreshData() {
     if (friendsStore.friends.length > 0) {
       updateFriendsStatus();
     }
-    
+
     // Show pending requests section if there are any
     if (friendsStore.pendingRequests.length > 0) {
       requestsHidden.value = false;
@@ -567,9 +563,12 @@ async function handleAddFriendByUsername() {
 
     // Refresh permintaan pertemanan yang tertunda
     await friendsStore.getPendingRequests();
-    console.log('[FriendsList] Refreshed pending requests after adding friend');
-    console.log('[FriendsList] Current pending requests:', friendsStore.pendingRequests);
-    
+    console.log("[FriendsList] Refreshed pending requests after adding friend");
+    console.log(
+      "[FriendsList] Current pending requests:",
+      friendsStore.pendingRequests
+    );
+
     // Set requestsHidden to false to memastikan bagian permintaan pertemanan terlihat
     if (friendsStore.pendingRequests.length > 0) {
       requestsHidden.value = false;

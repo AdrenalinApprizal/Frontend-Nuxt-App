@@ -163,7 +163,9 @@
       <div class="flex justify-between items-center mb-3">
         <h3 class="font-medium text-black">
           Media
-          <span class="text-gray-500 text-sm">({{ groupMedia.length }})</span>
+          <span class="text-gray-500 text-sm"
+            >({{ groupMedia.value.length }})</span
+          >
         </h3>
         <button
           @click="showMediaModal = true"
@@ -185,7 +187,7 @@
         </div>
 
         <div
-          v-if="groupMedia.length === 0 && !isLoadingMedia"
+          v-if="hasNoMedia && !isLoadingMedia"
           class="py-4 text-center text-gray-500"
         >
           No media files
@@ -193,7 +195,7 @@
 
         <div v-else class="grid grid-cols-3 gap-2">
           <div
-            v-for="(item, index) in groupMedia.slice(0, 3)"
+            v-for="(item, index) in groupMedia.value.slice(0, 3)"
             :key="item.id"
             class="aspect-square bg-gray-200 rounded-md overflow-hidden cursor-pointer relative group"
             @click="openMediaPreview(item)"
@@ -223,7 +225,9 @@
       <div class="flex justify-between items-center mb-3">
         <h3 class="text-black font-medium">
           File
-          <span class="text-gray-500 text-sm">({{ groupFiles.length }})</span>
+          <span class="text-gray-500 text-sm"
+            >({{ groupFiles.value.length }})</span
+          >
         </h3>
         <button
           @click="showFilesModal = true"
@@ -245,7 +249,7 @@
         </div>
 
         <div
-          v-if="groupFiles.length === 0 && !isLoadingFiles"
+          v-if="hasNoFiles && !isLoadingFiles"
           class="py-4 text-center text-gray-500"
         >
           No files
@@ -253,7 +257,7 @@
 
         <div v-else class="space-y-3">
           <div
-            v-for="file in groupFiles.slice(0, 3)"
+            v-for="file in groupFiles.value.slice(0, 3)"
             :key="file.id"
             class="flex items-center bg-gray-50 p-2 rounded-md hover:bg-gray-100"
           >
@@ -375,7 +379,7 @@
           <button
             @click="handleAddMembers"
             class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            :disabled="!friends.some((friend) => friend.selected)"
+            :disabled="!friends.some((friend: Member) => friend.selected)"
           >
             Add to Group
           </button>
@@ -410,7 +414,7 @@
 
           <div class="grid grid-cols-3 md:grid-cols-4 gap-3">
             <div
-              v-for="item in groupMedia"
+              v-for="item in groupMediaRef"
               :key="item.id"
               class="aspect-square bg-gray-200 rounded-md overflow-hidden cursor-pointer relative group"
               @click="openMediaPreview(item)"
@@ -609,7 +613,7 @@
           <button
             @click="handleShareFile"
             class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            :disabled="!friends.some((friend) => friend.shareSelected)"
+            :disabled="!friends.some((friend: Member) => friend.shareSelected)"
           >
             Share
           </button>
@@ -682,66 +686,83 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, watch, onUnmounted } from "vue";
 import { useFiles } from "~/composables/useFiles";
-import { useNuxtApp } from "#app";
 import { useGroupsStore } from "~/composables/useGroups";
-import { usePresence } from "~/composables/usePresence"; // Tambahkan presence service
+import { useAuthStore } from "~/composables/useAuth";
+import { usePresence } from "~/composables/usePresence";
+import { useNuxtApp } from "#app";
 
-interface GroupMember {
+type PresenceStatus = "online" | "offline" | "busy" | "away";
+
+interface Member {
   id: string;
   name: string;
-  status: "online" | "offline";
+  status: PresenceStatus;
   role: "admin" | "member";
   avatar?: string;
   isBlocked?: boolean;
-  user_id?: string; // Added user_id property
+  user_id: string;
+  email?: string;
+  profile_picture_url?: string;
+  username?: string;
+  selected?: boolean;
+  shareSelected?: boolean;
 }
 
 interface GroupDetails {
   id: string;
   name: string;
-  description: string;
-  createdAt: string;
+  description?: string;
   memberCount: number;
-  members: GroupMember[];
   avatar?: string;
+  members: Member[];
 }
 
-interface Friend {
+interface MediaItem {
   id: string;
   name: string;
-  username: string;
-  avatar?: string;
-  selected?: boolean;
-  shareSelected?: boolean;
+  type: string;
+  size: number;
+  url: string;
+  thumbnail_url?: string;
+  created_at: string;
+  updated_at: string;
+  owner_id: string;
+  shared_with?: string[];
+  conversation_id?: string;
+  message_id?: string;
 }
 
+interface FileItem {
+  id: string;
+  name: string;
+  size: number;
+  url: string;
+  shared_with?: string[];
+}
+
+interface PaginationResponse {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+  has_more_pages: boolean;
+}
+
+// Props and emits
 const props = defineProps<{
-  groupName: string;
   groupDetails: GroupDetails;
 }>();
 
-defineEmits(["close"]);
+defineEmits(["update:group", "close"]);
 
-const expandedSection = ref<string | null>("members");
-const showAddMemberPopup = ref(false);
-const searchQuery = ref("");
-const activeDropdown = ref<string | null>(null);
-const dropdownRef = ref<HTMLElement | null>(null);
-
-// Calculate blocked members count
-const blockedMembersCount = computed(
-  () => props.groupDetails.members.filter((member) => member.isBlocked).length
-);
-
-// Initialize file service
+// Services
+const { $toast } = useNuxtApp();
+const presence = usePresence();
+const groupsStore = useGroupsStore();
+const authStore = useAuthStore();
 const {
-  groupMedia,
-  groupFiles,
-  isLoading: isLoadingService,
-  error,
-  pagination,
   getGroupMedia,
   getGroupFiles,
   downloadFile: downloadFileAction,
@@ -751,30 +772,40 @@ const {
   formatFileSize,
 } = useFiles();
 
-// Initialize useGroupsStore
-const groupsStore = useGroupsStore();
-
-// Additional state for files
-const isLoadingMedia = ref(false);
-const isLoadingFiles = ref(false);
-const isLoadingMoreMedia = ref(false);
-const isLoadingMoreFiles = ref(false);
+// State management
+const expandedSection = ref<string | null>(null);
+const showAddMemberPopup = ref(false);
 const showMediaModal = ref(false);
 const showFilesModal = ref(false);
 const showShareModal = ref(false);
 const showMediaPreview = ref(false);
-const selectedFile = ref<any>(null);
-const selectedMedia = ref<any>(null);
+const searchQuery = ref("");
+const dropdownRef = ref<HTMLElement | null>(null);
+const activeDropdown = ref<string | null>(null);
+const selectedFile = ref<FileItem | null>(null);
+const selectedMedia = ref<MediaItem | null>(null);
 const currentMediaPage = ref(1);
 const currentFilesPage = ref(1);
-const mediaPagination = ref({
+const friends = ref<Member[]>([]);
+const groupMedia = ref<MediaItem[]>([]);
+const groupFiles = ref<FileItem[]>([]);
+
+// Loading states
+const isLoadingMedia = ref(false);
+const isLoadingMoreMedia = ref(false);
+const isLoadingFiles = ref(false);
+const isLoadingMoreFiles = ref(false);
+
+// Pagination states
+const mediaPagination = ref<PaginationResponse>({
   current_page: 1,
   total_pages: 1,
   total_items: 0,
   items_per_page: 20,
   has_more_pages: false,
 });
-const filesPagination = ref({
+
+const filesPagination = ref<PaginationResponse>({
   current_page: 1,
   total_pages: 1,
   total_items: 0,
@@ -782,66 +813,47 @@ const filesPagination = ref({
   has_more_pages: false,
 });
 
-const { $toast } = useNuxtApp();
+// Computed properties
+const groupName = computed(() => props.groupDetails.name);
 
-// Mock friends data
-const friends = ref<Friend[]>([
-  {
-    id: "101",
-    name: "Rudi Setiawan",
-    username: "rudi",
-    avatar: undefined,
-    selected: false,
-    shareSelected: false,
-  },
-  {
-    id: "102",
-    name: "Lina Kartika",
-    username: "lina",
-    avatar: undefined,
-    selected: false,
-    shareSelected: false,
-  },
-  {
-    id: "103",
-    name: "Budi Santoso",
-    username: "budi",
-    avatar: undefined,
-    selected: false,
-    shareSelected: false,
-  },
-  {
-    id: "104",
-    name: "Ratna Dewi",
-    username: "ratna",
-    avatar: undefined,
-    selected: false,
-    shareSelected: false,
-  },
-  {
-    id: "105",
-    name: "Dimas Prasetyo",
-    username: "dimas",
-    avatar: undefined,
-    selected: false,
-    shareSelected: false,
-  },
-]);
+// Make sure the refs are properly typed
+const filesPaginationRef = computed(() => filesPagination.value);
+const groupMediaRef = computed(() => groupMedia.value);
 
-// Filtered friends based on search query
-const filteredFriends = computed(() => {
-  return friends.value.filter(
-    (friend) =>
-      friend.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      friend.username.toLowerCase().includes(searchQuery.value.toLowerCase())
+const isAdmin = computed(() => {
+  return props.groupDetails.members.some(
+    (member) => member.id === authStore.user?.id && member.role === "admin"
   );
 });
 
-// Media preview navigation computation
+const blockedMembersCount = computed(
+  () => props.groupDetails.members.filter((member) => member.isBlocked).length
+);
+
+const membersWithStatus = computed(() =>
+  props.groupDetails.members.map((member) => ({
+    ...member,
+    presenceStatus: presence.getStatus(member.user_id),
+    lastActive: formatLastActive(presence.getLastActive(member.user_id)),
+  }))
+);
+
+const filteredFriends = computed(() =>
+  friends.value.filter(
+    (friend: Member) =>
+      friend.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      friend.username?.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
+);
+
+const hasNoMedia = computed(() => groupMedia.value.length === 0);
+const hasNoFiles = computed(() => groupFiles.value.length === 0);
+
+// Use computed properties for the media preview navigation
 const currentMediaIndex = computed(() => {
-  if (!selectedMedia.value) return -1;
-  return groupMedia.findIndex(
-    (item: any) => item.id === selectedMedia.value.id
+  if (!selectedMedia.value || !groupMedia.value) return -1;
+  return groupMedia.value.findIndex(
+    (item) => item.id === selectedMedia.value?.id
   );
 });
 
@@ -850,210 +862,65 @@ const hasPreviousMedia = computed(() => {
 });
 
 const hasNextMedia = computed(() => {
-  return currentMediaIndex.value < groupMedia.length - 1;
+  return currentMediaIndex.value < groupMedia.value.length - 1;
 });
 
-// Load media and files on mount
-onMounted(async () => {
-  if (props.groupDetails?.id) {
-    await loadGroupMedia();
-    await loadGroupFiles();
-  }
-  document.addEventListener("mousedown", handleClickOutside);
-});
+// Utility functions
+function formatLastActive(timestamp: string | null): string {
+  if (!timestamp) return "Offline";
 
-// Watch for changes in group ID to reload data
-watch(
-  () => props.groupDetails?.id,
-  async (newId) => {
-    if (newId) {
-      // Reset pagination pages
-      currentMediaPage.value = 1;
-      currentFilesPage.value = 1;
+  const lastActive = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - lastActive.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
 
-      // Load media and files simultaneously for better performance
-      await Promise.all([loadGroupMedia(), loadGroupFiles()]);
-    }
-  },
-  { immediate: true }
-);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min ago`;
 
-// Create a function to refresh data that can be called after sending files in GroupChatArea
-async function refreshMediaAndFiles() {
-  if (props.groupDetails?.id) {
-    await Promise.all([loadGroupMedia(), loadGroupFiles()]);
-  }
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  return `${diffDays} days ago`;
 }
 
-// Expose the refresh function to parent components
-defineExpose({
-  refreshData: refreshMediaAndFiles,
-});
-
-onUnmounted(() => {
-  document.removeEventListener("mousedown", handleClickOutside);
-});
-
-// Toggle member dropdown menu
-const toggleMemberDropdown = (memberId: string) => {
-  activeDropdown.value = activeDropdown.value === memberId ? null : memberId;
-};
-
-// Handle blocking a member
-const handleBlockMember = async (memberId: string) => {
-  try {
-    // Call the API to block the user
-    await groupsStore.blockGroupUser(props.groupDetails.id, memberId);
-
-    // Update local state
-    const updatedMembers = props.groupDetails.members.map((member) =>
-      member.id === memberId ? { ...member, isBlocked: true } : member
-    );
-
-    // Show success notification
-    if ($toast) {
-      $toast.success("User blocked successfully");
-    }
-
-    // Close the dropdown
-    activeDropdown.value = null;
-  } catch (error: any) {
-    console.error("Error blocking user:", error);
-    if ($toast) {
-      $toast.error(error.message || "Failed to block user");
-    }
-  }
-};
-
-// Handle unblocking a member
-const handleUnblockMember = async (memberId: string) => {
-  try {
-    // Call the API to unblock the user
-    await groupsStore.unblockGroupUser(props.groupDetails.id, memberId);
-
-    // Update local state
-    const updatedMembers = props.groupDetails.members.map((member) =>
-      member.id === memberId ? { ...member, isBlocked: false } : member
-    );
-
-    // Show success notification
-    if ($toast) {
-      $toast.success("User unblocked successfully");
-    }
-
-    // Close the dropdown
-    activeDropdown.value = null;
-  } catch (error: any) {
-    console.error("Error unblocking user:", error);
-    if ($toast) {
-      $toast.error(error.message || "Failed to unblock user");
-    }
-  }
-};
-
-// Toggle friend selection in the Add Members popup
-const toggleFriendSelection = (id: string) => {
-  friends.value = friends.value.map((friend) =>
-    friend.id === id ? { ...friend, selected: !friend.selected } : friend
-  );
-};
-
-// Toggle friend selection in the Share dialog
-const toggleShareSelection = (id: string) => {
-  friends.value = friends.value.map((friend) =>
-    friend.id === id
-      ? { ...friend, shareSelected: !friend.shareSelected }
-      : friend
-  );
-};
-
-// Handle adding members to the group
-const handleAddMembers = () => {
-  showAddMemberPopup.value = false;
-  searchQuery.value = "";
-
-  // In a real app, this would call an API
-  // For now, we'll just log and give user feedback
-  console.log(
-    "Members added to group:",
-    friends.value.filter((f: Friend) => f.selected).map((f: Friend) => f.name)
-  );
-
-  // Reset selection state
-  friends.value = friends.value.map((friend) => ({
-    ...friend,
-    selected: false,
-  }));
-
-  // Show success notification
+const handleError = (error: unknown, message: string) => {
+  console.error(`${message}:`, error);
   if ($toast) {
-    $toast.success("Members have been invited to the group!");
-  } else {
-    alert("Members have been invited to the group!");
+    $toast.error(message);
   }
 };
 
-// Handle sharing a file with selected users
-const handleShareFile = async () => {
-  if (!selectedFile.value) return;
-
-  const selectedUserIds = friends.value
-    .filter((friend) => friend.shareSelected)
-    .map((friend) => friend.id);
-
-  if (selectedUserIds.length === 0) return;
-
+// Media and file loading functions
+async function loadGroupMedia(): Promise<void> {
   try {
-    await shareFileWithUsers({
-      fileId: selectedFile.value.id,
-      userIds: selectedUserIds,
-    });
+    isLoadingMedia.value = true;
+    if (!props.groupDetails?.id) return;
 
-    // Reset selection state
-    friends.value = friends.value.map((friend) => ({
-      ...friend,
-      shareSelected: false,
-    }));
-
-    closeShareDialog();
-  } catch (error) {
-    console.error("Error sharing file:", error);
-  }
-};
-
-// Handle clicks outside of dropdown menu
-const handleClickOutside = (event: MouseEvent) => {
-  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
-    activeDropdown.value = null;
-  }
-};
-
-// Load group media files
-async function loadGroupMedia() {
-  try {
-    if (props.groupDetails?.id) {
-      isLoadingMedia.value = true;
-      const response = await getGroupMedia(props.groupDetails.id, "all", 1, 8);
-
-      // Store media pagination
-      if (response?.pagination) {
-        mediaPagination.value = response.pagination;
-      }
-
-      currentMediaPage.value = 1;
+    const response = await getGroupMedia(
+      props.groupDetails.id,
+      "all",
+      currentMediaPage.value,
+      8
+    );
+    if (response?.data) {
+      groupMedia.value = response.data;
+    }
+    if (response?.pagination) {
+      mediaPagination.value = response.pagination;
     }
   } catch (err) {
-    console.error("Error loading group media:", err);
+    handleError(err, "Failed to load media");
   } finally {
     isLoadingMedia.value = false;
   }
 }
 
-// Load more media
-async function loadMoreMedia() {
-  try {
-    if (!props.groupDetails?.id || isLoadingMoreMedia.value) return;
+async function loadMoreMedia(): Promise<void> {
+  if (!props.groupDetails?.id || isLoadingMoreMedia.value) return;
 
+  try {
     isLoadingMoreMedia.value = true;
     currentMediaPage.value++;
 
@@ -1064,46 +931,47 @@ async function loadMoreMedia() {
       8
     );
 
-    // Update media pagination
+    if (response?.data) {
+      groupMedia.value = [...groupMedia.value, ...response.data];
+    }
     if (response?.pagination) {
       mediaPagination.value = response.pagination;
     }
   } catch (err) {
-    console.error("Error loading more group media:", err);
-    if ($toast) {
-      $toast.error("Failed to load more media");
-    }
+    handleError(err, "Failed to load more media");
+    currentMediaPage.value--;
   } finally {
     isLoadingMoreMedia.value = false;
   }
 }
 
-// Load group files
-async function loadGroupFiles() {
+async function loadGroupFiles(): Promise<void> {
   try {
-    if (props.groupDetails?.id) {
-      isLoadingFiles.value = true;
-      const response = await getGroupFiles(props.groupDetails.id, 1, 8);
+    isLoadingFiles.value = true;
+    if (!props.groupDetails?.id) return;
 
-      // Store files pagination
-      if (response?.pagination) {
-        filesPagination.value = response.pagination;
-      }
-
-      currentFilesPage.value = 1;
+    const response = await getGroupFiles(
+      props.groupDetails.id,
+      currentFilesPage.value,
+      8
+    );
+    if (response?.data) {
+      groupFiles.value = response.data;
+    }
+    if (response?.pagination) {
+      filesPagination.value = response.pagination;
     }
   } catch (err) {
-    console.error("Error loading group files:", err);
+    handleError(err, "Failed to load files");
   } finally {
     isLoadingFiles.value = false;
   }
 }
 
-// Load more files
-async function loadMoreFiles() {
-  try {
-    if (!props.groupDetails?.id || isLoadingMoreFiles.value) return;
+async function loadMoreFiles(): Promise<void> {
+  if (!props.groupDetails?.id || isLoadingMoreFiles.value) return;
 
+  try {
     isLoadingMoreFiles.value = true;
     currentFilesPage.value++;
 
@@ -1113,144 +981,157 @@ async function loadMoreFiles() {
       8
     );
 
-    // Update files pagination
+    if (response?.data) {
+      groupFiles.value = [...groupFiles.value, ...response.data];
+    }
     if (response?.pagination) {
       filesPagination.value = response.pagination;
     }
   } catch (err) {
-    console.error("Error loading more group files:", err);
-    if ($toast) {
-      $toast.error("Failed to load more files");
-    }
+    handleError(err, "Failed to load more files");
+    currentFilesPage.value--;
   } finally {
     isLoadingMoreFiles.value = false;
   }
 }
 
-// Download file
-async function downloadFile(fileId: string) {
+// File management functions
+async function downloadFile(fileId: string): Promise<void> {
   try {
     await downloadFileAction(fileId);
   } catch (err) {
-    console.error("Error downloading file:", err);
-    if ($toast) {
-      $toast.error("Failed to download file");
-    }
+    handleError(err, "Failed to download file");
   }
 }
 
-// Show share dialog
-function showShareDialog(file: any) {
+function showShareDialog(file: FileItem): void {
   selectedFile.value = file;
   showShareModal.value = true;
-
-  // Reset share selections
-  friends.value = friends.value.map((friend) => ({
-    ...friend,
-    shareSelected: false,
-  }));
 }
 
-// Close share dialog
-function closeShareDialog() {
+function closeShareDialog(): void {
   showShareModal.value = false;
   selectedFile.value = null;
 }
 
-// Share file with users
-async function shareFileWithUsers(data: { fileId: string; userIds: string[] }) {
+async function handleShareFile(): Promise<void> {
+  if (!selectedFile.value) return;
+
+  const selectedUserIds = friends.value
+    .filter((friend) => friend.shareSelected)
+    .map((friend) => friend.id);
+
+  if (selectedUserIds.length === 0) return;
+
   try {
-    await shareFile(data.fileId, data.userIds);
+    await shareFile(selectedFile.value.id, selectedUserIds);
     if ($toast) {
       $toast.success("File shared successfully");
     }
+    closeShareDialog();
   } catch (err) {
-    console.error("Error sharing file:", err);
-    if ($toast) {
-      $toast.error("Failed to share file");
-    }
+    handleError(err, "Failed to share file");
   }
 }
 
-// Media preview functionality
-function openMediaPreview(media: any) {
+// Media preview functions
+function openMediaPreview(media: MediaItem): void {
   selectedMedia.value = media;
   showMediaPreview.value = true;
 }
 
-function closeMediaPreview() {
+function closeMediaPreview(): void {
   showMediaPreview.value = false;
   selectedMedia.value = null;
 }
 
-function navigateMedia(direction: "prev" | "next") {
-  const currentIndex = currentMediaIndex.value;
-  if (currentIndex === -1) return;
+function navigateMedia(direction: "prev" | "next"): void {
+  if (!selectedMedia.value || !groupMedia.value?.length) return;
 
-  if (direction === "prev" && currentIndex > 0) {
-    selectedMedia.value = groupMedia[currentIndex - 1];
-  } else if (direction === "next" && currentIndex < groupMedia.length - 1) {
-    selectedMedia.value = groupMedia[currentIndex + 1];
+  if (direction === "prev" && hasPreviousMedia.value) {
+    selectedMedia.value = groupMedia.value[currentMediaIndex.value - 1];
+  } else if (direction === "next" && hasNextMedia.value) {
+    selectedMedia.value = groupMedia.value[currentMediaIndex.value + 1];
   }
 }
 
-// Initialize presence service
-const presence = usePresence();
-
-// Fungsi untuk mendapatkan status anggota
-function getMemberStatus(
-  userId: string
-): "online" | "offline" | "busy" | "away" {
-  return presence.getStatus(userId) || "offline";
+// Member management functions
+function toggleMemberDropdown(memberId: string): void {
+  activeDropdown.value = activeDropdown.value === memberId ? null : memberId;
 }
 
-// Fungsi untuk format waktu terakhir online
-function formatLastActive(userId: string): string {
-  const lastActive = presence.getLastActive(userId);
-  if (!lastActive) return "Tidak tersedia";
+function toggleFriendSelection(friendId: string): void {
+  const friend: Member | undefined = friends.value.find(
+    (f: Member) => f.id === friendId
+  );
+  if (friend) {
+    friend.selected = !friend.selected;
+  }
+}
 
+function toggleShareSelection(friendId: string): void {
+  const friend: Member | undefined = friends.value.find(
+    (f: Member) => f.id === friendId
+  );
+  if (friend) {
+    friend.shareSelected = !friend.shareSelected;
+  }
+}
+
+async function handleBlockMember(memberId: string): Promise<void> {
   try {
-    const lastActiveDate = new Date(lastActive);
-    // Basic format distance implementation
-    const now = new Date();
-    const diffInSeconds = Math.floor(
-      (now.getTime() - lastActiveDate.getTime()) / 1000
-    );
-
-    if (diffInSeconds < 60) return "Baru saja";
-
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes} menit yang lalu`;
-
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} jam yang lalu`;
-
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays} hari yang lalu`;
-
-    return lastActiveDate.toLocaleDateString();
-  } catch (e) {
-    return "Tidak tersedia";
+    await groupsStore.blockGroupUser(props.groupDetails.id, memberId);
+    $toast.success("User blocked successfully");
+    activeDropdown.value = null;
+  } catch (error: any) {
+    console.error("Error blocking user:", error);
+    $toast.error(error.message || "Failed to block user");
   }
 }
 
-// Anggota grup dengan status kehadiran
-const membersWithStatus = computed(() => {
-  if (!props.groupDetails || !props.groupDetails.members) return [];
+async function handleUnblockMember(memberId: string): Promise<void> {
+  try {
+    await groupsStore.unblockGroupUser(props.groupDetails.id, memberId);
+    $toast.success("User unblocked successfully");
+    activeDropdown.value = null;
+  } catch (error: any) {
+    console.error("Error unblocking user:", error);
+    $toast.error(error.message || "Failed to unblock user");
+  }
+}
 
-  return props.groupDetails.members.map((member) => {
-    // Add a non-null assertion or provide a default string value
-    const userId = member.id || member.user_id || ""; // Default to empty string if both are undefined
-    const status = getMemberStatus(userId);
-    const lastActive = formatLastActive(userId);
+// Event handlers
+function handleClickOutside(event: MouseEvent): void {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+    activeDropdown.value = null;
+  }
+}
 
-    return {
-      ...member,
-      presenceStatus: status,
-      lastActive,
-    };
-  });
+// Lifecycle hooks
+onMounted(() => {
+  if (props.groupDetails?.id) {
+    loadGroupMedia();
+    loadGroupFiles();
+  }
+  document.addEventListener("mousedown", handleClickOutside);
 });
+
+onUnmounted(() => {
+  document.removeEventListener("mousedown", handleClickOutside);
+});
+
+// Watchers
+watch(
+  () => props.groupDetails?.id,
+  async (newId) => {
+    if (newId) {
+      currentMediaPage.value = 1;
+      currentFilesPage.value = 1;
+      await Promise.all([loadGroupMedia(), loadGroupFiles()]);
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

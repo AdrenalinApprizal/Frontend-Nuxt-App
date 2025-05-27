@@ -37,9 +37,26 @@
             <div class="relative">
               <div
                 class="h-16 w-16 rounded-full overflow-hidden bg-blue-600/30 border-2 border-blue-500 flex items-center justify-center"
+                title="Profile Picture"
               >
-                <!-- Selalu menggunakan icon default, tidak ada lagi upload gambar -->
-                <Icon name="fa:user" class="h-8 w-8 text-blue-400" />
+                <template v-if="isUploadingProfilePicture">
+                  <div
+                    class="h-full w-full flex items-center justify-center bg-black bg-opacity-60"
+                  >
+                    <div
+                      class="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent border-blue-400"
+                    ></div>
+                  </div>
+                </template>
+                <template v-else>
+                  <img
+                    v-if="userProfile?.profile_picture_url"
+                    :src="userProfile.profile_picture_url"
+                    alt="Profile Picture"
+                    class="h-full w-full object-cover"
+                  />
+                  <Icon v-else name="fa:user" class="h-8 w-8 text-blue-400" />
+                </template>
               </div>
             </div>
           </div>
@@ -112,7 +129,17 @@
               ></textarea>
             </div>
 
-            <div class="pt-2">
+            <div class="space-y-2 pt-2">
+              <!-- Profile Picture Button -->
+              <button
+                @click="openProfilePictureModal"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1.5 px-4 rounded h-9 w-full text-sm flex items-center justify-center"
+              >
+                <Icon name="fa:camera" class="mr-2 h-3 w-3" />
+                Change Profile Picture
+              </button>
+
+              <!-- Edit Profile Button -->
               <button
                 @click="setEditing(true)"
                 class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded h-9 w-full text-sm"
@@ -138,10 +165,38 @@
             <div class="relative">
               <div
                 class="h-16 w-16 rounded-full overflow-hidden bg-blue-600/30 border-2 border-blue-500 flex items-center justify-center"
+                title="Profile Picture"
               >
-                <!-- Selalu menggunakan icon default -->
-                <Icon name="fa:user" class="h-8 w-8 text-blue-400" />
+                <template v-if="isUploadingProfilePicture">
+                  <div
+                    class="h-full w-full flex items-center justify-center bg-black bg-opacity-60"
+                  >
+                    <div
+                      class="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent border-blue-400"
+                    ></div>
+                  </div>
+                </template>
+                <template v-else>
+                  <img
+                    v-if="
+                      profilePicturePreview || userProfile?.profile_picture_url
+                    "
+                    :src="
+                      profilePicturePreview || userProfile?.profile_picture_url
+                    "
+                    alt="Profile Picture"
+                    class="h-full w-full object-cover"
+                  />
+                  <Icon v-else name="fa:user" class="h-8 w-8 text-blue-400" />
+                </template>
               </div>
+              <button
+                @click="openProfilePictureModal"
+                class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-1 hover:bg-blue-600"
+                title="Change Profile Picture"
+              >
+                <Icon name="fa:camera" size="12" />
+              </button>
             </div>
           </div>
 
@@ -231,6 +286,14 @@
       </template>
 
       <!-- Password Tab Content -->
+      <!-- Profile Picture Modal -->
+      <ProfilePictureModal
+        v-if="showProfilePictureModal"
+        :currentImageUrl="userProfile?.profile_picture_url"
+        @close="showProfilePictureModal = false"
+        @uploaded="onProfilePictureUploaded"
+      />
+
       <template v-else-if="activeTab === 'password'">
         <form @submit.prevent="handlePasswordUpdate" class="space-y-3">
           <div class="space-y-1">
@@ -465,6 +528,14 @@ async function handlePasswordUpdate() {
   }
 }
 
+// State for profile picture modal
+const showProfilePictureModal = ref(false);
+
+// Method to open the profile picture modal
+function openProfilePictureModal() {
+  showProfilePictureModal.value = true;
+}
+
 // Method to load user profile data
 async function loadUserProfile() {
   isLoading.value = true;
@@ -501,4 +572,22 @@ const goToSettings = () => {
 onMounted(async () => {
   await loadUserProfile();
 });
+
+// Handle when an avatar is uploaded via the modal
+function onProfilePictureUploaded(newPictureUrl: string) {
+  // Update the user profile with the new avatar URL
+  if (userProfile.value) {
+    userProfile.value.profile_picture_url = newPictureUrl;
+  }
+
+  // Update the auth store user data
+  if (authStore.user) {
+    authStore.user.profile_picture_url = newPictureUrl;
+  }
+
+  // Hide the modal
+  showProfilePictureModal.value = false;
+}
+
+// No need for cleanup as we no longer use blob URLs directly
 </script>

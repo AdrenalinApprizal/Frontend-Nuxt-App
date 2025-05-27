@@ -64,40 +64,66 @@
       </div>
     </div>
 
-    <template v-else>
-      <!-- Groups list -->
-      <div class="flex-1 overflow-auto">
-        <div
-          v-if="filteredGroups.length === 0"
-          class="h-full flex flex-col items-center justify-center text-center p-6"
+    <!-- Groups list -->
+    <div v-else class="flex-1 overflow-auto">
+      <div
+        v-if="filteredGroups.length === 0"
+        class="h-full flex flex-col items-center justify-center text-center p-6"
+      >
+        <Icon name="fa:users" class="h-12 w-12 text-gray-300 mb-3" />
+        <p class="text-gray-500 font-medium">
+          {{
+            searchQuery ? `No results for "${searchQuery}"` : "No groups yet"
+          }}
+        </p>
+        <p class="text-sm text-gray-400 mt-2">
+          Create a group to start chatting
+        </p>
+
+        <button
+          @click="openCreateGroupModal"
+          class="mt-4 px-4 py-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors flex items-center"
         >
-          <Icon name="fa:users" class="h-12 w-12 text-gray-300 mb-3" />
-          <p class="text-gray-500 font-medium">
-            {{
-              searchQuery ? `No results for "${searchQuery}"` : "No groups yet"
-            }}
-          </p>
-          <p class="text-sm text-gray-400 mt-2">
-            Create a group to start chatting
-          </p>
+          <Icon name="lucide:users-plus" class="h-4 w-4 mr-2" />
+          <span>Create Group</span>
+        </button>
+      </div>
+
+      <div v-else>
+        <!-- Group section header -->
+        <div class="flex justify-between items-center mb-3">
+          <div class="flex items-center">
+            <div class="w-1 h-6 bg-blue-500 rounded-r mr-2"></div>
+            <h2 class="font-semibold text-gray-800 text-sm">
+              Your Groups
+              <span
+                class="ml-1 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full"
+              >
+                {{ filteredGroups.length }}
+              </span>
+            </h2>
+          </div>
         </div>
-        <div v-else class="space-y-3">
+
+        <!-- Groups list items -->
+        <div class="space-y-3">
           <NuxtLink
-            v-for="group in filteredGroups"
-            :key="group.id"
-            :to="`/chat/groups/${group.id}`"
+            v-for="(group, index) in filteredGroups"
+            :key="group.id || index"
+            :to="`/chat/messages/${group.id}?type=group`"
           >
             <div
               :class="`flex items-center p-4 rounded-lg transition-colors ${
-                $route.path === `/chat/groups/${group.id}`
+                $route.path === `/chat/messages/${group.id}` &&
+                $route.query.type === 'group'
                   ? 'bg-blue-50 border border-blue-100'
-                  : 'hover:bg-gray-50'
+                  : 'hover:bg-gray-50 border border-transparent'
               }`"
             >
               <!-- Group avatar -->
               <div class="relative mr-3">
                 <div
-                  class="h-10 w-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
+                  class="h-12 w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200 shadow-sm"
                 >
                   <img
                     v-if="group.avatar_url"
@@ -105,50 +131,51 @@
                     alt="Group avatar"
                     class="h-full w-full object-cover"
                   />
-                  <Icon v-else name="fa:users" class="h-5 w-5 text-gray-500" />
+                  <Icon v-else name="fa:users" class="h-6 w-6 text-gray-400" />
                 </div>
               </div>
 
               <!-- Group info -->
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start">
-                  <h3 class="font-medium text-gray-900 truncate text-sm">
-                    {{ group.name }}
+                  <h3 class="font-medium text-gray-900 truncate">
+                    {{ group.name || "Unnamed Group" }}
                   </h3>
                   <span class="text-xs text-gray-500 ml-1">
                     {{
                       group.last_message?.created_at
                         ? formatTimestamp(group.last_message.created_at)
+                        : group.created_at
+                        ? formatTimestamp(group.created_at)
                         : ""
                     }}
                   </span>
                 </div>
                 <div class="flex justify-between items-center mt-1">
-                  <p
-                    v-if="group.last_message?.content"
-                    class="text-xs text-gray-600 truncate max-w-[80%]"
-                  >
-                    <span class="font-medium">{{
-                      group.last_message?.sender_name
-                    }}</span>
-                    : {{ group.last_message?.content }}
-                  </p>
-                  <p v-else class="text-xs text-gray-400 italic">
-                    No messages yet
-                  </p>
-                  <span
-                    v-if="group.member_count"
-                    class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
-                  >
-                    {{ group.member_count }}
-                  </span>
+                  <div class="flex-1 min-w-0">
+                    <p
+                      v-if="group.last_message?.content"
+                      class="text-xs text-gray-600 truncate"
+                    >
+                      <span class="font-medium">{{
+                        group.last_message?.sender_name || "Someone"
+                      }}</span>
+                      : {{ group.last_message?.content }}
+                    </p>
+                    <p v-else class="text-xs text-gray-500">
+                      {{
+                        group.description ||
+                        `${group.member_count || 0} members`
+                      }}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </NuxtLink>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- Create Group Modal -->
     <div
@@ -183,7 +210,7 @@
             v-model="newGroup.name"
             type="text"
             placeholder="Enter group name"
-            class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            class="w-full p-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           />
           <p v-if="errors.name" class="mt-1 text-sm text-red-500">
             {{ errors.name }}
@@ -198,7 +225,7 @@
             v-model="newGroup.description"
             placeholder="Enter group description"
             rows="2"
-            class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"
+            class="w-full p-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"
           ></textarea>
         </div>
 
@@ -242,7 +269,7 @@
               ref="avatarInput"
               type="file"
               accept="image/*"
-              class="hidden"
+              class="hidden text-black"
               @change="handleAvatarChange"
             />
           </div>
@@ -269,7 +296,7 @@
                 v-model="friendSearch"
                 type="text"
                 placeholder="Search friends..."
-                class="w-full pl-10 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full pl-10 p-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -357,7 +384,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { formatDistanceToNow, format } from "date-fns";
-import { useGroupsStore } from "~/composables/useGroups";
+import { type Group, useGroupsStore } from "~/composables/useGroups";
 import { useFriendsStore } from "~/composables/useFriends";
 import { useNuxtApp } from "#app";
 
@@ -398,12 +425,21 @@ const errors = ref<{
 
 // Get filtered groups based on search query
 const filteredGroups = computed(() => {
+  // Ensure groups is an array and cast to Group type
+  const groups = Array.isArray(groupsStore.groups)
+    ? (groupsStore.groups as Group[])
+    : ([] as Group[]);
+
+  // No debugging needed for production
+
   if (!searchQuery.value) {
-    return groupsStore.groups;
+    return groups;
   }
+
   const query = searchQuery.value.toLowerCase();
-  return groupsStore.groups.filter((group) =>
-    group.name.toLowerCase().includes(query)
+  return groups.filter(
+    (group: Group) =>
+      group && group.name && group.name.toLowerCase().includes(query)
   );
 });
 
@@ -449,18 +485,85 @@ const formatTimestamp = (dateString: string) => {
   }
 };
 
+// Direct API call to diagnose the groups endpoint
+async function directAPICall() {
+  try {
+    const { $api, $toast } = useNuxtApp();
+    const response = await $api.get("/groups");
+
+    // Based on provided JSON structure, we expect groups in response.groups
+    let groupsData: Group[] = [];
+
+    if (response && typeof response === "object") {
+      // Primary target based on the provided JSON structure
+      if (response.groups && Array.isArray(response.groups)) {
+        groupsData = response.groups as Group[];
+      }
+      // Fallbacks
+      else if (Array.isArray(response)) {
+        groupsData = response as Group[];
+      } else if (response.data && Array.isArray(response.data)) {
+        groupsData = response.data as Group[];
+      } else {
+        // Look for groups array in any property
+        for (const key in response) {
+          if (Array.isArray(response[key]) && response[key].length > 0) {
+            if (response[key][0] && response[key][0].name !== undefined) {
+              groupsData = response[key] as Group[];
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // If we found groups data, set it in the store
+    if (groupsData.length > 0) {
+      groupsStore.groups = groupsData;
+
+      if ($toast) {
+        $toast.success(`Found ${groupsData.length} groups`);
+      }
+    } else {
+      if ($toast) {
+        $toast.warning("No groups found");
+      }
+    }
+  } catch (error: unknown) {
+    const { $toast } = useNuxtApp();
+    if ($toast) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      $toast.error("Error fetching groups: " + errorMessage);
+    }
+  }
+}
+
 // Refresh data function
 async function refreshData() {
   try {
+    isLoading.value = true;
+
+    // Load friends and groups
     await Promise.all([friendsStore.getFriends(), groupsStore.getGroups()]);
-  } catch (err) {
-    console.error("Error loading groups data:", err);
+
+    // If no groups found, try direct API call as a fallback
+    if (!groupsStore.groups || groupsStore.groups.length === 0) {
+      await directAPICall();
+    }
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    groupsStore.error = errorMessage;
+  } finally {
+    isLoading.value = false;
   }
 }
 
 // Init component
 onMounted(async () => {
-  refreshData();
+  // Get the groups data
+  await refreshData();
 
   // Add event listeners
   document.addEventListener("click", closeOnClickOutside);
@@ -561,7 +664,6 @@ const handleCreateGroup = async () => {
     // Close modal
     showCreateGroupModal.value = false;
   } catch (error: any) {
-    console.error("Error creating group:", error);
     errors.value.general =
       error.message || "Failed to create group. Please try again.";
     if ($toast) {

@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useNuxtApp } from "#app";
 
 // Define Group types
-interface Group {
+export interface Group {
   id: string;
   name: string;
   avatar_url?: string;
@@ -11,10 +11,21 @@ interface Group {
   created_at?: string;
   updated_at?: string;
   member_count?: number;
+  is_active?: boolean;
+  owner_id?: string;
+  unread_count?: number;
+  members?: string[];
   last_message?: {
     content: string;
     sender_name: string;
     created_at: string;
+    message_id?: string;
+    message_type?: string;
+    sender_id?: string;
+    sent_at?: string;
+    read_at?: string;
+    delivered_at?: string;
+    attachment_url?: string;
   };
 }
 
@@ -122,10 +133,98 @@ export const useGroupsStore = defineStore("groups", () => {
     error.value = null;
 
     try {
+      console.log("Fetching groups from /groups endpoint");
+
       // Use API utility which already parses JSON responses
-      const data = await $api.get("/groups");
-      groups.value = data.data || [];
-      return data;
+      const response = await $api.get("/groups");
+
+      console.log("API Response:", JSON.stringify(response, null, 2));
+
+      // According to the provided JSON structure, groups are in the "groups" property
+      if (response && typeof response === "object") {
+        if (response.groups && Array.isArray(response.groups)) {
+          console.log(
+            "Found groups array in response.groups, length:",
+            response.groups.length
+          );
+
+          // Log group names to ensure they're being extracted
+          if (response.groups.length > 0) {
+            console.log(
+              "Group names:",
+              response.groups.map((group: Group) => group.name).join(", ")
+            );
+          }
+
+          groups.value = response.groups;
+        }
+        // Fallback to checking data property for compatibility with older code
+        else if (response.data && Array.isArray(response.data)) {
+          console.log(
+            "Found groups array in response.data, length:",
+            response.data.length
+          );
+          groups.value = response.data;
+        }
+        // Direct array response
+        else if (Array.isArray(response)) {
+          console.log(
+            "Response is directly an array of groups, length:",
+            response.length
+          );
+          groups.value = response;
+        }
+        // If data is present but not an array, check if it contains a groups property
+        else if (
+          response.data &&
+          typeof response.data === "object" &&
+          response.data.groups &&
+          Array.isArray(response.data.groups)
+        ) {
+          console.log(
+            "Found groups in response.data.groups, length:",
+            response.data.groups.length
+          );
+          groups.value = response.data.groups;
+        }
+        // Last resort - look for any property that might contain the groups array
+        else {
+          console.log("Looking for groups array in response properties");
+          for (const key in response) {
+            if (Array.isArray(response[key])) {
+              if (
+                response[key].length > 0 &&
+                response[key][0] &&
+                (response[key][0].name !== undefined ||
+                  response[key][0].id !== undefined)
+              ) {
+                console.log(
+                  `Using array found in response.${key} as groups:`,
+                  response[key]
+                );
+                groups.value = response[key];
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // Make sure groups.value is always an array
+      if (!Array.isArray(groups.value)) {
+        console.log(
+          "No valid groups array found in response, setting to empty array"
+        );
+        groups.value = [];
+      } else {
+        console.log("Final groups data:", groups.value);
+        console.log(
+          "Group names:",
+          groups.value.map((group: Group) => group.name).join(", ")
+        );
+      }
+
+      return response;
     } catch (err: any) {
       error.value = err.message || "Failed to fetch groups";
       console.error("Error fetching groups:", err);
@@ -371,32 +470,58 @@ export const useGroupsStore = defineStore("groups", () => {
     page = 1,
     limit = 20
   ): Promise<ApiResponse> {
+    console.log(`[useGroups] Getting messages for group ${groupId}, page ${page}, limit ${limit}`);
     isLoading.value = true;
     error.value = null;
 
     try {
+      console.log(`[useGroups] Making API call to /groups/${groupId}/messages`);
+      const startTime = performance.now();
+      
       const data = await $api.get(
         `/groups/${groupId}/messages?page=${page}&limit=${limit}`
       );
+      
+      const endTime = performance.now();
+      console.log(`[useGroups] API call completed in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log(`[useGroups] Retrieved ${data?.data?.length || 0} messages`);
+      
+      if (data && data.data) {
+        console.log(`[useGroups] First message:`, 
+          data.data.length > 0 ? {
+            id: data.data[0].id,
+            content: data.data[0].content?.substring(0, 20) + '...',
+            sender_id: data.data[0].sender_id,
+          } : 'none'
+        );
+      }
 
       if (page === 1 || page <= 0) {
+        console.log(`[useGroups] Replacing groupMessages with ${data?.data?.length || 0} new messages`);
         groupMessages.value = data.data || [];
       } else {
+        console.log(`[useGroups] Adding ${data?.data?.length || 0} older messages to existing ${groupMessages.value.length}`);
         // For pagination, older messages are usually added at the beginning
         groupMessages.value = [...(data.data || []), ...groupMessages.value];
       }
 
       // Update pagination info
       if (data.pagination) {
+        console.log(`[useGroups] Updated pagination:`, {
+          current_page: data.pagination.current_page,
+          total_pages: data.pagination.total_pages,
+          has_more_pages: data.pagination.has_more_pages
+        });
         messagesPagination.value = data.pagination;
       }
 
       return data;
     } catch (err: any) {
       error.value = err.message || "Failed to fetch group messages";
-      console.error(`Error fetching messages for group ${groupId}:`, err);
+      console.error(`[useGroups] Error fetching messages for group ${groupId}:`, err);
       throw err;
     } finally {
+      console.log(`[useGroups] Finished getGroupMessages, setting isLoading to false`);
       isLoading.value = false;
     }
   }
@@ -426,21 +551,35 @@ export const useGroupsStore = defineStore("groups", () => {
     content: string,
     type = "text"
   ): Promise<ApiResponse> {
+    console.log(`[useGroups] Sending message to group ${groupId}`);
+    console.log(`[useGroups] Message content: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`);
+    
     isLoading.value = true;
     error.value = null;
 
     try {
+      console.log(`[useGroups] Making API call to /groups/${groupId}/messages`);
+      const startTime = performance.now();
+      
       const data = await $api.post(`/groups/${groupId}/messages`, {
         content,
         type,
       });
+      
+      const endTime = performance.now();
+      console.log(`[useGroups] Message sent in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log(`[useGroups] API response:`, data ? {
+        message: data.message,
+        dataPresent: !!data.data,
+      } : 'null response');
 
       return data;
     } catch (err: any) {
       error.value = err.message || "Failed to send message";
-      console.error(`Error sending message to group ${groupId}:`, err);
+      console.error(`[useGroups] Error sending message to group ${groupId}:`, err);
       throw err;
     } finally {
+      console.log(`[useGroups] Finished sendGroupMessage, setting isLoading to false`);
       isLoading.value = false;
     }
   }

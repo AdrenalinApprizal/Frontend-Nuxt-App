@@ -37,8 +37,8 @@ interface ApiResponse {
   pagination?: Pagination;
 }
 
-// Use proper path format for the proxy
-const FILE_SERVICE_PATH = "/files-service";
+// Use proper path format for the proxy - direct to files and media endpoints
+const FILE_SERVICE_PATH = "";
 
 export const useFilesStore = defineStore("files", () => {
   // State
@@ -79,7 +79,7 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `${FILE_SERVICE_PATH}/api/media/user/${userId}?type=${type}&page=${page}&limit=${limit}`;
+      const endpoint = `media/user/${userId}?type=${type}&page=${page}&limit=${limit}`;
 
       const response = await $api.get(endpoint);
 
@@ -127,7 +127,7 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `${FILE_SERVICE_PATH}/api/media/group/${groupId}?type=${type}&page=${page}&limit=${limit}`;
+      const endpoint = `media/group/${groupId}?type=${type}&page=${page}&limit=${limit}`;
 
       const response = await $api.get(endpoint);
 
@@ -173,7 +173,7 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `${FILE_SERVICE_PATH}/api/files/user/${userId}?page=${page}&limit=${limit}`;
+      const endpoint = `files/user/${userId}?page=${page}&limit=${limit}`;
 
       const response = await $api.get(endpoint);
 
@@ -208,7 +208,7 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `${FILE_SERVICE_PATH}/api/files/group/${groupId}?page=${page}&limit=${limit}`;
+      const endpoint = `files/group/${groupId}?page=${page}&limit=${limit}`;
 
       const response = await $api.get(endpoint);
 
@@ -239,7 +239,7 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `${FILE_SERVICE_PATH}/api/files?page=${page}&limit=${limit}`;
+      const endpoint = `files?page=${page}&limit=${limit}`;
 
       const response = await $api.get(endpoint);
 
@@ -300,7 +300,7 @@ export const useFilesStore = defineStore("files", () => {
         });
       }
 
-      const endpoint = `${FILE_SERVICE_PATH}/api/files/upload`;
+      const endpoint = `files/upload`;
 
       // Use raw fetch for FormData
       const response = await $api.raw.post(endpoint, formData);
@@ -401,7 +401,7 @@ export const useFilesStore = defineStore("files", () => {
         throw new Error("No file ID provided");
       }
 
-      const endpoint = `${FILE_SERVICE_PATH}/api/files/${fileId}`;
+      const endpoint = `files/${fileId}`;
 
       const response = await $api.delete(endpoint);
 
@@ -438,7 +438,7 @@ export const useFilesStore = defineStore("files", () => {
         throw new Error("No users specified to share with");
       }
 
-      const endpoint = `${FILE_SERVICE_PATH}/api/files/${fileId}/share`;
+      const endpoint = `files/${fileId}/share`;
 
       // Share with the first user in the array
       // If you need to share with multiple users, you'll need to call this function multiple times
@@ -493,7 +493,7 @@ export const useFilesStore = defineStore("files", () => {
       formData.append("content", messageText);
       formData.append("type", getFileTypeCategory(file.type));
 
-      const endpoint = `${FILE_SERVICE_PATH}/api/chat/messages/media`;
+      const endpoint = `media/chat/messages`;
 
       // Use raw fetch for FormData
       const response = await $api.raw.post(endpoint, formData);
@@ -547,7 +547,7 @@ export const useFilesStore = defineStore("files", () => {
       formData.append("content", messageText);
       formData.append("type", getFileTypeCategory(file.type));
 
-      const endpoint = `${FILE_SERVICE_PATH}/api/group/messages/media`;
+      const endpoint = `media/group/messages`;
 
       // Use raw fetch for FormData
       const response = await $api.raw.post(endpoint, formData);
@@ -609,7 +609,7 @@ export const useFilesStore = defineStore("files", () => {
   function getFileUrl(fileId: string): string {
     if (!fileId) return "";
     // Use relative URL with proxy path to ensure proper functioning with the proxy
-    return `/api/proxy/${FILE_SERVICE_PATH}/api/files/${fileId}`;
+    return `/api/proxy/files/${fileId}`;
   }
 
   /**
@@ -618,7 +618,7 @@ export const useFilesStore = defineStore("files", () => {
   function getThumbnailUrl(fileId: string): string {
     if (!fileId) return "";
     // Add a thumbnail parameter to the URL for the backend to generate a thumbnail
-    return `/api/proxy/${FILE_SERVICE_PATH}/api/files/${fileId}?thumbnail=true`;
+    return `/api/proxy/files/${fileId}?thumbnail=true`;
   }
 
   /**

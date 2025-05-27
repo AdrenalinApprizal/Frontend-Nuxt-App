@@ -66,13 +66,30 @@ const useFriendsStore = defineStore("friends", () => {
     isLoading.value = true;
     error.value = null;
     try {
+      console.log("[Friends Store] Fetching friends from API...");
       const response = await $fetch(`${proxyUrl}/friends`, {
         method: "GET",
         credentials: "include",
       });
-      friends.value = response.data || [];
+      console.log("[Friends Store] Raw API response:", response);
+
+      if (response.data) {
+        console.log(
+          "[Friends Store] Friends data found in response. Count:",
+          response.data.length
+        );
+        console.log("[Friends Store] First friend sample:", response.data[0]);
+        friends.value = response.data;
+      } else {
+        console.log(
+          "[Friends Store] No data property found in response, using response directly"
+        );
+        friends.value = response || [];
+      }
+
       return response;
     } catch (err: any) {
+      console.error("[Friends Store] Error fetching friends:", err.message);
       error.value = err.message || "Failed to fetch friends";
       throw err;
     } finally {
@@ -85,33 +102,48 @@ const useFriendsStore = defineStore("friends", () => {
     isLoading.value = true;
     error.value = null;
     try {
-      console.log('[Friends] Fetching pending friend requests...');
-      
+      console.log("[Friends] Fetching pending friend requests...");
+
       const response = await $fetch(`${proxyUrl}/friends/requests`, {
         method: "GET",
         credentials: "include",
       });
 
       // Detailed logging of the response
-      console.log('[Friends] Raw friend requests response:', response);
-      console.log('[Friends] Response type:', typeof response);
-      
+      console.log("[Friends] Raw friend requests response:", response);
+      console.log("[Friends] Response type:", typeof response);
+
       // Check if the data property exists and what it contains
       if (response.data) {
-        console.log('[Friends] Data property exists with type:', typeof response.data);
-        console.log('[Friends] Is data an array?', Array.isArray(response.data));
-        console.log('[Friends] Data length:', Array.isArray(response.data) ? response.data.length : 'not an array');
-        
+        console.log(
+          "[Friends] Data property exists with type:",
+          typeof response.data
+        );
+        console.log(
+          "[Friends] Is data an array?",
+          Array.isArray(response.data)
+        );
+        console.log(
+          "[Friends] Data length:",
+          Array.isArray(response.data) ? response.data.length : "not an array"
+        );
+
         if (Array.isArray(response.data) && response.data.length > 0) {
-          console.log('[Friends] First request sample:', response.data[0]);
+          console.log("[Friends] First request sample:", response.data[0]);
         }
       } else {
-        console.log('[Friends] Response has no data property');
+        console.log("[Friends] Response has no data property");
         // Check if the response itself is the array of requests
         if (Array.isArray(response)) {
-          console.log('[Friends] Response itself is an array with length:', response.length);
+          console.log(
+            "[Friends] Response itself is an array with length:",
+            response.length
+          );
           if (response.length > 0) {
-            console.log('[Friends] First request sample from direct array:', response[0]);
+            console.log(
+              "[Friends] First request sample from direct array:",
+              response[0]
+            );
           }
         }
       }
@@ -120,20 +152,28 @@ const useFriendsStore = defineStore("friends", () => {
       if (Array.isArray(response)) {
         // If the response itself is an array of requests
         pendingRequests.value = response;
-        console.log('[Friends] Assigned response directly to pendingRequests:', pendingRequests.value.length);
+        console.log(
+          "[Friends] Assigned response directly to pendingRequests:",
+          pendingRequests.value.length
+        );
       } else if (response.data && Array.isArray(response.data)) {
         // If the response has a data property that is an array
         pendingRequests.value = response.data;
-        console.log('[Friends] Assigned response.data to pendingRequests:', pendingRequests.value.length);
+        console.log(
+          "[Friends] Assigned response.data to pendingRequests:",
+          pendingRequests.value.length
+        );
       } else {
         // Fallback
         pendingRequests.value = [];
-        console.log('[Friends] Could not determine correct data structure, cleared pendingRequests');
+        console.log(
+          "[Friends] Could not determine correct data structure, cleared pendingRequests"
+        );
       }
 
       return response;
     } catch (err: any) {
-      console.error('[Friends] Error fetching friend requests:', err.message);
+      console.error("[Friends] Error fetching friend requests:", err.message);
       error.value = err.message || "Failed to fetch friend requests";
       throw err;
     } finally {
@@ -309,15 +349,20 @@ const useFriendsStore = defineStore("friends", () => {
         body: { username },
         credentials: "include",
       });
-      
+
       console.log(`[Friends] Successfully sent friend request to ${username}`);
 
       // Force refresh pending requests to update the UI
       try {
-        console.log('[Friends] Refreshing friend requests after sending request');
+        console.log(
+          "[Friends] Refreshing friend requests after sending request"
+        );
         await getPendingRequests(1); // Force refresh from page 1
       } catch (refreshErr) {
-        console.error('[Friends] Error refreshing friend requests:', refreshErr);
+        console.error(
+          "[Friends] Error refreshing friend requests:",
+          refreshErr
+        );
       }
 
       return response;

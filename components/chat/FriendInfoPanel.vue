@@ -23,7 +23,7 @@
           />
           <Icon v-else name="fa:user" class="h-12 w-12 text-gray-400" />
         </div>
-        <h2 class="text-xl font-semibold">{{ displayName }}</h2>
+        <h2 class="text-black text-xl font-semibold">{{ displayName }}</h2>
         <p class="text-gray-500 text-sm">
           {{ friendDetails?.status === "online" ? "Online" : "Offline" }} • Last
           seen today at 2:45 PM
@@ -33,7 +33,7 @@
 
     <!-- Contact Information -->
     <div class="p-4 border-b border-gray-200">
-      <h3 class="font-medium mb-4">Contact Information</h3>
+      <h3 class="text-gray-700 font-medium mb-4">Contact Information</h3>
 
       <div v-if="friendDetails?.email" class="flex items-center mb-3">
         <div
@@ -43,7 +43,7 @@
         </div>
         <div>
           <p class="text-xs text-gray-500 mb-1">Email</p>
-          <p class="text-sm">{{ friendDetails.email }}</p>
+          <p class="text-sm text-black">{{ friendDetails.email }}</p>
         </div>
       </div>
 
@@ -55,7 +55,7 @@
         </div>
         <div>
           <p class="text-xs text-gray-500 mb-1">Phone</p>
-          <p class="text-sm">{{ friendDetails.phone }}</p>
+          <p class="text-sm text-black">{{ friendDetails.phone }}</p>
         </div>
       </div>
 
@@ -67,7 +67,7 @@
         </div>
         <div>
           <p class="text-xs text-gray-500 mb-1">Joined</p>
-          <p class="text-sm">{{ friendDetails.joinDate }}</p>
+          <p class="text-sm text-black">{{ friendDetails.joinDate }}</p>
         </div>
       </div>
 
@@ -79,7 +79,7 @@
         </div>
         <div>
           <p class="text-xs text-gray-500 mb-1">Location</p>
-          <p class="text-sm">{{ friendDetails.location }}</p>
+          <p class="text-sm text-black">{{ friendDetails.location }}</p>
         </div>
       </div>
     </div>
@@ -87,7 +87,7 @@
     <!-- Media Section -->
     <div class="p-4 border-b border-gray-200">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="font-medium">
+        <h3 class="text-black font-medium">
           Media
           <span class="text-gray-500 text-sm">({{ userMedia.length }})</span>
         </h3>
@@ -147,7 +147,7 @@
     <!-- Files Section -->
     <div class="p-4">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="font-medium">
+        <h3 class="text-black font-medium">
           File
           <span class="text-gray-500 text-sm">({{ userFiles.length }})</span>
         </h3>
@@ -443,7 +443,7 @@
           <button
             @click="handleShareFile"
             class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            :disabled="!friendsList.some((friend) => friend.shareSelected)"
+            :disabled="!friendsList.some((friend: Friend) => friend.shareSelected)"
           >
             Share
           </button>
@@ -520,35 +520,54 @@ import { computed, ref, onMounted, watch } from "vue";
 import { useFiles } from "~/composables/useFiles";
 import { useNuxtApp } from "#app";
 
-interface FriendDetails {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  joinDate: string;
-  location: string;
-  status: "online" | "offline";
-  avatar?: string;
-}
-
 interface Friend {
   id: string;
   name: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  username?: string;
+  profile_picture_url?: string;
   avatar?: string;
   shareSelected?: boolean;
+  status?: "online" | "offline" | "busy" | "away";
+  phone?: string;
+  joinDate?: string;
+  location?: string;
+}
+
+interface FriendDetails {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  joinDate?: string;
+  location?: string;
+  status: "online" | "offline" | "busy" | "away";
+  avatar?: string;
+  first_name?: string;
+  last_name?: string;
+  profile_picture_url?: string;
+  username?: string;
 }
 
 const props = defineProps<{
-  username?: string;
   friendDetails?: FriendDetails;
 }>();
 
 defineEmits(["close"]);
 
-// Use friendDetails if available, otherwise fallback to username
-const displayName = computed(
-  () => props.friendDetails?.name || props.username || "User"
-);
+// Use the usePresence composable
+const presence = usePresence();
+
+// Use friendDetails if available, otherwise fallback to sensible defaults
+const displayName = computed(() => {
+  if (!props.friendDetails) return "User";
+
+  return props.friendDetails.first_name && props.friendDetails.last_name
+    ? `${props.friendDetails.first_name} ${props.friendDetails.last_name}`
+    : props.friendDetails.name;
+});
 
 // Initialize file service
 const {
@@ -586,26 +605,28 @@ const filesPagination = ref({
   has_more_pages: false,
 });
 
-// Mock friends for sharing functionality
-const friendsList = ref<Friend[]>([
-  { id: "101", name: "Rudi Setiawan", avatar: undefined, shareSelected: false },
-  { id: "102", name: "Lina Kartika", avatar: undefined, shareSelected: false },
-  { id: "103", name: "Budi Santoso", avatar: undefined, shareSelected: false },
-  { id: "104", name: "Ratna Dewi", avatar: undefined, shareSelected: false },
-  {
-    id: "105",
-    name: "Dimas Prasetyo",
-    avatar: undefined,
-    shareSelected: false,
+const friendsStore = useFriendsStore();
+// Create a reactive friend list state
+const friendsList = ref<Friend[]>([]);
+
+// Watch for changes in friends store and update local state
+watch(
+  () => friendsStore.friends,
+  (newFriends) => {
+    friendsList.value = newFriends.map((friend) => ({
+      ...friend,
+      shareSelected: false,
+    }));
   },
-]);
+  { immediate: true }
+);
 
 const { $toast } = useNuxtApp();
 
 // Media preview navigation computation
 const currentMediaIndex = computed(() => {
   if (!selectedMedia.value) return -1;
-  return userMedia.findIndex((item: any) => item.id === selectedMedia.value.id);
+  return userMedia.findIndex((item) => item.id === selectedMedia.value.id);
 });
 
 const hasPreviousMedia = computed(() => {
@@ -654,7 +675,7 @@ defineExpose({
 
 // Toggle friend selection in the Share dialog
 const toggleShareSelection = (id: string) => {
-  friendsList.value = friendsList.value.map((friend) =>
+  friendsList.value = friendsList.value.map((friend: Friend) =>
     friend.id === id
       ? { ...friend, shareSelected: !friend.shareSelected }
       : friend

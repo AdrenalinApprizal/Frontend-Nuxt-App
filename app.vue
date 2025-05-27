@@ -31,27 +31,24 @@ const shouldShowSidebar = computed(() => {
   );
 });
 
-// Inisialisasi auth store saat aplikasi dimuat dan tambahkan watch untuk debugging
+// Initialize auth store when app is mounted
 onMounted(async () => {
-  console.log("App mounted, initializing auth store");
   await authStore.init();
-  console.log("Auth initialized, isAuthenticated:", authStore.isAuthenticated);
 });
 
-// Tambahkan watcher untuk debugging perubahan state autentikasi
+// Watch for authentication state changes
 watch(
   () => authStore.isAuthenticated,
   (newValue) => {
-    console.log("isAuthenticated changed to:", newValue);
+    // Authentication state changed
   }
 );
 
-// Tambahkan watcher untuk debugging perubahan route
+// Watch for route changes
 watch(
   () => route.fullPath,
   (newPath) => {
-    console.log("Route changed to:", newPath);
-    console.log("Should show sidebar:", shouldShowSidebar.value);
+    // Route changed
   }
 );
 </script>

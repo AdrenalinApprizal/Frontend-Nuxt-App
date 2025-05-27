@@ -17,6 +17,14 @@ type EventTypes = {
     status: "online" | "offline";
     lastSeen?: string;
   };
+  "direct-message": any;
+  "group-message": any;
+  "refresh-messages": void;
+  "friend-added": void;
+  // Enhanced WebSocket events
+  "websocket-connected": "messages" | "presence";
+  "websocket-disconnected": "messages" | "presence";
+  "connection-quality-changed": "excellent" | "good" | "poor" | "disconnected";
 };
 
 export const eventBus = mitt<EventTypes>();

@@ -73,9 +73,14 @@
             id="email"
             v-model="email"
             required
+            @blur="validateEmail"
             class="w-full px-4 py-2 bg-white border border-blue-500/30 rounded text-[#050C1B] focus:outline-none focus:ring focus:ring-blue-500 placeholder-[#050C1B]/70 placeholder-opacity-50"
+            :class="{ 'border-red-500': emailError }"
             placeholder="Enter your email"
           />
+          <p v-if="emailError" class="mt-1 text-sm text-red-400">
+            {{ emailError }}
+          </p>
         </div>
         <div class="mb-4">
           <label
@@ -133,11 +138,30 @@ const password = ref("");
 const showPassword = ref(false);
 const loading = ref(false);
 const errorMsg = ref("");
+const emailError = ref("");
 const isServerCheckLoading = ref(false);
 const serverStatus = ref<{ online: boolean; message: string } | null>(null);
 const router = useRouter();
 const { $toast } = useNuxtApp();
 const authStore = useAuthStore();
+
+// Validate email for common typos
+function validateEmail() {
+  emailError.value = "";
+
+  if (!email.value) return;
+
+  // Check for common email typos
+  if (email.value.includes("@gmail.coma")) {
+    emailError.value =
+      "Invalid email format: '@gmail.coma' should be '@gmail.com'";
+  } else if (email.value.endsWith(".coma")) {
+    emailError.value =
+      "Invalid email format: your email ends with '.coma' instead of '.com'";
+  } else if (email.value.includes(".con")) {
+    emailError.value = "Invalid email format: '.con' should be '.com'";
+  }
+}
 
 // Check server connectivity on component mount
 onMounted(async () => {
@@ -184,6 +208,15 @@ const handleSubmit = async () => {
       return;
     }
 
+    // Validate email before submitting
+    validateEmail();
+    if (emailError.value) {
+      errorMsg.value = emailError.value;
+      $toast.error(errorMsg.value);
+      loading.value = false;
+      return;
+    }
+
     // Check server connectivity again before trying to login
     if (!serverStatus.value?.online) {
       // Type assertion to access the checkServerConnectivity method
@@ -221,11 +254,11 @@ const handleSubmit = async () => {
 
     // Use nextTick to ensure Vue state is updated
     await nextTick();
-    
+
     // Force the document to refresh with updated state
     // This helps resolve sidebar rendering issues
-    window.dispatchEvent(new Event('resize'));
-    
+    window.dispatchEvent(new Event("resize"));
+
     // Add a slightly longer delay before navigation to ensure state is fully propagated
     await new Promise((resolve) => setTimeout(resolve, 2000));
 

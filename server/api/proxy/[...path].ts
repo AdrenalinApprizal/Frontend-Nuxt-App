@@ -1,5 +1,12 @@
-import { defineEventHandler, getRouterParams, readBody, sendProxy } from "h3";
-import { getMethod, getQuery, getRequestHeaders } from "h3";
+import {
+  defineEventHandler,
+  getRouterParams,
+  readBody,
+  sendProxy,
+  setHeader,
+  createError,
+} from "h3";
+import { getMethod, getQuery, getRequestHeaders, getHeader } from "h3";
 import { createServer } from "node:http";
 import { proxyRequest } from "h3";
 
@@ -15,22 +22,111 @@ const NOTIFICATION_API_BASE_URL = "http://localhost:8083/api";
 const FILE_SERVICE_BASE_URL = "http://localhost:8084"; // File service base URL
 const PRESENCE_SERVICE_BASE_URL = "http://localhost:8085/api"; // Presence service base URL
 
+// Helper function to set CORS headers
+const setCorsHeaders = (event: any) => {
+  setHeader(event, "Access-Control-Allow-Origin", "*");
+  setHeader(
+    event,
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+  );
+  setHeader(
+    event,
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept"
+  );
+  setHeader(event, "Access-Control-Allow-Credentials", "true");
+};
+
+// Before making the API request, validate token
+const validateToken = (token: string | undefined): boolean => {
+  if (!token) {
+    console.error("[Server Proxy] No token provided");
+    return false;
+  }
+
+  try {
+    // Basic token structure validation for JWT
+    const [header, payload, signature] = token.split(".");
+    if (!header || !payload || !signature) {
+      console.warn("[Server Proxy] Token does not have standard JWT structure");
+      // Even if it's not a standard JWT, we'll allow it through and let the backend decide
+      return true;
+    }
+
+    try {
+      // Try to decode the payload - might fail if the token is not properly padded
+      const decoded = Buffer.from(payload, "base64").toString();
+      const decodedPayload = JSON.parse(decoded);
+
+      // Check token expiration if present
+      if (decodedPayload.exp && Date.now() >= decodedPayload.exp * 1000) {
+        console.warn(
+          "[Server Proxy] Token may be expired, but proceeding anyway"
+        );
+        // We still return true to allow the backend to make the final decision
+        return true;
+      }
+    } catch (decodeError) {
+      // If we can't decode the payload, it might be encoded differently
+      console.warn(
+        "[Server Proxy] Could not decode token payload, but proceeding with request"
+      );
+      return true;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[Server Proxy] Token validation error:", error);
+    // Even with validation error, we'll still forward the token and let the backend decide
+    return true;
+  }
+};
+
 export default defineEventHandler(async (event) => {
   try {
+    // Set CORS headers for all responses
+    setCorsHeaders(event);
+
     // Get HTTP method
     const method = getMethod(event);
 
-    // Force POST method for certain endpoints
+    // Handle CORS preflight requests (OPTIONS method)
+    if (method === "OPTIONS") {
+      console.log("[Server Proxy] Handling CORS preflight request");
+
+      // Set additional CORS headers for preflight response
+      setHeader(event, "Access-Control-Max-Age", 86400); // 24 hours
+
+      // Return empty response with 200 status for preflight
+      return new Response(null, { status: 200 });
+    }
+
+    // Force specific methods for certain endpoints
     let forcedMethod = method;
     const params = getRouterParams(event);
     const pathArray = Array.isArray(params.path) ? params.path : [params.path];
-    const pathString = pathArray.join("/");
+    let pathString = pathArray.join("/");
 
     if (pathArray.join("/").includes("friends/add")) {
       console.log(
         "[Server Proxy] Forcing POST method for /friends/add endpoint"
       );
       forcedMethod = "POST";
+    }
+
+    // Get request headers to forward auth headers
+    const requestHeaders = getRequestHeaders(event);
+
+    if (pathString === "users/profile/avatar") {
+      console.log(
+        "[Server Proxy] Profile avatar endpoint detected, using PUT method"
+      );
+      console.log(
+        `[Server Proxy] Original method: ${method}, Content-Type: ${
+          requestHeaders["content-type"] || "none"
+        }`
+      );
     }
 
     console.log(
@@ -41,18 +137,77 @@ export default defineEventHandler(async (event) => {
     // Get query parameters
     const query = getQuery(event);
 
-    // Get request headers to forward auth headers
-    const requestHeaders = getRequestHeaders(event);
+    // Check if this is a login or register request - these shouldn't use existing tokens
+    const isAuthEndpoint =
+      pathString === "auth/login" ||
+      pathString === "login" ||
+      pathString === "auth/register" ||
+      pathString === "register";
+
+    if (isAuthEndpoint) {
+      console.log(
+        `[Server Proxy] Auth endpoint detected: ${pathString} - will skip token validation`
+      );
+    }
 
     // Determine which API to route to
     let baseUrl = API_BASE_URL;
     let isFileRequest = false;
     let isWebSocketRequest = false;
 
+    // Route to notifications service
+    if (pathString.startsWith("notifications")) {
+      baseUrl = NOTIFICATION_API_BASE_URL;
+      console.log(
+        `[Server Proxy] Routing to NOTIFICATION_API_BASE_URL: ${baseUrl}`
+      );
+    }
+    // Route to presence service
+    else if (pathString.startsWith("presence")) {
+      baseUrl = PRESENCE_SERVICE_BASE_URL;
+      console.log(
+        `[Server Proxy] Routing to PRESENCE_SERVICE_BASE_URL: ${baseUrl}`
+      );
+    }
+    // Route messages and groups to appropriate service
+    else if (
+      pathString.startsWith("messages") ||
+      pathString.startsWith("groups/messages")
+    ) {
+      baseUrl = GROUP_API_BASE_URL; // Messages service is on port 8082
+
+      // Special handling for media uploads - don't add /api prefix for direct media endpoint
+      if (pathString === "messages/media") {
+        baseUrl = "http://localhost:8082"; // Direct to messaging service without /api prefix
+        console.log(
+          `[Server Proxy] Routing media uploads directly to: ${baseUrl}/messages/media`
+        );
+      }
+      // Remove 'groups/' prefix if it exists
+      else if (pathString.startsWith("groups/")) {
+        pathString = pathString.replace("groups/", "");
+      }
+      console.log(`[Server Proxy] Routing to MESSAGE_API_BASE_URL: ${baseUrl}`);
+    }
+    // Route other group-specific requests
+    else if (pathString.startsWith("groups")) {
+      baseUrl = GROUP_API_BASE_URL;
+      console.log(`[Server Proxy] Routing to GROUP_API_BASE_URL: ${baseUrl}`);
+    }
+    // Route to file service (handle both files and media)
+    else if (pathString.startsWith("files") || pathString.startsWith("media")) {
+      baseUrl = FILE_SERVICE_BASE_URL;
+      isFileRequest = true;
+      console.log(
+        `[Server Proxy] Routing to FILE_SERVICE_BASE_URL: ${baseUrl} for path: ${pathString}`
+      );
+    }
+
     // Check if this is a WebSocket upgrade request
-    isWebSocketRequest =
+    isWebSocketRequest = !!(
       requestHeaders.connection?.toLowerCase().includes("upgrade") &&
-      requestHeaders.upgrade?.toLowerCase() === "websocket";
+      requestHeaders.upgrade?.toLowerCase() === "websocket"
+    );
 
     if (isWebSocketRequest) {
       console.log("[Server Proxy] WebSocket connection request detected");
@@ -129,10 +284,7 @@ export default defineEventHandler(async (event) => {
                 : {}),
             },
             // Additional proxy options for better error handling
-            fetch: {
-              // Increase timeout for WebSocket connections
-              timeout: 30000,
-            },
+            // Remove the fetch with timeout property since it's not supported
           });
         } catch (error) {
           console.error(
@@ -148,37 +300,55 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Continue with normal HTTP request handling
-    if (pathString.startsWith("files-service")) {
-      // Handle file service requests
-      baseUrl = FILE_SERVICE_BASE_URL;
-      // Remove the files-service prefix from the path
-      pathArray.shift(); // Remove 'files-service'
-      isFileRequest = true;
-      console.log("[Server Proxy] Routing to FILES service on port 8084");
-    } else if (
-      pathString.startsWith("groups") ||
-      pathString.includes("/groups") ||
-      pathString.startsWith("messages") // Menambahkan kondisi untuk messages
-    ) {
-      baseUrl = GROUP_API_BASE_URL;
-      console.log("[Server Proxy] Routing to GROUPS service on port 8082");
-    } else if (pathString.startsWith("notifications")) {
-      baseUrl = NOTIFICATION_API_BASE_URL;
+    // Handle WebSocket upgrade for presence service
+    if (pathString.includes("presence/ws")) {
       console.log(
-        "[Server Proxy] Routing to NOTIFICATIONS service on port 8083"
+        "[Server Proxy] Handling WebSocket upgrade request for presence service"
       );
-    } else if (pathString.startsWith("presence")) {
-      baseUrl = PRESENCE_SERVICE_BASE_URL;
-      console.log("[Server Proxy] Routing to PRESENCE service on port 8085");
-    } else {
-      console.log("[Server Proxy] Routing to default API service on port 8081");
+
+      // Extract token from query params
+      const token = query.token as string;
+      if (!token) {
+        throw new Error("No token provided for WebSocket connection");
+      }
+
+      // Build WebSocket URL
+      const wsUrl = `ws://localhost:8085/presence/ws?token=${token}`;
+      console.log("[Server Proxy] WebSocket target URL:", wsUrl);
+
+      // Return WebSocket URL for client to connect directly
+      // This bypasses the proxy for WebSocket connections
+      return { wsUrl };
     }
 
-    // Build target URL - special handling for file service
+    // Build target URL - special handling for different services
     let url;
     if (isFileRequest) {
-      url = `${baseUrl}/${pathArray.join("/")}`;
+      // For file service, ensure proper API path structure
+      // Convert 'files/...' to '/api/files/...' and 'media/...' to '/api/media/...'
+      if (pathString.startsWith("files/")) {
+        const filePath = pathString.substring(6); // Remove 'files/' prefix
+        url = `${baseUrl}/api/files/${filePath}`;
+      } else if (pathString.startsWith("media/")) {
+        const mediaPath = pathString.substring(6); // Remove 'media/' prefix
+        url = `${baseUrl}/api/media/${mediaPath}`;
+      } else if (pathString === "files") {
+        url = `${baseUrl}/api/files`;
+      } else if (pathString === "media") {
+        url = `${baseUrl}/api/media`;
+      } else {
+        // Fallback for other file service paths
+        url = `${baseUrl}/api/${pathString}`;
+      }
+      console.log(`[Server Proxy] File service URL constructed: ${url}`);
+    } else if (pathString.startsWith("presence")) {
+      // Use the already set baseUrl which should be PRESENCE_SERVICE_BASE_URL
+      url = `${baseUrl}/${pathString}`;
+      console.log(`[Server Proxy] Routing presence request to: ${url}`);
+    } else if (pathString.startsWith("notifications")) {
+      // For notification service
+      url = `${baseUrl}/${pathString}`;
+      console.log(`[Server Proxy] Routing notification request to: ${url}`);
     } else {
       url = `${baseUrl}/${pathString}`;
     }
@@ -191,6 +361,16 @@ export default defineEventHandler(async (event) => {
     }
 
     console.log(`[Server Proxy] Forwarding to: ${url}`);
+
+    // Special logging for messages/history requests
+    if (pathString.includes("messages/history")) {
+      console.log(`[Server Proxy] MESSAGES/HISTORY REQUEST DETAILS:`);
+      console.log(`[Server Proxy] - Base URL: ${baseUrl}`);
+      console.log(`[Server Proxy] - Path: ${pathString}`);
+      console.log(`[Server Proxy] - Query params:`, query);
+      console.log(`[Server Proxy] - Final URL: ${url}`);
+      console.log(`[Server Proxy] - Method: ${forcedMethod}`);
+    }
 
     // Build headers
     const headers: HeadersInit = {
@@ -209,30 +389,24 @@ export default defineEventHandler(async (event) => {
     if (requestHeaders.authorization) {
       console.log("[Server Proxy] Forwarding Authorization header");
 
-      // Keep the Bearer prefix for notifications service (standard OAuth format)
-      if (pathString.startsWith("notifications")) {
-        // Ensure the token has the Bearer prefix
-        const token = requestHeaders.authorization.startsWith("Bearer ")
-          ? requestHeaders.authorization
-          : `Bearer ${requestHeaders.authorization}`;
+      // Ensure the token has the Bearer prefix for all services
+      const token = requestHeaders.authorization.startsWith("Bearer ")
+        ? requestHeaders.authorization
+        : `Bearer ${requestHeaders.authorization}`;
 
-        headers["Authorization"] = token;
+      headers["Authorization"] = token;
+
+      if (pathString.startsWith("notifications")) {
         console.log(
           "[Server Proxy] Using Bearer format for notifications service"
         );
       } else {
-        // Ensure the token has the Bearer prefix for other services
-        const token = requestHeaders.authorization.startsWith("Bearer ")
-          ? requestHeaders.authorization
-          : `Bearer ${requestHeaders.authorization}`;
-
-        headers["Authorization"] = token;
         console.log(
           "[Server Proxy] Formatted token with 'Bearer' prefix for standard API"
         );
       }
-    } else if (requestHeaders.cookie) {
-      // Try to extract token from cookies if no authorization header
+    } else if (requestHeaders.cookie && !isAuthEndpoint) {
+      // Try to extract token from cookies if no authorization header AND NOT an auth endpoint
       console.log("[Server Proxy] Checking cookies for auth token");
       const cookieStr = requestHeaders.cookie;
       const cookies = cookieStr.split(";").reduce((acc, cookie) => {
@@ -251,30 +425,95 @@ export default defineEventHandler(async (event) => {
         console.log("[Server Proxy] No auth_token found in cookies");
       }
     } else {
-      console.log("[Server Proxy] No authentication credentials found");
+      if (isAuthEndpoint) {
+        console.log(
+          "[Server Proxy] Auth endpoint detected - skipping token extraction"
+        );
+      } else {
+        console.log("[Server Proxy] No authentication credentials found");
+      }
     }
 
     // Handle request body based on HTTP method and content type
     if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      // Check if this is a file upload (multipart/form-data)
       if (requestHeaders["content-type"]?.includes("multipart/form-data")) {
-        // Remove content type for multipart/form-data to let the browser set it with the boundary
-        delete headers["Content-Type"];
-        headers["content-type"] = requestHeaders["content-type"];
         console.log(
-          "[Server Proxy] File upload detected, preserving original content-type"
+          `[Server Proxy] File upload detected using method ${method}, path: ${pathString}, using special handling`
         );
 
+        // For file uploads, we need to completely bypass the H3 request body parsing
+        // and directly pass the request to the target server
         try {
-          // For multipart/form-data, use the raw body from the event
-          const rawBody = await readBody(event);
-          options.body = rawBody;
-          console.log("[Server Proxy] Processing multipart form data");
-        } catch (error) {
-          console.error(
-            "[Server Proxy] Error processing multipart/form-data:",
-            error
+          // Create a new server proxy request using native node fetch
+          const targetUrl = new URL(url);
+
+          // Return directly through sendProxy which will properly handle streaming the request
+          console.log(
+            "[Server Proxy] Authorization header:",
+            headers.Authorization
           );
-          throw new Error("Failed to process file upload");
+
+          // Create headers object for proxy request
+          const proxyHeaders: Record<string, string> = {};
+
+          // Explicitly add Authorization header with proper format
+          if (headers.Authorization) {
+            proxyHeaders.Authorization = headers.Authorization;
+            console.log(
+              "[Server Proxy] Added Authorization header:",
+              proxyHeaders.Authorization
+            );
+          } else if (requestHeaders.authorization) {
+            // If Authorization header is in original request but not in headers object
+            proxyHeaders.Authorization =
+              requestHeaders.authorization.startsWith("Bearer ")
+                ? requestHeaders.authorization
+                : `Bearer ${requestHeaders.authorization}`;
+            console.log(
+              "[Server Proxy] Added Authorization from request headers:",
+              proxyHeaders.Authorization
+            );
+          } else if (requestHeaders.cookie) {
+            // Try to extract from cookies
+            const cookieStr = requestHeaders.cookie;
+            const cookies = cookieStr.split(";").reduce((acc, cookie) => {
+              const [key, value] = cookie.trim().split("=");
+              acc[key] = value;
+              return acc;
+            }, {} as Record<string, string>);
+
+            if (cookies.auth_token) {
+              proxyHeaders.Authorization = `Bearer ${cookies.auth_token}`;
+              console.log(
+                "[Server Proxy] Added Authorization from cookies:",
+                proxyHeaders.Authorization
+              );
+            }
+          }
+
+          // Add other headers except content-type and content-length which will be set by the browser
+          Object.entries(requestHeaders).forEach(([key, value]) => {
+            const lowerKey = key.toLowerCase();
+            if (
+              lowerKey !== "content-type" &&
+              lowerKey !== "content-length" &&
+              lowerKey !== "authorization"
+            ) {
+              // Make sure value is a string to satisfy TypeScript
+              if (value !== undefined) {
+                proxyHeaders[key] = value.toString();
+              }
+            }
+          });
+
+          return sendProxy(event, targetUrl.toString(), {
+            // Forward necessary headers but NOT content-type (browser will set it with proper boundary)
+            headers: proxyHeaders,
+          });
+        } catch (error) {
+          console.error("[Server Proxy] Error proxying file upload:", error);
+          throw new Error("Failed to proxy file upload");
         }
       } else {
         // Regular JSON handling for methods that have a body
@@ -282,6 +521,29 @@ export default defineEventHandler(async (event) => {
           const body = await readBody(event);
           if (body !== undefined && body !== null) {
             options.body = JSON.stringify(body);
+
+            // Log request body for auth endpoints with protected password
+            if (isAuthEndpoint && body.email) {
+              console.log("[Server Proxy] Request body:", {
+                ...body,
+                password: body.password ? "********" : undefined,
+              });
+
+              // Check for common email typos and log warnings
+              if (body.email.includes("@gmail.coma")) {
+                console.warn(
+                  "[Server Proxy] WARNING: Email contains typo - @gmail.coma instead of @gmail.com"
+                );
+              } else if (body.email.endsWith(".coma")) {
+                console.warn(
+                  "[Server Proxy] WARNING: Email contains typo - domain ends with .coma instead of .com"
+                );
+              } else if (body.email.includes(".con")) {
+                console.warn(
+                  "[Server Proxy] WARNING: Email contains typo - .con instead of .com"
+                );
+              }
+            }
           }
         } catch (error) {
           console.error("[Server Proxy] Error reading JSON body:", error);
@@ -291,6 +553,29 @@ export default defineEventHandler(async (event) => {
     } else {
       // For GET, HEAD, OPTIONS methods - don't try to read the body
       console.log(`[Server Proxy] Skipping body parsing for ${method} request`);
+    }
+
+    // Validate token except for auth endpoints
+    if (!isAuthEndpoint) {
+      // Use the token from the headers object that we've already set up
+      const authHeader = headers["Authorization"] as string;
+      const token = authHeader?.replace("Bearer ", "");
+
+      if (!validateToken(token)) {
+        console.error(
+          "[Server Proxy] Token validation failed with token:",
+          token ? `${token.substring(0, 10)}...` : "undefined"
+        );
+        // Instead of returning an error, just log it but continue with the request
+        // This allows the backend to handle the authentication
+        console.error(
+          "[Server Proxy] Proceeding with request despite invalid token"
+        );
+      } else {
+        console.log("[Server Proxy] Token validation successful");
+      }
+    } else {
+      console.log("[Server Proxy] Skipping token validation for auth endpoint");
     }
 
     // Make the request to the backend API
@@ -308,10 +593,17 @@ export default defineEventHandler(async (event) => {
       let errorBody;
       try {
         const contentType = response.headers.get("content-type");
+        console.log("[Server Proxy] Error response content type:", contentType);
+
         if (contentType && contentType.includes("application/json")) {
           errorBody = await response.json();
+          console.log(
+            "[Server Proxy] Detailed error from backend:",
+            JSON.stringify(errorBody, null, 2)
+          );
         } else {
           errorBody = await response.text();
+          console.log("[Server Proxy] Error text from backend:", errorBody);
         }
       } catch (e) {
         console.error("[Server Proxy] Error parsing error response:", e);

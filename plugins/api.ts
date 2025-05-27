@@ -15,16 +15,25 @@ export default defineNuxtPlugin((nuxtApp) => {
     const token =
       authStore.token || (process.client ? Cookies.get("auth_token") : null);
 
+    // Check if this is a FormData request to handle content-type appropriately
+    const isFormData = options.body instanceof FormData;
+
+    if (isFormData) {
+      console.log("Detected FormData request, handling special headers setup");
+    }
+
     // Prepare headers with auth token if available
     const headerOptions: Record<string, string> = {
-      "Content-Type": "application/json",
+      // Don't set Content-Type header for FormData (browser will set it with boundary)
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       Accept: "application/json",
     };
 
     // Only add Authorization and Cookie headers if we have a token
     if (token) {
       headerOptions["Authorization"] = `Bearer ${token}`;
-      headerOptions["Cookie"] = `auth_token=${token}`;
+      // Don't set Cookie header directly, let the browser handle it
+      // The token is already in the cookie from the login process
     }
 
     const headers = new Headers(headerOptions);
@@ -45,19 +54,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       : // Use the internal proxy endpoint instead of direct API access
         `/api/proxy${url.startsWith("/") ? url : `/${url}`}`;
 
-    // Log request untuk debugging
-    console.log(`API ${options.method || "GET"} request to:`, completeUrl);
-
     try {
       // Make the fetch request
       const response = await fetch(completeUrl, mergedOptions);
-
-      // Log response untuk debugging
-      console.log(
-        `API response from ${completeUrl}:`,
-        response.status,
-        response.statusText
-      );
 
       // Check if response is ok (status in the range 200-299)
       if (!response.ok) {
@@ -159,6 +158,20 @@ export default defineNuxtPlugin((nuxtApp) => {
       data: any,
       options: RequestInit = {}
     ): Promise<T> {
+      // Special logging for avatar updates
+      if (url.includes("/users/profile/avatar")) {
+        console.log(
+          "PUT request for profile avatar with data type:",
+          typeof data
+        );
+        if (data && data.profile_picture_url) {
+          console.log(
+            "profile_picture_url is present in the data, length:",
+            data.profile_picture_url.substring(0, 30) + "... (truncated)"
+          );
+        }
+      }
+
       const response = await apiFetch(url, {
         ...options,
         method: "PUT",
@@ -206,6 +219,22 @@ export default defineNuxtPlugin((nuxtApp) => {
             ? {} // Let browser set appropriate content-type with boundary for FormData
             : { "Content-Type": "application/json" };
 
+        // Handle FormData requests
+        if (data instanceof FormData) {
+          try {
+            // Enhanced logging for authentication headers
+            const authStore = useAuthStore();
+            const token =
+              authStore.token ||
+              (process.client ? Cookies.get("auth_token") : null);
+            if (!token) {
+              console.warn("No auth token available for FormData request!");
+            }
+          } catch (e) {
+            // Could not process FormData entries
+          }
+        }
+
         return apiFetch(url, {
           ...options,
           method: "POST",
@@ -217,12 +246,35 @@ export default defineNuxtPlugin((nuxtApp) => {
         });
       },
       put: (url: string, data: any, options: RequestInit = {}) => {
-        // Special handling for FormData - don't stringify it
-        const body = data instanceof FormData ? data : JSON.stringify(data);
-        const contentTypeHeaders: Record<string, string> =
-          data instanceof FormData
-            ? {} // Let browser set appropriate content-type with boundary for FormData
-            : { "Content-Type": "application/json" };
+        // Special handling based on data type
+        let body;
+        let contentTypeHeaders: Record<string, string> = {};
+
+        if (data instanceof FormData) {
+          // FormData handling - don't stringify it
+          body = data;
+          // Let browser set appropriate content-type with boundary for FormData
+          contentTypeHeaders = {};
+
+          try {
+            // Process FormData entries if needed
+          } catch (e) {
+            // Could not process FormData entries
+          }
+        } else {
+          // JSON handling
+          body = JSON.stringify(data);
+          contentTypeHeaders = { "Content-Type": "application/json" };
+        }
+
+        // Enhanced logging for authentication headers
+        const authStore = useAuthStore();
+        const token =
+          authStore.token ||
+          (process.client ? Cookies.get("auth_token") : null);
+        if (!token) {
+          console.warn(`No auth token available for request to ${url}!`);
+        }
 
         return apiFetch(url, {
           ...options,

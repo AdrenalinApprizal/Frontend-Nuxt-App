@@ -63,14 +63,33 @@ export const useWebSocket = defineStore("websocket", () => {
   const isPresenceConnected = ref(false);
   const isPresenceConnecting = ref(false);
 
-  // Shared state
+  // Enhanced connection state management
   const reconnectAttempts = ref(0);
-  const maxReconnectAttempts = 5;
-  const reconnectInterval = ref(2000); // Start with 2 seconds
+  const maxReconnectAttempts = 8; // Increased for better resilience
+  const baseReconnectInterval = 1000; // Base interval for exponential backoff
+  const maxReconnectInterval = 30000; // Maximum 30 seconds between attempts
   const connectionError = ref<string | null>(null);
   const messageQueue = ref<WebSocketMessage[]>([]);
-  const activeSubscriptions = ref<string[]>([]); // Track active subscriptions
+  const activeSubscriptions = ref<string[]>([]);
   const authCheckInProgress = ref(false);
+
+  // Heartbeat mechanism
+  const heartbeatInterval = ref<NodeJS.Timeout | null>(null);
+  const heartbeatPeriod = 30000; // 30 seconds
+  const lastHeartbeatTime = ref<number>(0);
+  const pendingPings = ref<Set<string>>(new Set());
+
+  // Connection quality tracking
+  const connectionQuality = ref<"excellent" | "good" | "poor" | "disconnected">(
+    "disconnected"
+  );
+  const lastMessageTime = ref<number>(0);
+  const networkChangeHandler = ref<(() => void) | null>(null);
+
+  // Advanced message queuing
+  const maxQueueSize = 50;
+  const messageRetryCount = ref<Map<string, number>>(new Map());
+  const maxRetries = 3;
   const router = useRouter();
 
   // Get auth and messages stores
@@ -93,7 +112,6 @@ export const useWebSocket = defineStore("websocket", () => {
     // Ensure we have a valid token before connecting
     const token = authStore.token;
     if (!token) {
-      console.error("[WebSocket Messages] No authentication token available");
       throw new Error("No authentication token available");
     }
 
@@ -148,7 +166,7 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Initialize WebSocket connections
+  // Initialize WebSocket connections with enhanced setup
   const connect = async (): Promise<void> => {
     // Validate authentication before connecting
     if (!authStore.isAuthenticated) {
@@ -162,6 +180,12 @@ export const useWebSocket = defineStore("websocket", () => {
       console.warn("[WebSocket] Invalid token, cannot connect");
       return;
     }
+
+    // Setup network change detection
+    setupNetworkChangeDetection();
+
+    // Restore any persisted message queue
+    restoreMessageQueue();
 
     // Connect both WebSockets
     await Promise.all([connectMessagesWebSocket(), connectPresenceWebSocket()]);
@@ -269,25 +293,24 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Handle successful Messages connection
+  // Handle successful Messages connection with enhanced features
   const handleMessagesOpen = (event: Event): void => {
     console.log("[WebSocket Messages] Connection established");
     isMessagesConnected.value = true;
     isMessagesConnecting.value = false;
     reconnectAttempts.value = 0;
-    reconnectInterval.value = 2000; // Reset reconnect interval
+    lastHeartbeatTime.value = Date.now();
+    lastMessageTime.value = Date.now();
+    updateConnectionQuality("excellent");
 
     // Subscribe to unread counts on connection
     subscribeToUnreadCounts();
 
-    // Send any queued messages
-    if (messageQueue.value.length > 0) {
-      console.log(
-        `[WebSocket Messages] Sending ${messageQueue.value.length} queued messages`
-      );
-      messageQueue.value.forEach((message) => send(message));
-      messageQueue.value = [];
-    }
+    // Start heartbeat mechanism
+    startHeartbeat();
+
+    // Process any queued messages
+    processMessageQueue();
 
     if ($toast) {
       $toast.success("Connected to messaging service");
@@ -360,10 +383,35 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Handle incoming messages from Messages WebSocket
+  // Enhanced message handling with heartbeat support
   const handleMessagesMessage = (event: MessageEvent): void => {
     try {
       const message = JSON.parse(event.data) as WebSocketMessage;
+      lastMessageTime.value = Date.now();
+
+      // Update connection quality based on message activity
+      assessConnectionQuality();
+
+      // Handle heartbeat responses
+      if ((message.type as any) === "pong" && message.data?.id) {
+        const pingId = message.data.id;
+        if (pendingPings.value.has(pingId)) {
+          pendingPings.value.delete(pingId);
+          lastHeartbeatTime.value = Date.now();
+
+          // Calculate latency for quality assessment
+          const latency = Date.now() - message.data.timestamp;
+          if (latency < 100) {
+            updateConnectionQuality("excellent");
+          } else if (latency < 500) {
+            updateConnectionQuality("good");
+          } else {
+            updateConnectionQuality("poor");
+          }
+        }
+        return;
+      }
+
       console.log("[WebSocket Messages] Received message:", message);
 
       // Process message based on its type
@@ -398,6 +446,7 @@ export const useWebSocket = defineStore("websocket", () => {
       }
     } catch (error) {
       console.error("[WebSocket Messages] Failed to parse message:", error);
+      updateConnectionQuality("poor");
     }
   };
 
@@ -513,27 +562,35 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Handle errors for Messages WebSocket
+  // Enhanced error handling for Messages WebSocket
   const handleMessagesError = (event: Event): void => {
     console.error("[WebSocket Messages] Error:", event);
     connectionError.value = "WebSocket Messages connection error";
     isMessagesConnecting.value = false;
+    updateConnectionQuality("poor");
+
+    // Stop heartbeat on error
+    stopHeartbeat();
   };
 
-  // Handle errors for Presence WebSocket
+  // Enhanced error handling for Presence WebSocket
   const handlePresenceError = (event: Event): void => {
     console.error("[WebSocket Presence] Error:", event);
     connectionError.value = "WebSocket Presence connection error";
     isPresenceConnecting.value = false;
   };
 
-  // Handle connection close for Messages WebSocket
+  // Enhanced connection close handling for Messages WebSocket
   const handleMessagesClose = (event: CloseEvent): void => {
     console.log(
       `[WebSocket Messages] Connection closed. Code: ${event.code}, Reason: ${event.reason}`
     );
     isMessagesConnected.value = false;
     isMessagesConnecting.value = false;
+    updateConnectionQuality("disconnected");
+
+    // Stop heartbeat mechanism
+    stopHeartbeat();
 
     // Check for authentication errors based on close code
     if (
@@ -545,13 +602,13 @@ export const useWebSocket = defineStore("websocket", () => {
       // Likely authentication issue
       handleAuthFailure();
     }
-    // Attempt to reconnect for other issues
+    // Attempt to reconnect for other issues (but not for clean closes)
     else if (event.code !== 1000 && event.code !== 1001) {
       handleMessagesReconnect();
     }
   };
 
-  // Handle connection close for Presence WebSocket
+  // Enhanced connection close handling for Presence WebSocket
   const handlePresenceClose = (event: CloseEvent): void => {
     console.log(
       `[WebSocket Presence] Connection closed. Code: ${event.code}, Reason: ${event.reason}`
@@ -569,13 +626,13 @@ export const useWebSocket = defineStore("websocket", () => {
       // Likely authentication issue
       handleAuthFailure();
     }
-    // Attempt to reconnect for other issues
+    // Attempt to reconnect for other issues (but not for clean closes)
     else if (event.code !== 1000 && event.code !== 1001) {
       handlePresenceReconnect();
     }
   };
 
-  // Handle reconnection for Messages WebSocket
+  // Enhanced reconnection for Messages WebSocket with exponential backoff
   const handleMessagesReconnect = (): void => {
     // Only attempt to reconnect if authenticated and not exceeding max attempts
     if (
@@ -585,6 +642,7 @@ export const useWebSocket = defineStore("websocket", () => {
       if (reconnectAttempts.value >= maxReconnectAttempts) {
         console.log("[WebSocket Messages] Max reconnection attempts reached");
         connectionError.value = "Failed to connect after multiple attempts";
+        updateConnectionQuality("disconnected");
         if ($toast) {
           $toast.error(
             "Failed to connect to messaging service. Please refresh the page."
@@ -594,18 +652,29 @@ export const useWebSocket = defineStore("websocket", () => {
       return;
     }
 
+    // Don't reconnect if already trying to connect
+    if (isMessagesConnecting.value) {
+      return;
+    }
+
+    const delay = getReconnectDelay(reconnectAttempts.value);
     reconnectAttempts.value++;
-    const delay = reconnectInterval.value * reconnectAttempts.value;
+
     console.log(
-      `[WebSocket Messages] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value}/${maxReconnectAttempts})`
+      `[WebSocket Messages] Reconnecting in ${Math.round(delay)}ms (attempt ${
+        reconnectAttempts.value
+      }/${maxReconnectAttempts})`
     );
 
     setTimeout(() => {
-      connectMessagesWebSocket();
+      // Check if we're still disconnected before attempting reconnect
+      if (!isMessagesConnected.value && !isMessagesConnecting.value) {
+        connectMessagesWebSocket();
+      }
     }, delay);
   };
 
-  // Handle reconnection for Presence WebSocket
+  // Enhanced reconnection for Presence WebSocket with exponential backoff
   const handlePresenceReconnect = (): void => {
     // Only attempt to reconnect if authenticated and not exceeding max attempts
     if (
@@ -624,25 +693,36 @@ export const useWebSocket = defineStore("websocket", () => {
       return;
     }
 
+    // Don't reconnect if already trying to connect
+    if (isPresenceConnecting.value) {
+      return;
+    }
+
+    const delay = getReconnectDelay(reconnectAttempts.value);
     reconnectAttempts.value++;
-    const delay = reconnectInterval.value * reconnectAttempts.value;
+
     console.log(
-      `[WebSocket Presence] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value}/${maxReconnectAttempts})`
+      `[WebSocket Presence] Reconnecting in ${Math.round(delay)}ms (attempt ${
+        reconnectAttempts.value
+      }/${maxReconnectAttempts})`
     );
 
     setTimeout(() => {
-      connectPresenceWebSocket();
+      // Check if we're still disconnected before attempting reconnect
+      if (!isPresenceConnected.value && !isPresenceConnecting.value) {
+        connectPresenceWebSocket();
+      }
     }, delay);
   };
 
-  // Send a message through Messages WebSocket
+  // Enhanced message sending with intelligent queuing
   const send = (message: WebSocketMessage): void => {
     if (!isMessagesConnected.value || !socketMessages.value) {
       // Queue message for when connection is established
       console.log(
         "[WebSocket Messages] Connection not ready, queueing message"
       );
-      messageQueue.value.push(message);
+      addToQueue(message);
 
       // Try to connect if not already connecting
       if (!isMessagesConnecting.value && !isMessagesConnected.value) {
@@ -653,10 +733,12 @@ export const useWebSocket = defineStore("websocket", () => {
 
     try {
       socketMessages.value.send(JSON.stringify(message));
+      console.log("[WebSocket Messages] Message sent successfully");
     } catch (error) {
       console.error("[WebSocket Messages] Failed to send message:", error);
       // Add to queue to retry later
-      messageQueue.value.push(message);
+      addToQueue(message);
+      updateConnectionQuality("poor");
     }
   };
 
@@ -708,50 +790,102 @@ export const useWebSocket = defineStore("websocket", () => {
     });
   };
 
-  // Disconnect both WebSockets
+  // Enhanced disconnect with proper cleanup
   const disconnect = (): void => {
+    console.log("[WebSocket] Initiating graceful disconnect");
+
+    // Stop all background processes
+    stopHeartbeat();
+    cleanupNetworkChangeDetection();
+
+    // Disconnect both WebSockets
     disconnectMessages();
     disconnectPresence();
+
+    // Clear persisted data
+    clearPersistedQueue();
   };
 
-  // Disconnect Messages WebSocket
+  // Enhanced Messages WebSocket disconnect
   const disconnectMessages = (): void => {
     if (
       socketMessages.value &&
       (isMessagesConnected.value || isMessagesConnecting.value)
     ) {
       console.log("[WebSocket Messages] Disconnecting...");
-      socketMessages.value.close(1000, "User logout");
+
+      // Attempt graceful close
+      try {
+        if (socketMessages.value.readyState === WebSocket.OPEN) {
+          socketMessages.value.close(1000, "User disconnect");
+        }
+      } catch (error) {
+        console.warn("[WebSocket Messages] Error during disconnect:", error);
+      }
+
       isMessagesConnected.value = false;
       isMessagesConnecting.value = false;
+      updateConnectionQuality("disconnected");
     }
   };
 
-  // Disconnect Presence WebSocket
+  // Enhanced Presence WebSocket disconnect
   const disconnectPresence = (): void => {
     if (
       socketPresence.value &&
       (isPresenceConnected.value || isPresenceConnecting.value)
     ) {
       console.log("[WebSocket Presence] Disconnecting...");
-      socketPresence.value.close(1000, "User logout");
+
+      // Attempt graceful close
+      try {
+        if (socketPresence.value.readyState === WebSocket.OPEN) {
+          socketPresence.value.close(1000, "User disconnect");
+        }
+      } catch (error) {
+        console.warn("[WebSocket Presence] Error during disconnect:", error);
+      }
+
       isPresenceConnected.value = false;
       isPresenceConnecting.value = false;
     }
   };
 
-  // Clear all state
+  // Enhanced state clearing with comprehensive cleanup
   const clear = (): void => {
+    console.log("[WebSocket] Clearing all state");
+
+    // Stop background processes
+    stopHeartbeat();
+    cleanupNetworkChangeDetection();
+
+    // Clear WebSocket references
     socketMessages.value = null;
     socketPresence.value = null;
+
+    // Reset connection states
     isMessagesConnected.value = false;
     isMessagesConnecting.value = false;
     isPresenceConnected.value = false;
     isPresenceConnecting.value = false;
+
+    // Reset connection management
     reconnectAttempts.value = 0;
     connectionError.value = null;
+    updateConnectionQuality("disconnected");
+
+    // Clear queues and tracking
     messageQueue.value = [];
     activeSubscriptions.value = [];
+    messageRetryCount.value.clear();
+    pendingPings.value.clear();
+
+    // Clear persisted data
+    clearPersistedQueue();
+
+    // Reset timestamps
+    lastHeartbeatTime.value = 0;
+    lastMessageTime.value = 0;
   };
 
   // Auto-disconnect when component is unmounted
@@ -759,26 +893,364 @@ export const useWebSocket = defineStore("websocket", () => {
     disconnect();
   });
 
-  // Return the public API
+  // Enhanced exponential backoff calculation
+  const getReconnectDelay = (attempt: number): number => {
+    const exponentialDelay = Math.min(
+      baseReconnectInterval * Math.pow(2, attempt),
+      maxReconnectInterval
+    );
+    // Add jitter to prevent thundering herd
+    const jitter = Math.random() * 0.3 * exponentialDelay;
+    return exponentialDelay + jitter;
+  };
+
+  // Network change detection
+  const setupNetworkChangeDetection = (): void => {
+    if (typeof window !== "undefined" && "navigator" in window) {
+      networkChangeHandler.value = () => {
+        if (navigator.onLine) {
+          console.log(
+            "[WebSocket] Network back online, attempting reconnection"
+          );
+          if (!isMessagesConnected.value || !isPresenceConnected.value) {
+            setTimeout(() => connect(), 1000);
+          }
+        } else {
+          console.log("[WebSocket] Network went offline");
+          connectionQuality.value = "disconnected";
+        }
+      };
+
+      window.addEventListener("online", networkChangeHandler.value);
+      window.addEventListener("offline", networkChangeHandler.value);
+    }
+  };
+
+  // Cleanup network change detection
+  const cleanupNetworkChangeDetection = (): void => {
+    if (networkChangeHandler.value && typeof window !== "undefined") {
+      window.removeEventListener("online", networkChangeHandler.value);
+      window.removeEventListener("offline", networkChangeHandler.value);
+      networkChangeHandler.value = null;
+    }
+  };
+
+  // Heartbeat mechanism
+  const startHeartbeat = (): void => {
+    stopHeartbeat();
+
+    heartbeatInterval.value = setInterval(() => {
+      if (isMessagesConnected.value && socketMessages.value) {
+        const pingId = `ping_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        const pingMessage = {
+          type: "ping" as any,
+          data: { id: pingId, timestamp: Date.now() },
+        };
+
+        try {
+          socketMessages.value.send(JSON.stringify(pingMessage));
+          pendingPings.value.add(pingId);
+
+          // Clean up old pings after timeout
+          setTimeout(() => {
+            if (pendingPings.value.has(pingId)) {
+              pendingPings.value.delete(pingId);
+              console.warn("[WebSocket] Ping timeout detected");
+              updateConnectionQuality("poor");
+            }
+          }, 10000); // 10 second ping timeout
+        } catch (error) {
+          console.error("[WebSocket] Failed to send heartbeat:", error);
+          updateConnectionQuality("poor");
+        }
+      }
+    }, heartbeatPeriod);
+  };
+
+  const stopHeartbeat = (): void => {
+    if (heartbeatInterval.value) {
+      clearInterval(heartbeatInterval.value);
+      heartbeatInterval.value = null;
+    }
+    pendingPings.value.clear();
+  };
+
+  // Connection quality assessment
+  const updateConnectionQuality = (
+    quality: typeof connectionQuality.value
+  ): void => {
+    if (connectionQuality.value !== quality) {
+      connectionQuality.value = quality;
+      eventBus.emit("connection-quality-changed", quality);
+      console.log(`[WebSocket] Connection quality changed to: ${quality}`);
+    }
+  };
+
+  const assessConnectionQuality = (): void => {
+    if (!isMessagesConnected.value) {
+      updateConnectionQuality("disconnected");
+      return;
+    }
+
+    const now = Date.now();
+    const timeSinceLastMessage = now - lastMessageTime.value;
+    const timeSinceLastHeartbeat = now - lastHeartbeatTime.value;
+
+    if (timeSinceLastMessage > 120000 || timeSinceLastHeartbeat > 120000) {
+      updateConnectionQuality("poor");
+    } else if (timeSinceLastMessage > 60000 || timeSinceLastHeartbeat > 60000) {
+      updateConnectionQuality("good");
+    } else {
+      updateConnectionQuality("excellent");
+    }
+  };
+
+  // Enhanced message queuing with persistence
+  const addToQueue = (message: WebSocketMessage): void => {
+    // Prevent queue overflow
+    if (messageQueue.value.length >= maxQueueSize) {
+      console.warn("[WebSocket] Message queue full, removing oldest message");
+      messageQueue.value.shift();
+    }
+
+    // Add unique ID for tracking retries
+    const messageWithId = {
+      ...message,
+      _queueId: `queue_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+      _timestamp: Date.now(),
+    };
+
+    messageQueue.value.push(messageWithId);
+
+    // Persist to sessionStorage for recovery after page refresh
+    try {
+      sessionStorage.setItem(
+        "ws_message_queue",
+        JSON.stringify(messageQueue.value)
+      );
+    } catch (error) {
+      console.warn("[WebSocket] Failed to persist message queue:", error);
+    }
+  };
+
+  // Restore message queue from persistence
+  const restoreMessageQueue = (): void => {
+    try {
+      const savedQueue = sessionStorage.getItem("ws_message_queue");
+      if (savedQueue) {
+        const parsedQueue = JSON.parse(savedQueue);
+        // Only restore messages from the last 5 minutes
+        const fiveMinutesAgo = Date.now() - 300000;
+        messageQueue.value = parsedQueue.filter(
+          (msg: any) => msg._timestamp && msg._timestamp > fiveMinutesAgo
+        );
+        console.log(
+          `[WebSocket] Restored ${messageQueue.value.length} messages from queue`
+        );
+      }
+    } catch (error) {
+      console.warn("[WebSocket] Failed to restore message queue:", error);
+      messageQueue.value = [];
+    }
+  };
+
+  // Clear persisted queue
+  const clearPersistedQueue = (): void => {
+    try {
+      sessionStorage.removeItem("ws_message_queue");
+    } catch (error) {
+      console.warn("[WebSocket] Failed to clear persisted queue:", error);
+    }
+  };
+
+  // Process queued messages with retry logic
+  const processMessageQueue = (): void => {
+    if (
+      !isMessagesConnected.value ||
+      !socketMessages.value ||
+      messageQueue.value.length === 0
+    ) {
+      return;
+    }
+
+    const messagesToProcess = [...messageQueue.value];
+    messageQueue.value = [];
+
+    messagesToProcess.forEach((message) => {
+      const queueId = (message as any)._queueId;
+      const retryCount = messageRetryCount.value.get(queueId) || 0;
+
+      if (retryCount >= maxRetries) {
+        console.warn(
+          "[WebSocket] Message exceeded max retries, dropping:",
+          message
+        );
+        messageRetryCount.value.delete(queueId);
+        return;
+      }
+
+      try {
+        // Remove queue metadata before sending
+        const cleanMessage = { ...message };
+        delete (cleanMessage as any)._queueId;
+        delete (cleanMessage as any)._timestamp;
+
+        socketMessages.value!.send(JSON.stringify(cleanMessage));
+        messageRetryCount.value.delete(queueId);
+        console.log("[WebSocket] Successfully sent queued message");
+      } catch (error) {
+        console.error("[WebSocket] Failed to send queued message:", error);
+        messageRetryCount.value.set(queueId, retryCount + 1);
+        addToQueue(message);
+      }
+    });
+
+    // Update persisted queue
+    clearPersistedQueue();
+  };
+
+  // Manual reconnection trigger
+  const reconnect = async (): Promise<void> => {
+    console.log("[WebSocket] Manual reconnection triggered");
+
+    // Clear current state
+    disconnect();
+
+    // Wait a moment before reconnecting
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Reset reconnection attempts for fresh start
+    reconnectAttempts.value = 0;
+    connectionError.value = null;
+
+    // Attempt connection
+    await connect();
+  };
+
+  // Force reconnection (for emergency situations)
+  const forceReconnect = async (): Promise<void> => {
+    console.log("[WebSocket] Force reconnection triggered");
+
+    // More aggressive cleanup
+    clear();
+
+    // Wait longer before reconnecting
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Attempt connection
+    await connect();
+  };
+
+  // Connection health check
+  const checkConnectionHealth = (): {
+    isHealthy: boolean;
+    issues: string[];
+    recommendations: string[];
+  } => {
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+
+    if (!isMessagesConnected.value) {
+      issues.push("Messages WebSocket disconnected");
+      recommendations.push("Try reconnecting to messaging service");
+    }
+
+    if (!isPresenceConnected.value) {
+      issues.push("Presence WebSocket disconnected");
+      recommendations.push("Try reconnecting to presence service");
+    }
+
+    if (pendingPings.value.size > 3) {
+      issues.push("Multiple pending heartbeats");
+      recommendations.push("Connection may be unstable");
+    }
+
+    if (messageQueue.value.length > 10) {
+      issues.push("Large message queue");
+      recommendations.push("Messages may be delayed");
+    }
+
+    if (connectionQuality.value === "poor") {
+      issues.push("Poor connection quality");
+      recommendations.push("Check network connection");
+    }
+
+    const now = Date.now();
+    if (isMessagesConnected.value && now - lastMessageTime.value > 300000) {
+      issues.push("No recent message activity");
+      recommendations.push("Connection may be stale");
+    }
+
+    return {
+      isHealthy: issues.length === 0,
+      issues,
+      recommendations,
+    };
+  };
+
+  // Enhanced cleanup on unmount
+  onUnmounted(() => {
+    console.log("[WebSocket] Component unmounting, cleaning up");
+    disconnect();
+    clear();
+  });
+
+  // Return the enhanced public API
   return {
-    // State
+    // Connection State
     isConnected: computed(
       () => isMessagesConnected.value && isPresenceConnected.value
     ),
     isConnecting: computed(
       () => isMessagesConnecting.value || isPresenceConnecting.value
     ),
-    isMessagesConnected,
-    isPresenceConnected,
-    connectionError,
+    isMessagesConnected: computed(() => isMessagesConnected.value),
+    isPresenceConnected: computed(() => isPresenceConnected.value),
+    connectionError: computed(() => connectionError.value),
+    connectionQuality: computed(() => connectionQuality.value),
 
-    // Actions
+    // Queue Management
+    queueLength: computed(() => messageQueue.value.length),
+    hasQueuedMessages: computed(() => messageQueue.value.length > 0),
+
+    // Connection Health
+    reconnectAttempts: computed(() => reconnectAttempts.value),
+    maxReconnectAttempts: computed(() => maxReconnectAttempts),
+
+    // Core Actions
     connect,
     disconnect,
+    reconnect,
+    forceReconnect,
     clear,
     send,
     sendTypingStatus,
+
+    // Subscription Management
     subscribeToUnreadCounts,
+
+    // Utilities
     validateToken,
+    checkConnectionHealth,
+
+    // Advanced Features
+    processMessageQueue,
+    restoreMessageQueue,
+
+    // Internal State (for development monitoring)
+    _internal:
+      process.env.NODE_ENV === "development"
+        ? {
+            messageQueue: computed(() => messageQueue.value),
+            pendingPings: computed(() => Array.from(pendingPings.value)),
+            lastHeartbeatTime: computed(() => lastHeartbeatTime.value),
+            lastMessageTime: computed(() => lastMessageTime.value),
+            activeSubscriptions: computed(() => activeSubscriptions.value),
+          }
+        : undefined,
   };
 });

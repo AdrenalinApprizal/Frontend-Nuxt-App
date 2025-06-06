@@ -52,6 +52,23 @@ const COOKIE_OPTIONS = {
 export const useAuthStore = defineStore("auth", () => {
   // Fix type definitions to allow proper values
   const user = ref<User | null>(null);
+
+  // TEMPORARY: Add test user data for debugging
+  if (process.client && !user.value) {
+    user.value = {
+      id: "test-current-user-id",
+      email: "test@example.com",
+      name: "Test User",
+      username: "testuser",
+      first_name: "Test",
+      last_name: "User",
+      phone_number: "+1234567890",
+      about_me: "Test user for debugging",
+      profile_picture_url: "",
+    };
+    console.log("🧪 [Auth] Added temporary test user:", user.value);
+  }
+
   const isAuthenticated = computed(() => !!user.value);
   const token = ref<string | null>(null);
 
@@ -516,29 +533,49 @@ export const useAuthStore = defineStore("auth", () => {
   async function init() {
     if (process.client) {
       try {
-        console.log("Initializing auth state...");
+        console.log("🔐 [Auth] Initializing auth state...");
 
         // First try to get token from cookie
         const cookieToken = getTokenFromCookie();
-        console.log("Cookie token exists:", !!cookieToken);
+        console.log("🍪 [Auth] Cookie token exists:", !!cookieToken);
+        if (cookieToken) {
+          console.log(
+            "🍪 [Auth] Cookie token value:",
+            cookieToken.substring(0, 20) + "..."
+          );
+        }
 
         // Then try to get user data from localStorage
         const storedUser = localStorage.getItem("auth_user");
-        console.log("Stored user exists:", !!storedUser);
+        console.log("💾 [Auth] Stored user exists:", !!storedUser);
+        if (storedUser) {
+          console.log("💾 [Auth] Stored user data:", JSON.parse(storedUser));
+        }
+
+        // Also check document.cookie directly
+        console.log("🍪 [Auth] All cookies:", document.cookie);
+        console.log(
+          "🍪 [Auth] Auth token in cookies:",
+          document.cookie.includes("auth_token=")
+        );
 
         if (cookieToken && storedUser) {
           // Set token and user immediately for faster reactivity
           token.value = cookieToken;
           user.value = JSON.parse(storedUser) as User;
 
-          console.log("Auth state initialized from storage:", !!user.value);
+          console.log(
+            "✅ [Auth] Auth state initialized from storage:",
+            !!user.value
+          );
+          console.log("👤 [Auth] User data:", user.value);
 
           // Wait slightly to allow reactivity to update
           await nextTick();
 
           // Optionally fetch the latest user data from the server asynchronously
           getUserInfo().catch((error) => {
-            console.warn("Failed to refresh user data:", error);
+            console.warn("⚠️ [Auth] Failed to refresh user data:", error);
             // If token is invalid, log the user out
             if (
               error.message.includes("token") ||
@@ -551,7 +588,15 @@ export const useAuthStore = defineStore("auth", () => {
           return true;
         } else {
           // If we don't have both token and user data, clear everything for consistency
-          console.log("No valid auth data found, logging out");
+          console.log(
+            "❌ [Auth] No valid auth data found, user will remain null"
+          );
+          console.log(
+            "❌ [Auth] Missing - Cookie token:",
+            !cookieToken,
+            "Stored user:",
+            !storedUser
+          );
           logout();
           return false;
         }

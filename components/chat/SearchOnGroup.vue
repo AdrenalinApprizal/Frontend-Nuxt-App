@@ -185,10 +185,32 @@ import { ref, computed, onMounted, watch, nextTick } from "vue";
 
 interface GroupMember {
   id: string;
+  group_id: string;
+  user_id: string;
+  role: "admin" | "member";
+  joined_at: string;
   name: string;
   status: "online" | "offline";
-  role: "admin" | "member";
+  // API response fields
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  username?: string;
+  avatar_url?: string;
+  is_owner?: boolean;
+  // Processed name fields from extractMemberName function
+  extracted_name?: string;
+  display_name?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    profile_picture_url?: string;
+    first_name?: string;
+    last_name?: string;
+  };
   avatar?: string;
+  isBlocked?: boolean;
 }
 
 const props = defineProps<{

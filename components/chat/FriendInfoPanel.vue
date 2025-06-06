@@ -25,8 +25,7 @@
         </div>
         <h2 class="text-black text-xl font-semibold">{{ displayName }}</h2>
         <p class="text-gray-500 text-sm">
-          {{ friendDetails?.status === "online" ? "Online" : "Offline" }} • Last
-          seen today at 2:45 PM
+          @{{ friendDetails?.username || friendDetails?.name || "user" }}
         </p>
       </div>
     </div>
@@ -44,42 +43,6 @@
         <div>
           <p class="text-xs text-gray-500 mb-1">Email</p>
           <p class="text-sm text-black">{{ friendDetails.email }}</p>
-        </div>
-      </div>
-
-      <div v-if="friendDetails?.phone" class="flex items-center mb-3">
-        <div
-          class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3"
-        >
-          <Icon name="fa:phone" class="h-4 w-4 text-green-500" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Phone</p>
-          <p class="text-sm text-black">{{ friendDetails.phone }}</p>
-        </div>
-      </div>
-
-      <div v-if="friendDetails?.joinDate" class="flex items-center mb-3">
-        <div
-          class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3"
-        >
-          <Icon name="fa:calendar" class="h-4 w-4 text-purple-500" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Joined</p>
-          <p class="text-sm text-black">{{ friendDetails.joinDate }}</p>
-        </div>
-      </div>
-
-      <div v-if="friendDetails?.location" class="flex items-center">
-        <div
-          class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mr-3"
-        >
-          <Icon name="fa:map-marker" class="h-4 w-4 text-red-500" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1">Location</p>
-          <p class="text-sm text-black">{{ friendDetails.location }}</p>
         </div>
       </div>
     </div>
@@ -519,6 +482,8 @@
 import { computed, ref, onMounted, watch } from "vue";
 import { useFiles } from "~/composables/useFiles";
 import { useNuxtApp } from "#app";
+import { usePresence } from "~/composables/usePresence";
+import { useFriendsStore } from "~/composables/useFriends";
 
 interface Friend {
   id: string;
@@ -530,20 +495,18 @@ interface Friend {
   profile_picture_url?: string;
   avatar?: string;
   shareSelected?: boolean;
-  status?: "online" | "offline" | "busy" | "away";
+  status?: "online" | "offline";
   phone?: string;
   joinDate?: string;
-  location?: string;
 }
 
 interface FriendDetails {
   id: string;
   name: string;
   email?: string;
-  phone?: string;
+  phone_number?: string;
   joinDate?: string;
-  location?: string;
-  status: "online" | "offline" | "busy" | "away";
+  status: "online" | "offline";
   avatar?: string;
   first_name?: string;
   last_name?: string;
@@ -719,6 +682,7 @@ async function loadUserMedia() {
     }
   } catch (err) {
     console.error("Error loading media:", err);
+    // Error is already handled in useFiles composable
   }
 }
 

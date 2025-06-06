@@ -159,8 +159,14 @@
             <div class="flex-1 min-w-0">
               <div class="flex justify-between items-start">
                 <h3 class="font-medium text-gray-900 truncate text-sm">
-                  {{ message.sender?.first_name }}
-                  {{ message.sender?.last_name }}
+                  <!-- Display name based on message type -->
+                  <template v-if="message.type === 'group'">
+                    {{ message.sender?.name }}
+                  </template>
+                  <template v-else>
+                    {{ message.sender?.first_name }}
+                    {{ message.sender?.last_name }}
+                  </template>
                 </h3>
                 <span class="text-xs text-gray-500 ml-1 whitespace-nowrap">
                   {{
@@ -175,10 +181,41 @@
 
               <div class="flex justify-between items-start mt-1">
                 <div class="flex-1">
-                  <p class="text-xs text-gray-600 truncate">
-                    {{ message.content }}
+                  <!-- For groups: show member count if no message content -->
+                  <p
+                    v-if="message.type === 'group'"
+                    class="text-xs text-gray-600 truncate"
+                  >
+                    <span
+                      v-if="
+                        message.content && message.content !== 'Group created'
+                      "
+                    >
+                      {{ message.content }}
+                    </span>
+                    <span v-else> {{ message.memberCount || 0 }} members </span>
                   </p>
-                  <!-- Unread count below message content (removed duplicate status) -->
+
+                  <!-- For friends: show @username or email -->
+                  <p v-else class="text-xs text-gray-600 truncate">
+                    <span
+                      v-if="
+                        message.content && message.content !== 'No messages yet'
+                      "
+                    >
+                      {{ message.content }}
+                    </span>
+                    <span v-else>
+                      @{{
+                        message.sender?.username ||
+                        (message.sender?.email
+                          ? message.sender.email.split("@")[0]
+                          : "user")
+                      }}
+                    </span>
+                  </p>
+
+                  <!-- Unread count below message content -->
                   <div
                     v-if="message.unreadCount && message.unreadCount > 0"
                     class="mt-1"
@@ -445,6 +482,8 @@ interface Sender {
   avatar?: string;
   first_name?: string;
   last_name?: string;
+  username?: string;
+  email?: string;
 }
 
 // Define local Message interface that extends the one from useMessages
@@ -468,6 +507,10 @@ interface Message {
   unreadCount?: number;
   type: MessageType;
   isCurrentUser?: boolean;
+  // New fields for enhanced display
+  memberCount?: number; // For groups
+  username?: string; // For friends
+  email?: string; // For friends
 }
 
 // Extended interface for User/Friend with additional properties we need
@@ -479,11 +522,11 @@ interface Friend {
   avatar?: string;
   status?: "online" | "offline";
   phone?: string;
-  location?: string;
 
   // Extended properties
   first_name?: string;
   last_name?: string;
+  username?: string;
   last_message?: any;
   unread_count?: number;
   selected?: boolean;
@@ -727,10 +770,15 @@ const refreshData = async () => {
       fetchUnreadCounts(),
     ]);
 
-    // For each friend, fetch message preview (optional)
-    if (friendsStore.friends?.length > 0) {
-      await fetchFriendMessagePreviews();
-    }
+    // Fetch message previews for both friends and groups
+    await Promise.allSettled([
+      friendsStore.friends?.length > 0
+        ? fetchFriendMessagePreviews()
+        : Promise.resolve(),
+      groupsStore.groups?.length > 0
+        ? fetchGroupMessagePreviews()
+        : Promise.resolve(),
+    ]);
 
     // Transform and combine the data
     const friendMessages = transformFriendsToMessages(
@@ -752,6 +800,15 @@ const refreshData = async () => {
 // New function to fetch message previews for each friend
 async function fetchFriendMessagePreviews() {
   try {
+    if (!friendsStore.friends || friendsStore.friends.length === 0) {
+      console.log(`⚠️ [FetchFriendPreviews] No friends to fetch previews for`);
+      return; // No friends to fetch previews for
+    }
+
+    console.log(
+      `🚀 [FetchFriendPreviews] Starting fetch for ${friendsStore.friends.length} friends`
+    );
+
     // Get message previews for each friend (last message)
     // To avoid overwhelming the server, we'll fetch previews for 5 friends at a time
     const batchSize = 5;
@@ -771,6 +828,12 @@ async function fetchFriendMessagePreviews() {
           // Cast to our Friend interface
           const typedFriend = friend as Friend;
 
+          console.log(
+            `📡 [FetchFriendPreviews] Fetching messages for friend ${
+              typedFriend.name || typedFriend.id
+            }`
+          );
+
           // Fetch the last message for this friend (limit 1)
           const response = await messagesStore.getMessages({
             target_id: typedFriend.id,
@@ -779,14 +842,37 @@ async function fetchFriendMessagePreviews() {
             limit: 1,
           });
 
-          if (response.data && response.data.length > 0) {
+          console.log(
+            `📨 [FetchFriendPreviews] Response for friend ${typedFriend.id}:`,
+            {
+              hasData: !!response?.data,
+              dataLength: response?.data?.length || 0,
+              firstMessage: response?.data?.[0],
+            }
+          );
+
+          if (response?.data && response.data.length > 0) {
             // Update the friend object with last message data
             typedFriend.last_message = response.data[0];
             messagePreviewsFound++;
+
+            console.log(
+              `✅ [FetchFriendPreviews] Updated friend ${typedFriend.id} with message:`,
+              response.data[0].content
+            );
+          } else {
+            console.log(
+              `❌ [FetchFriendPreviews] No messages found for friend ${typedFriend.id}`
+            );
           }
+
           return typedFriend;
         } catch (error) {
           // Silent fail and return the friend even if preview fetch fails
+          console.warn(
+            `Failed to fetch message preview for friend ${friend.id}:`,
+            error
+          );
           return friend;
         }
       });
@@ -794,8 +880,105 @@ async function fetchFriendMessagePreviews() {
       // Wait for the current batch to complete before processing the next batch
       await Promise.all(batchPromises);
     }
+
+    console.log(
+      `✅ [MessagesList] Fetched ${messagePreviewsFound} friend message previews`
+    );
   } catch (err) {
     // Continue without message previews if they fail
+    console.warn("Failed to fetch friend message previews:", err);
+  }
+}
+
+// New function to fetch message previews for each group
+async function fetchGroupMessagePreviews() {
+  try {
+    if (!groupsStore.groups || groupsStore.groups.length === 0) {
+      console.log(`⚠️ [FetchGroupPreviews] No groups to fetch previews for`);
+      return; // No groups to fetch previews for
+    }
+
+    console.log(
+      `🚀 [FetchGroupPreviews] Starting fetch for ${groupsStore.groups.length} groups`
+    );
+
+    // Get message previews for each group (last message)
+    // To avoid overwhelming the server, we'll fetch previews for 5 groups at a time
+    const batchSize = 5;
+    const batches = [];
+
+    // Split groups into batches
+    for (let i = 0; i < groupsStore.groups.length; i += batchSize) {
+      batches.push(groupsStore.groups.slice(i, i + batchSize));
+    }
+
+    // Process each batch sequentially
+    let messagePreviewsFound = 0;
+
+    for (const batch of batches) {
+      const batchPromises = batch.map(async (group) => {
+        try {
+          // Cast to our Group interface
+          const typedGroup = group as Group;
+
+          console.log(
+            `📡 [FetchGroupPreviews] Fetching messages for group ${
+              typedGroup.name || typedGroup.id
+            }`
+          );
+
+          // Fetch the last message for this group (limit 1)
+          const response = await groupsStore.getGroupMessages(
+            typedGroup.id,
+            1,
+            1
+          );
+
+          console.log(
+            `📨 [FetchGroupPreviews] Response for group ${typedGroup.id}:`,
+            {
+              hasData: !!response?.data,
+              dataLength: response?.data?.length || 0,
+              firstMessage: response?.data?.[0],
+            }
+          );
+
+          if (response?.data && response.data.length > 0) {
+            // Update the group object with last message data
+            typedGroup.last_message = response.data[0];
+            messagePreviewsFound++;
+
+            console.log(
+              `✅ [FetchGroupPreviews] Updated group ${typedGroup.id} with message:`,
+              response.data[0].content
+            );
+          } else {
+            console.log(
+              `❌ [FetchGroupPreviews] No messages found for group ${typedGroup.id}`
+            );
+          }
+
+          return typedGroup;
+        } catch (error) {
+          // Silent fail and return the group even if preview fetch fails
+          console.warn(
+            `Failed to fetch message preview for group ${group.id}:`,
+            error
+          );
+          return group;
+        }
+      });
+
+      // Wait for the current batch to complete before processing the next batch
+      await Promise.all(batchPromises);
+    }
+
+    console.log(
+      `✅ [MessagesList] Fetched ${messagePreviewsFound} group message previews`
+    );
+  } catch (err) {
+    // Continue without message previews if they fail
+    console.warn("Failed to fetch group message previews:", err);
   }
 }
 
@@ -930,7 +1113,7 @@ onMounted(async () => {
     );
 
     // Set up event listeners
-    eventBus.on("direct-message", () => {
+    eventBus.on("private-message", () => {
       refreshData();
     });
 
@@ -956,7 +1139,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   // Clean up event listeners
-  eventBus.off("direct-message");
+  eventBus.off("private-message");
   eventBus.off("group-message");
   eventBus.off("refresh-messages");
   eventBus.off("unread-counts-updated");
@@ -967,11 +1150,30 @@ onUnmounted(() => {
   }
 });
 
+// Import centralized timestamp utilities
+import { formatMessageTimestamp } from "~/utils/timestampHelper";
+
 // Utility functions
 function formatTimestamp(dateString: string): string {
   try {
+    // Use centralized utility for consistent timestamp formatting
+    // For messages list, we want to show time for recent messages, relative time for older ones
     const date = new Date(dateString);
-    return formatDistanceToNow(date, { addSuffix: true });
+    const now = new Date();
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+
+    if (diffInHours < 24) {
+      // For messages from today, show time in HH.MM format
+      return formatMessageTimestamp({ timestamp: dateString, format: "time" });
+    } else {
+      // For older messages, show relative time
+      return formatMessageTimestamp({
+        timestamp: dateString,
+        format: "relative",
+      });
+    }
   } catch (error) {
     return dateString;
   }
@@ -984,13 +1186,28 @@ function transformGroupsToMessages(groups: any[]): Message[] {
     const typedGroup = group as Group;
     const lastMessage = typedGroup.last_message;
 
-    let content = "No messages yet";
+    let content = "";
     let timestamp = "Never";
 
+    console.log(`🔍 [TransformGroups] Group ${typedGroup.name}:`, {
+      hasLastMessage: !!lastMessage,
+      lastMessageContent: lastMessage?.content,
+      lastMessageSender: lastMessage?.sender_name || lastMessage?.sender?.name,
+      groupId: typedGroup.id,
+    });
+
     if (lastMessage && lastMessage.content) {
-      content = `${lastMessage.sender_name || "Someone"}: ${
-        lastMessage.content
-      }`;
+      // Format the message content with sender name
+      const senderName =
+        lastMessage.sender_name || lastMessage.sender?.name || "Someone";
+
+      // Truncate long messages for preview
+      const messageContent =
+        lastMessage.content.length > 50
+          ? lastMessage.content.substring(0, 50) + "..."
+          : lastMessage.content;
+
+      content = `${senderName}: ${messageContent}`;
 
       // Try different timestamp fields that might be in the API response
       const messageTimestamp =
@@ -1013,6 +1230,7 @@ function transformGroupsToMessages(groups: any[]): Message[] {
       content: content,
       timestamp: timestamp,
       unreadCount: typedGroup.unread_count || 0,
+      memberCount: typedGroup.member_count || 0,
       type: "group",
     };
   });
@@ -1033,11 +1251,23 @@ function transformFriendsToMessages(friends: any[]): Message[] {
     const lastMessage = typedFriend.last_message;
     const hasMessage = !!lastMessage;
 
-    let content = "No messages yet";
+    let content = "";
     let timestamp = "Never";
 
+    console.log(`🔍 [TransformFriends] Friend ${fullName}:`, {
+      hasLastMessage: hasMessage,
+      lastMessageContent: lastMessage?.content,
+      friendId: typedFriend.id,
+    });
+
     if (hasMessage && lastMessage.content) {
-      content = lastMessage.content;
+      // Truncate long messages for preview
+      const messageContent =
+        lastMessage.content.length > 60
+          ? lastMessage.content.substring(0, 60) + "..."
+          : lastMessage.content;
+
+      content = messageContent;
 
       // Try different timestamp fields that might be in the API response
       const messageTimestamp =
@@ -1055,6 +1285,8 @@ function transformFriendsToMessages(friends: any[]): Message[] {
         avatar: typedFriend.profile_picture_url || typedFriend.avatar,
         first_name: firstName,
         last_name: lastName,
+        username: typedFriend.username,
+        email: typedFriend.email,
       },
       content: content,
       timestamp: timestamp,

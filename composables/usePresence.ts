@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useNuxtApp } from "#app";
 
 // Define user presence status type
-type PresenceStatus = "online" | "offline" | "busy" | "away";
+type PresenceStatus = "online" | "offline";
 
 // Define UserPresence interface
 interface UserPresence {
@@ -225,19 +225,53 @@ export const usePresenceStore = defineStore("presence", () => {
     error.value = null;
 
     try {
-      // Convert array to comma-separated string
-      const userIdsParam = userIds.join(",");
+      if (!userIds || userIds.length === 0) {
+        console.log(`[Presence] No user IDs provided, skipping request`);
+        return { data: [] };
+      }
 
-      console.log(`[Presence] Getting status for users: ${userIdsParam}`);
       console.log(
-        `[Presence] Request URL: ${PRESENCE_PATH}/users?user_ids=${userIdsParam}`
+        `[Presence] Getting status for ${userIds.length} users: ${userIds.join(
+          ", "
+        )}`
       );
 
-      const response = await $api.get(
-        `${PRESENCE_PATH}/users?user_ids=${userIdsParam}`,
-        {
-          credentials: "include",
-        }
+      // Create base URL with path (without query params)
+      const baseRequestUrl = `${PRESENCE_PATH}/users`;
+      let requestUrl: string;
+      let response;
+
+      // Handle different cases based on number of user IDs
+      if (userIds.length > 1) {
+        // For multiple IDs, manually construct a properly encoded query string
+        const idsString = userIds.map((id) => encodeURIComponent(id)).join(",");
+
+        // For debugging, show what we're sending
+        console.log(
+          `[Presence] Multiple user IDs (${userIds.length}), encoded as: ${idsString}`
+        );
+
+        // Make direct API call with manually constructed URL to ensure proper encoding
+        requestUrl = `${baseRequestUrl}?user_ids=${idsString}`;
+      } else {
+        // With just one ID, use URLSearchParams for proper encoding
+        const params = new URLSearchParams();
+        params.append("user_ids", userIds[0]);
+
+        // Construct the URL with properly encoded parameters
+        requestUrl = `${baseRequestUrl}?${params.toString()}`;
+      }
+
+      console.log(`[Presence] Final request URL: ${requestUrl}`);
+
+      // Make the API call
+      response = await $api.get(requestUrl, {
+        credentials: "include",
+      });
+
+      console.log(
+        `[Presence] Got status response for ${userIds.length} users:`,
+        response
       );
 
       // Update local cache of user statuses
@@ -252,6 +286,14 @@ export const usePresenceStore = defineStore("presence", () => {
       const errorMsg = err.message || "Failed to get users status";
       error.value = errorMsg;
       console.error("[Presence] Error getting users status:", err);
+
+      // Add more detailed diagnostic information
+      console.error("[Presence] Error context:", {
+        userIds: userIds,
+        endpoint: PRESENCE_PATH,
+        apiInstance: !!$api,
+      });
+
       return {
         error: true,
         message: errorMsg,
@@ -314,26 +356,11 @@ export const usePresenceStore = defineStore("presence", () => {
     const connect = (): void => {
       try {
         console.log("[Presence] Attempting WebSocket connection...");
-        // Use the proxy path for WebSocket connection
-        // If we're in development mode, try both localhost and the dynamic hostname
-        let wsUrl;
 
-        // Determine if we're running in development mode
-        const isDev =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1";
-
-        if (isDev) {
-          // In development, try to use the same hostname as the current page
-          const protocol =
-            window.location.protocol === "https:" ? "wss:" : "ws:";
-          const host = window.location.host; // This includes hostname:port
-          wsUrl = `${protocol}//${host}/api/proxy/presence/ws?token=${token}`;
-          console.log("[Presence] Using proxied WebSocket URL:", wsUrl);
-        } else {
-          wsUrl = `ws://localhost:8085/presence/ws?token=${token}`;
-          console.log("[Presence] Using direct WebSocket URL:", wsUrl);
-        }
+        // WebSocket connections cannot go through the H3 proxy, so we connect directly to the backend service
+        // This is necessary because WebSocket upgrades require special handling that the HTTP proxy doesn't support
+        const wsUrl = `ws://localhost:8085/api/presence/ws?token=${token}`;
+        console.log("[Presence] Using direct WebSocket URL:", wsUrl);
 
         // Log presence connection attempt
         console.log("[Presence] Attempting WebSocket connection to:", wsUrl);

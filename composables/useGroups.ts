@@ -36,11 +36,23 @@ interface GroupMember {
   user_id: string;
   role: "admin" | "member";
   joined_at: string;
+  // API response fields
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  username?: string;
+  avatar_url?: string;
+  is_owner?: boolean;
+  // Processed name fields from extractMemberName function
+  extracted_name?: string;
+  display_name?: string;
   user?: {
     id: string;
     name: string;
     email: string;
     profile_picture_url?: string;
+    first_name?: string;
+    last_name?: string;
   };
 }
 
@@ -124,6 +136,181 @@ export const useGroupsStore = defineStore("groups", () => {
   // Get Nuxt app instance for access to API and toast functionality
   const nuxtApp = useNuxtApp();
   const { $api, $toast } = nuxtApp;
+
+  /**
+   * Helper function to extract name from member object with multiple fallbacks
+   * Enhanced to prioritize full_name from the API response structure
+   */
+  function extractMemberName(member: any): string {
+    // Simplified logging for better performance
+    console.log(
+      `🔍 [extractMemberName] Processing member ID:`,
+      member.id || member.user_id
+    );
+
+    // Handle invalid member objects
+    if (!member || typeof member !== "object") {
+      console.warn(`⚠️ [extractMemberName] Invalid member object:`, member);
+      return "Unknown User";
+    }
+
+    // 1. DIRECT APPROACH: Check member.id or member.user_id to see if it's a string ID
+    if (typeof member === "string") {
+      return `User ${member.substring(0, 8)}...`;
+    }
+
+    // 2. PRIORITY: full_name field from API response structure
+    // Based on /groups/{id}/members API endpoint that returns { "full_name": "string" }
+    if (
+      member.full_name &&
+      typeof member.full_name === "string" &&
+      member.full_name.trim()
+    ) {
+      console.log(
+        `✅ [extractMemberName] Found full_name from API: "${member.full_name}"`
+      );
+      return member.full_name.trim();
+    }
+
+    // 3. FALLBACK: FIRST+LAST NAME APPROACH - combine first and last name
+    // First try direct properties
+    if (member.first_name && member.last_name) {
+      const fullName = `${member.first_name} ${member.last_name}`.trim();
+      console.log(
+        `✅ [extractMemberName] Found name from first_name+last_name: "${fullName}"`
+      );
+      return fullName;
+    }
+
+    // Then try nested user object
+    if (member.user && member.user.first_name && member.user.last_name) {
+      const fullName =
+        `${member.user.first_name} ${member.user.last_name}`.trim();
+      console.log(
+        `✅ [extractMemberName] Found name from user.first_name+user.last_name: "${fullName}"`
+      );
+      return fullName;
+    }
+
+    // Check nested user object for full_name
+    if (
+      member.user &&
+      member.user.full_name &&
+      typeof member.user.full_name === "string" &&
+      member.user.full_name.trim()
+    ) {
+      console.log(
+        `✅ [extractMemberName] Found user.full_name: "${member.user.full_name}"`
+      );
+      return member.user.full_name.trim();
+    }
+
+    // 4. SINGLE NAME FIELDS APPROACH: Try various single name fields in priority order
+    // First check member direct fields
+    if (member.first_name) {
+      console.log(
+        `✅ [extractMemberName] Found first_name: "${member.first_name}"`
+      );
+      return member.first_name;
+    }
+
+    if (member.name) {
+      console.log(`✅ [extractMemberName] Found name: "${member.name}"`);
+      return member.name;
+    }
+
+    if (member.username) {
+      console.log(
+        `✅ [extractMemberName] Found username: "${member.username}"`
+      );
+      return member.username;
+    }
+
+    // Then try user nested fields
+    if (member.user) {
+      if (member.user.first_name) {
+        console.log(
+          `✅ [extractMemberName] Found user.first_name: "${member.user.first_name}"`
+        );
+        return member.user.first_name;
+      }
+
+      if (member.user.name) {
+        console.log(
+          `✅ [extractMemberName] Found user.name: "${member.user.name}"`
+        );
+        return member.user.name;
+      }
+
+      if (member.user.full_name) {
+        console.log(
+          `✅ [extractMemberName] Found user.full_name: "${member.user.full_name}"`
+        );
+        return member.user.full_name;
+      }
+
+      if (member.user.username) {
+        console.log(
+          `✅ [extractMemberName] Found user.username: "${member.user.username}"`
+        );
+        return member.user.username;
+      }
+
+      if (member.user.email) {
+        const emailName = member.user.email.split("@")[0];
+        console.log(
+          `✅ [extractMemberName] Using user.email username: "${emailName}"`
+        );
+        return emailName;
+      }
+    }
+
+    // 4. EMAIL APPROACH: Use email username if available
+    if (member.email) {
+      const emailName = member.email.split("@")[0];
+      console.log(
+        `✅ [extractMemberName] Using email username: "${emailName}"`
+      );
+      return emailName;
+    }
+
+    // 5. ID APPROACH: Fall back to user IDs
+    if (member.user_id) {
+      console.log(`🆔 [extractMemberName] Using user_id: "${member.user_id}"`);
+      return `User ${member.user_id.substring(0, 8)}...`;
+    }
+
+    if (member.id) {
+      console.log(`🆔 [extractMemberName] Using id: "${member.id}"`);
+      return `User ${member.id.substring(0, 8)}...`;
+    }
+
+    // 6. CUSTOM FIELD SEARCH: If all else fails, try to find any field that might be a name
+    const possibleFields = Object.keys(member).filter(
+      (key) =>
+        typeof member[key] === "string" &&
+        member[key].length > 0 &&
+        key !== "role" &&
+        key !== "group_id" &&
+        !key.includes("_at") &&
+        !key.includes("_url")
+    );
+
+    if (possibleFields.length > 0) {
+      const field = possibleFields[0];
+      console.log(
+        `⚠️ [extractMemberName] Using custom field ${field}: "${member[field]}"`
+      );
+      return member[field];
+    }
+
+    console.warn(`⚠️ [extractMemberName] No name found for member:`, {
+      memberId: member.id || member.user_id,
+      availableFields: Object.keys(member),
+    });
+
+    return "Unknown User";
+  }
 
   /**
    * Fetch all groups for the current user
@@ -348,20 +535,133 @@ export const useGroupsStore = defineStore("groups", () => {
     error.value = null;
 
     try {
+      // Use the correct endpoint as per API documentation: /groups/{groupId}/members
       const data = await $api.get(`/groups/${groupId}/members?page=${page}`);
 
-      if (page === 1 || page <= 0) {
-        groupMembers.value = data.data || [];
-      } else {
-        // Append new members to existing list for pagination
-        groupMembers.value = [...groupMembers.value, ...(data.data || [])];
+      console.log(`📊 [Groups] API Response for getGroupMembers:`, {
+        data: data,
+        membersArray: data.members,
+        dataArray: data.data,
+        sampleMember: data.members?.[0] || data.data?.[0],
+      });
+
+      // More detailed logging for debugging member name extraction
+      console.log(`🔍 [Groups] DETAILED API RESPONSE ANALYSIS:`);
+      console.log(
+        `🔍 [Groups] Full Response Structure:`,
+        JSON.stringify(data, null, 2)
+      );
+
+      if (data.members && data.members.length > 0) {
+        console.log(
+          `🔍 [Groups] First Member Full Object:`,
+          JSON.stringify(data.members[0], null, 2)
+        );
+        console.log(`🔍 [Groups] Available name fields in first member:`, {
+          first_name: data.members[0].first_name,
+          last_name: data.members[0].last_name,
+          full_name: data.members[0].full_name,
+          name: data.members[0].name,
+          username: data.members[0].username,
+          user: data.members[0].user,
+        });
       }
 
-      // Update pagination info
+      if (data.data && data.data.length > 0) {
+        console.log(
+          `🔍 [Groups] First Data Member Full Object:`,
+          JSON.stringify(data.data[0], null, 2)
+        );
+        console.log(`🔍 [Groups] Available name fields in first data member:`, {
+          first_name: data.data[0].first_name,
+          last_name: data.data[0].last_name,
+          full_name: data.data[0].full_name,
+          name: data.data[0].name,
+          username: data.data[0].username,
+          user: data.data[0].user,
+        });
+      }
+
+      // Check if the response has the expected structure based on API docs
+      if (data.members && Array.isArray(data.members)) {
+        console.log(
+          `📊 [Groups] Found members array with ${data.members.length} members`
+        );
+        console.log(`📊 [Groups] First member structure:`, data.members[0]);
+
+        // Process members and extract proper names
+        const processedMembers = data.members.map((member: any) => {
+          const extractedName = extractMemberName(member);
+          console.log(
+            `📊 [Groups] Member ${member.id} name extracted: "${extractedName}" from:`,
+            {
+              first_name: member.first_name,
+              last_name: member.last_name,
+              full_name: member.full_name,
+              username: member.username,
+              user: member.user,
+            }
+          );
+
+          return {
+            ...member,
+            extracted_name: extractedName,
+            display_name: extractedName,
+          };
+        });
+
+        if (page === 1 || page <= 0) {
+          groupMembers.value = processedMembers;
+        } else {
+          // Append new members to existing list for pagination
+          groupMembers.value = [...groupMembers.value, ...processedMembers];
+        }
+      } else if (data.data && Array.isArray(data.data)) {
+        console.log(
+          `📊 [Groups] Found data array with ${data.data.length} members`
+        );
+        console.log(`📊 [Groups] First member structure:`, data.data[0]);
+
+        // Process members and extract proper names
+        const processedMembers = data.data.map((member: any) => {
+          const extractedName = extractMemberName(member);
+          console.log(
+            `📊 [Groups] Member ${member.id} name extracted: "${extractedName}" from:`,
+            {
+              first_name: member.first_name,
+              last_name: member.last_name,
+              full_name: member.full_name,
+              username: member.username,
+              user: member.user,
+            }
+          );
+
+          return {
+            ...member,
+            extracted_name: extractedName,
+            display_name: extractedName,
+          };
+        });
+
+        // Fallback for different response structure
+        if (page === 1 || page <= 0) {
+          groupMembers.value = processedMembers;
+        } else {
+          groupMembers.value = [...groupMembers.value, ...processedMembers];
+        }
+      } else {
+        console.warn("⚠️ [Groups] Unexpected response structure:", data);
+        groupMembers.value = [];
+      }
+
+      // Update pagination info if available
       if (data.pagination) {
         membersPagination.value = data.pagination;
       }
 
+      console.log(
+        `📊 [Groups] Loaded ${groupMembers.value.length} members for group ${groupId}`
+      );
       return data;
     } catch (err: any) {
       error.value = err.message || "Failed to fetch group members";
@@ -470,37 +770,54 @@ export const useGroupsStore = defineStore("groups", () => {
     page = 1,
     limit = 20
   ): Promise<ApiResponse> {
-    console.log(`[useGroups] Getting messages for group ${groupId}, page ${page}, limit ${limit}`);
+    console.log(
+      `[useGroups] Getting messages for group ${groupId}, page ${page}, limit ${limit}`
+    );
     isLoading.value = true;
     error.value = null;
 
     try {
       console.log(`[useGroups] Making API call to /groups/${groupId}/messages`);
       const startTime = performance.now();
-      
+
       const data = await $api.get(
         `/groups/${groupId}/messages?page=${page}&limit=${limit}`
       );
-      
+
       const endTime = performance.now();
-      console.log(`[useGroups] API call completed in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log(
+        `[useGroups] API call completed in ${(endTime - startTime).toFixed(
+          2
+        )}ms`
+      );
       console.log(`[useGroups] Retrieved ${data?.data?.length || 0} messages`);
-      
+
       if (data && data.data) {
-        console.log(`[useGroups] First message:`, 
-          data.data.length > 0 ? {
-            id: data.data[0].id,
-            content: data.data[0].content?.substring(0, 20) + '...',
-            sender_id: data.data[0].sender_id,
-          } : 'none'
+        console.log(
+          `[useGroups] First message:`,
+          data.data.length > 0
+            ? {
+                id: data.data[0].id,
+                content: data.data[0].content?.substring(0, 20) + "...",
+                sender_id: data.data[0].sender_id,
+              }
+            : "none"
         );
       }
 
       if (page === 1 || page <= 0) {
-        console.log(`[useGroups] Replacing groupMessages with ${data?.data?.length || 0} new messages`);
+        console.log(
+          `[useGroups] Replacing groupMessages with ${
+            data?.data?.length || 0
+          } new messages`
+        );
         groupMessages.value = data.data || [];
       } else {
-        console.log(`[useGroups] Adding ${data?.data?.length || 0} older messages to existing ${groupMessages.value.length}`);
+        console.log(
+          `[useGroups] Adding ${
+            data?.data?.length || 0
+          } older messages to existing ${groupMessages.value.length}`
+        );
         // For pagination, older messages are usually added at the beginning
         groupMessages.value = [...(data.data || []), ...groupMessages.value];
       }
@@ -510,7 +827,7 @@ export const useGroupsStore = defineStore("groups", () => {
         console.log(`[useGroups] Updated pagination:`, {
           current_page: data.pagination.current_page,
           total_pages: data.pagination.total_pages,
-          has_more_pages: data.pagination.has_more_pages
+          has_more_pages: data.pagination.has_more_pages,
         });
         messagesPagination.value = data.pagination;
       }
@@ -518,10 +835,15 @@ export const useGroupsStore = defineStore("groups", () => {
       return data;
     } catch (err: any) {
       error.value = err.message || "Failed to fetch group messages";
-      console.error(`[useGroups] Error fetching messages for group ${groupId}:`, err);
+      console.error(
+        `[useGroups] Error fetching messages for group ${groupId}:`,
+        err
+      );
       throw err;
     } finally {
-      console.log(`[useGroups] Finished getGroupMessages, setting isLoading to false`);
+      console.log(
+        `[useGroups] Finished getGroupMessages, setting isLoading to false`
+      );
       isLoading.value = false;
     }
   }
@@ -552,34 +874,50 @@ export const useGroupsStore = defineStore("groups", () => {
     type = "text"
   ): Promise<ApiResponse> {
     console.log(`[useGroups] Sending message to group ${groupId}`);
-    console.log(`[useGroups] Message content: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`);
-    
+    console.log(
+      `[useGroups] Message content: ${content.substring(0, 20)}${
+        content.length > 20 ? "..." : ""
+      }`
+    );
+
     isLoading.value = true;
     error.value = null;
 
     try {
       console.log(`[useGroups] Making API call to /groups/${groupId}/messages`);
       const startTime = performance.now();
-      
+
       const data = await $api.post(`/groups/${groupId}/messages`, {
         content,
         type,
       });
-      
+
       const endTime = performance.now();
-      console.log(`[useGroups] Message sent in ${(endTime - startTime).toFixed(2)}ms`);
-      console.log(`[useGroups] API response:`, data ? {
-        message: data.message,
-        dataPresent: !!data.data,
-      } : 'null response');
+      console.log(
+        `[useGroups] Message sent in ${(endTime - startTime).toFixed(2)}ms`
+      );
+      console.log(
+        `[useGroups] API response:`,
+        data
+          ? {
+              message: data.message,
+              dataPresent: !!data.data,
+            }
+          : "null response"
+      );
 
       return data;
     } catch (err: any) {
       error.value = err.message || "Failed to send message";
-      console.error(`[useGroups] Error sending message to group ${groupId}:`, err);
+      console.error(
+        `[useGroups] Error sending message to group ${groupId}:`,
+        err
+      );
       throw err;
     } finally {
-      console.log(`[useGroups] Finished sendGroupMessage, setting isLoading to false`);
+      console.log(
+        `[useGroups] Finished sendGroupMessage, setting isLoading to false`
+      );
       isLoading.value = false;
     }
   }
@@ -657,17 +995,36 @@ export const useGroupsStore = defineStore("groups", () => {
     error.value = null;
 
     try {
-      // Use blocked_user_id as per API specification
-      const data = await $api.post(`/groups/${groupId}/blocks`, {
+      console.log(
+        `🔒 [blockGroupUser] Blocking user ${userId} in group ${groupId}`
+      );
+      console.log(
+        `🔒 [blockGroupUser] PUT endpoint: /groups/${groupId}/blocks`
+      );
+      console.log(`🔒 [blockGroupUser] Body:`, { blocked_user_id: userId });
+
+      // Use PUT method as per API specification
+      const data = await $api.put(`/groups/${groupId}/blocks`, {
         blocked_user_id: userId,
       });
+
+      console.log(`✅ [blockGroupUser] Block successful:`, data);
 
       // Refresh blocked users list
       await getGroupBlocks(groupId);
       return data;
     } catch (err: any) {
+      console.error(
+        `❌ [blockGroupUser] Error blocking user ${userId} in group ${groupId}:`,
+        {
+          error: err,
+          message: err.message,
+          response: err.response,
+          data: err.data,
+        }
+      );
+
       error.value = err.message || "Failed to block user in group";
-      console.error(`Error blocking user ${userId} in group ${groupId}:`, err);
       throw err;
     } finally {
       isLoading.value = false;
@@ -685,7 +1042,17 @@ export const useGroupsStore = defineStore("groups", () => {
     error.value = null;
 
     try {
+      console.log(
+        `🔓 [unblockGroupUser] Unblocking user ${userId} from group ${groupId}`
+      );
+      console.log(
+        `🔓 [unblockGroupUser] DELETE endpoint: /groups/${groupId}/blocks/${userId}`
+      );
+
+      // Use DELETE method as per API specification
       const data = await $api.delete(`/groups/${groupId}/blocks/${userId}`);
+
+      console.log(`✅ [unblockGroupUser] Unblock successful:`, data);
 
       // Update local state by removing the blocked user
       blockedUsers.value = blockedUsers.value.filter(
@@ -693,11 +1060,17 @@ export const useGroupsStore = defineStore("groups", () => {
       );
       return data;
     } catch (err: any) {
-      error.value = err.message || "Failed to unblock user in group";
       console.error(
-        `Error unblocking user ${userId} in group ${groupId}:`,
-        err
+        `❌ [unblockGroupUser] Error unblocking user ${userId} in group ${groupId}:`,
+        {
+          error: err,
+          message: err.message,
+          response: err.response,
+          data: err.data,
+        }
       );
+
+      error.value = err.message || "Failed to unblock user in group";
       throw err;
     } finally {
       isLoading.value = false;

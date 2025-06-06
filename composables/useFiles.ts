@@ -84,17 +84,34 @@ export const useFilesStore = defineStore("files", () => {
       const response = await $api.get(endpoint);
 
       // Check if the response is valid
-      if (!response || !response.data) {
-        throw new Error("Invalid response from server");
+      if (!response) {
+        console.warn(
+          `[useFiles] No response received for media endpoint: ${endpoint}`
+        );
+        return { data: [], pagination: undefined };
       }
+
+      // Log the response structure for debugging
+      console.log(`[useFiles] Media API response structure:`, {
+        hasData: !!response.data,
+        hasPagination: !!response.pagination,
+        responseKeys: Object.keys(response),
+        dataLength: Array.isArray(response.data)
+          ? response.data.length
+          : "not array",
+      });
+
+      // Handle different response structures
+      const responseData = response.data || response;
 
       // Handle pagination differently based on page number
       if (page === 1) {
         // Replace existing data on first page
-        userMedia.value = response.data || [];
+        userMedia.value = Array.isArray(responseData) ? responseData : [];
       } else {
         // Append data for subsequent pages
-        userMedia.value = [...userMedia.value, ...(response.data || [])];
+        const newData = Array.isArray(responseData) ? responseData : [];
+        userMedia.value = [...userMedia.value, ...newData];
       }
 
       // Update pagination if available
@@ -262,7 +279,8 @@ export const useFilesStore = defineStore("files", () => {
   }
 
   /**
-   * Upload a file to the system
+   * Upload a file to the files service (port 8084) using /api/files/upload endpoint
+   * This is for general file storage, not specifically for message attachments
    * @param file - The file to upload
    * @param type - File type (attachment, profile, avatar)
    * @param relatedTo - UUID of related entity (optional)
@@ -300,7 +318,12 @@ export const useFilesStore = defineStore("files", () => {
         });
       }
 
-      const endpoint = `files/upload`;
+      console.log(
+        `[useFiles] Uploading file to files service via /api/files/upload`
+      );
+
+      // Use the files/upload endpoint on the files service (port 8084)
+      const endpoint = `api/files/upload`;
 
       // Use raw fetch for FormData
       const response = await $api.raw.post(endpoint, formData);
@@ -325,6 +348,90 @@ export const useFilesStore = defineStore("files", () => {
     } catch (err: any) {
       error.value = err.message || "Failed to upload file";
       console.error("Error uploading file:", err);
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Attach media files to messages using the messages service (port 8082)
+   * This creates a media attachment within a message context
+   * @param file - The file to attach
+   * @param messageId - ID of the message to attach media to
+   * @param conversationId - ID of the conversation (optional)
+   * @param additionalMetadata - Any other metadata to include
+   */
+  async function attachMediaToMessage(
+    file: File,
+    messageId: string,
+    conversationId?: string,
+    additionalMetadata?: Record<string, any>
+  ): Promise<{ file_url: string; media_type: string; message_id: string }> {
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      if (!file) {
+        throw new Error("No file provided");
+      }
+
+      if (!messageId) {
+        throw new Error("Message ID is required for media attachment");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("message_id", messageId);
+
+      // Add conversation ID if provided
+      if (conversationId) {
+        formData.append("conversation_id", conversationId);
+      }
+
+      // Add media type based on file type
+      formData.append("media_type", getFileTypeCategory(file.type));
+
+      // Add any additional metadata as form fields
+      if (additionalMetadata) {
+        Object.entries(additionalMetadata).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formData.append(key, String(value));
+          }
+        });
+      }
+
+      console.log(
+        `[useFiles] Attaching media to message ${messageId} via messages service`
+      );
+
+      // Use the messages/media endpoint on the messages service (port 8082)
+      const response = await $api.raw.post("messages/media", formData);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Media attachment failed: ${errorText}`);
+      }
+
+      // Safely parse JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error("Failed to parse server response");
+      }
+
+      // Check if we have a file_url in the response
+      if (!data.file_url) {
+        throw new Error(
+          "Media attachment succeeded but no file URL was returned"
+        );
+      }
+
+      return data;
+    } catch (err: any) {
+      error.value = err.message || "Failed to attach media to message";
+      console.error("Error attaching media:", err);
       throw err;
     } finally {
       isLoading.value = false;
@@ -652,6 +759,7 @@ export const useFilesStore = defineStore("files", () => {
     getGroupFiles,
     getAllFiles,
     uploadFile,
+    attachMediaToMessage,
     downloadFile,
     deleteFile,
     shareFile,

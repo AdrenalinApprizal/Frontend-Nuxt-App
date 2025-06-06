@@ -4,6 +4,11 @@ import { useAuthStore } from "./useAuth";
 import { useMessagesStore } from "./useMessages";
 import { eventBus } from "./useEventBus";
 import { useNuxtApp, useRouter } from "#app";
+import {
+  formatTimeString,
+  extractValidDate,
+  formatMessageTimestamp,
+} from "~/utils/timestampHelper";
 
 // Message types that can be sent/received via WebSocket
 export enum WebSocketMessageType {
@@ -21,9 +26,12 @@ export enum WebSocketMessageType {
 export interface WebSocketMessage {
   type: WebSocketMessageType;
   data: any;
+  _timestamp?: number;
+  _retryCount?: number;
 }
 
-export interface NewMessageData {
+// Basic message structure from the server
+export interface BaseMessageData {
   id: string;
   sender_id: string;
   recipient_id: string;
@@ -38,6 +46,30 @@ export interface NewMessageData {
     name: string;
     profile_picture_url?: string;
   };
+  recipient?: {
+    id: string;
+    name: string;
+    profile_picture_url?: string;
+  };
+}
+
+// Extended message with additional client-side properties
+export interface NewMessageData extends BaseMessageData {
+  // Additional properties used in the code
+  message_id?: string;
+  pending?: boolean;
+  sent?: boolean;
+  sent_at?: string;
+  raw_timestamp?: string;
+  timestamp?: string;
+  isCurrentUser?: boolean;
+  isEdited?: boolean;
+  isDeleted?: boolean;
+  temp_id?: string;
+  replacedTempMessage?: boolean;
+  fromWebSocket?: boolean;
+  updatedViaWebSocket?: boolean;
+  recoveredFromError?: boolean;
 }
 
 export interface UserStatusData {
@@ -166,7 +198,7 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Initialize WebSocket connections with enhanced setup
+  // Initialize WebSocket connections with enhanced setup and better error handling
   const connect = async (): Promise<void> => {
     // Validate authentication before connecting
     if (!authStore.isAuthenticated) {
@@ -174,21 +206,48 @@ export const useWebSocket = defineStore("websocket", () => {
       return;
     }
 
-    // Validate token first
-    const isTokenValid = await validateToken();
-    if (!isTokenValid) {
-      console.warn("[WebSocket] Invalid token, cannot connect");
-      return;
+    try {
+      // Validate token first
+      const isTokenValid = await validateToken();
+      if (!isTokenValid) {
+        console.warn("[WebSocket] Invalid token, cannot connect");
+        return;
+      }
+
+      // Setup network change detection
+      setupNetworkChangeDetection();
+
+      // Restore any persisted message queue
+      restoreMessageQueue();
+
+      // Connect both WebSockets - handle if either fails
+      try {
+        await Promise.all([
+          connectMessagesWebSocket(),
+          connectPresenceWebSocket(),
+        ]);
+
+        // Start periodic health checks after successful connection
+        startHealthChecks();
+      } catch (wsError) {
+        console.error("[WebSocket] Error during connection:", wsError);
+        // If one connection fails, still try to maintain the other
+        if (!isMessagesConnected.value) {
+          setTimeout(() => connectMessagesWebSocket(), 1000);
+        }
+        if (!isPresenceConnected.value) {
+          setTimeout(() => connectPresenceWebSocket(), 1500);
+        }
+      }
+    } catch (error) {
+      console.error("[WebSocket] Connection initialization error:", error);
+      // Try to reconnect after a short delay
+      setTimeout(() => {
+        if (!isMessagesConnected.value || !isPresenceConnected.value) {
+          reconnect();
+        }
+      }, 3000);
     }
-
-    // Setup network change detection
-    setupNetworkChangeDetection();
-
-    // Restore any persisted message queue
-    restoreMessageQueue();
-
-    // Connect both WebSockets
-    await Promise.all([connectMessagesWebSocket(), connectPresenceWebSocket()]);
   };
 
   // Initialize Messages WebSocket connection
@@ -414,7 +473,7 @@ export const useWebSocket = defineStore("websocket", () => {
 
       console.log("[WebSocket Messages] Received message:", message);
 
-      // Process message based on its type
+      // Process message based on its type with improved type handling
       switch (message.type) {
         case WebSocketMessageType.MESSAGE:
           handleNewMessage(message.data);
@@ -424,8 +483,24 @@ export const useWebSocket = defineStore("websocket", () => {
           handleTypingNotification(message.data);
           break;
 
+        case WebSocketMessageType.STOP_TYPING:
+          // Handle stop typing with the same handler but set is_typing to false
+          handleTypingNotification({
+            ...message.data,
+            is_typing: false,
+          });
+          break;
+
+        case WebSocketMessageType.READ:
+          handleMessageRead(message.data);
+          break;
+
         case WebSocketMessageType.UNREAD_COUNT:
           handleUnreadCount(message.data);
+          break;
+
+        case WebSocketMessageType.MESSAGE_REACTION:
+          eventBus.emit("message-reaction", message.data);
           break;
 
         case WebSocketMessageType.ERROR:
@@ -507,18 +582,68 @@ export const useWebSocket = defineStore("websocket", () => {
     });
   };
 
-  // Handle user status changes
+  // Handle user status changes with validation and throttling
   const handleStatusChange = (data: UserStatusData): void => {
-    console.log(
-      `[WebSocket Presence] User ${data.user_id} status changed to ${data.status}`
-    );
+    try {
+      // Validate required fields
+      if (!data.user_id) {
+        console.error(
+          "[WebSocket Presence] Missing user_id in status data:",
+          data
+        );
+        return;
+      }
 
-    // Emit event for components to update UI
-    eventBus.emit("user-status-changed", {
-      userId: data.user_id,
-      status: data.status,
-      lastSeen: data.last_seen,
-    });
+      // Validate status value
+      if (data.status !== "online" && data.status !== "offline") {
+        console.warn(
+          `[WebSocket Presence] Invalid status value: ${data.status}`
+        );
+        // Default to offline if invalid
+        data.status = "offline";
+      }
+
+      // Format last_seen to be consistent if present
+      let formattedLastSeen = data.last_seen;
+      if (data.last_seen) {
+        try {
+          // Use our centralized utility to extract a valid date
+          const date = extractValidDate({ raw_timestamp: data.last_seen });
+          if (date && !isNaN(date.getTime())) {
+            // Store as ISO string for consistency
+            formattedLastSeen = date.toISOString();
+          }
+        } catch (e) {
+          console.warn(
+            "[WebSocket Presence] Invalid last_seen format:",
+            data.last_seen
+          );
+        }
+      }
+
+      console.log(
+        `[WebSocket Presence] User ${data.user_id} status changed to ${data.status}`
+      );
+
+      // Emit event for components to update UI
+      const currentTimestamp = new Date().toISOString();
+      eventBus.emit("user-status-changed", {
+        userId: data.user_id,
+        status: data.status,
+        lastSeen: formattedLastSeen,
+        timestamp: currentTimestamp, // ISO string for internal use
+        // Add formatted timestamp for direct display in UI components
+        formattedLastSeen:
+          data.status === "offline" && formattedLastSeen
+            ? formatTimeString(formattedLastSeen)
+            : null,
+      });
+    } catch (error) {
+      console.error(
+        "[WebSocket Presence] Error processing status change:",
+        error
+      );
+    }
   };
 
   // Handle authentication failure
@@ -715,25 +840,77 @@ export const useWebSocket = defineStore("websocket", () => {
     }, delay);
   };
 
-  // Enhanced message sending with intelligent queuing
+  // Enhanced message sending with intelligent queuing, metadata and improved error handling
   const send = (message: WebSocketMessage): void => {
-    if (!isMessagesConnected.value || !socketMessages.value) {
-      // Queue message for when connection is established
-      console.log(
-        "[WebSocket Messages] Connection not ready, queueing message"
-      );
-      addToQueue(message);
-
-      // Try to connect if not already connecting
-      if (!isMessagesConnecting.value && !isMessagesConnected.value) {
-        connectMessagesWebSocket();
-      }
-      return;
-    }
-
     try {
+      // Add metadata for better synchronization
+      if (message.type === WebSocketMessageType.MESSAGE) {
+        // Use ISO string for consistent timestamp format
+        const clientTimestamp = new Date().toISOString();
+        const clientId = `client-${authStore.user?.id}-${Date.now()}`;
+
+        // Add critical metadata for synchronization and reliable message handling
+        message.data = {
+          ...message.data,
+          client_timestamp: clientTimestamp,
+          // Store raw_timestamp consistently for our utility functions
+          raw_timestamp: clientTimestamp,
+          client_id: clientId,
+          sender_device: "web-client",
+          client_send_time: Date.now(),
+        };
+
+        // Add message ID if none exists (temp ID until server assigns one)
+        if (!message.data.id) {
+          message.data.id = `msg-${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(2, 9)}`;
+        }
+      }
+
+      // Handle typing indicators more efficiently
+      if (
+        message.type === WebSocketMessageType.TYPING ||
+        message.type === WebSocketMessageType.STOP_TYPING
+      ) {
+        // Add timestamp to typing indicators for better debouncing
+        message.data = {
+          ...message.data,
+          timestamp: Date.now(),
+        };
+      }
+
+      if (!isMessagesConnected.value || !socketMessages.value) {
+        // Queue message for when connection is established
+        console.log(
+          "[WebSocket Messages] Connection not ready, queueing message"
+        );
+        addToQueue(message);
+
+        // Try to connect if not already connecting
+        if (!isMessagesConnecting.value && !isMessagesConnected.value) {
+          connectMessagesWebSocket();
+        }
+        return;
+      }
+
+      // Check WebSocket readyState before sending
+      if (socketMessages.value.readyState !== WebSocket.OPEN) {
+        console.warn(
+          "[WebSocket Messages] Socket not in OPEN state, queueing message"
+        );
+        addToQueue(message);
+        // Try to reconnect
+        if (!isMessagesConnecting.value) {
+          reconnect();
+        }
+        return;
+      }
+
+      // Send the message
       socketMessages.value.send(JSON.stringify(message));
       console.log("[WebSocket Messages] Message sent successfully");
+      lastMessageTime.value = Date.now(); // Update for connection quality tracking
     } catch (error) {
       console.error("[WebSocket Messages] Failed to send message:", error);
       // Add to queue to retry later
@@ -742,21 +919,335 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Process a new incoming message
+  // Process a new incoming message with improved duplicate detection and timestamp handling
   const handleNewMessage = (data: NewMessageData): void => {
     // Add the new message to the messages store
-    if (messagesStore.messages) {
-      // Check if message already exists to avoid duplicates
-      const existingMessage = messagesStore.messages.find(
-        (m) => m.id === data.id
-      );
-      if (!existingMessage) {
-        messagesStore.messages.push(data);
+    if (!messagesStore.messages) {
+      console.error("[WebSocket] Messages store not initialized");
+      return;
+    }
 
-        // Show notification for new messages if not from the current user
-        if (data.sender_id !== authStore.user?.id && $toast) {
-          $toast.info(`New message from ${data.sender?.name || "User"}`);
+    try {
+      // Ensure data.id exists to prevent potential issues
+      if (!data.id) {
+        console.warn("[WebSocket] Received message without ID:", data);
+        data.id = `ws-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      // Ensure sender_id exists
+      if (!data.sender_id) {
+        console.warn("[WebSocket] Received message without sender_id:", data);
+        data.sender_id = data.sender?.id || "unknown-sender";
+      }
+
+      // Enhanced duplicate detection - check by ID and also similar content
+      const existingMessage = messagesStore.messages.find(
+        (m) => m.id === data.id || m.message_id === data.id
+      );
+
+      // Look for potential temporary message that this real message should replace
+      const tempMessageIndex = messagesStore.messages.findIndex((m) => {
+        // First check if this is a temp message
+        const isTempMessage =
+          m.id &&
+          (m.id.startsWith("temp-") ||
+            m.id.startsWith("msg-") ||
+            m.pending === true);
+
+        if (!isTempMessage) return false;
+
+        // Next, check if this is from the current user
+        if (m.sender_id !== authStore.user?.id) return false;
+
+        // Check content match with normalization
+        const normalizedMsgContent = (m.content || "")
+          .trim()
+          .replace(/\s+/g, " ");
+        const normalizedNewContent = (data.content || "")
+          .trim()
+          .replace(/\s+/g, " ");
+
+        // Exact content match
+        if (normalizedMsgContent === normalizedNewContent) {
+          return true;
         }
+
+        // Partial content match for longer messages
+        if (
+          normalizedMsgContent.length > 10 &&
+          normalizedNewContent.length > 10
+        ) {
+          // If one content contains the other, likely the same message
+          if (
+            normalizedMsgContent.includes(normalizedNewContent) ||
+            normalizedNewContent.includes(normalizedMsgContent)
+          ) {
+            return true;
+          }
+        }
+
+        // Check if the message was sent recently (within last 45 seconds)
+        const messageTime = new Date(
+          m.sent_at || m.created_at || m.raw_timestamp || new Date()
+        ).getTime();
+        return Date.now() - messageTime < 45000;
+      });
+
+      if (existingMessage) {
+        // Update existing message with any new fields
+        console.log(`[WebSocket] Updating existing message: ${data.id}`);
+
+        // Find the index and update
+        const idx = messagesStore.messages.findIndex(
+          (m) => m.id === data.id || m.message_id === data.id
+        );
+        if (idx !== -1) {
+          // Preserve some fields from the existing message if they're better
+          const preservedTimestamp =
+            existingMessage.raw_timestamp || existingMessage.sent_at;
+          const messageTimestamp =
+            preservedTimestamp ||
+            data.created_at ||
+            data.sent_at ||
+            new Date().toISOString();
+
+          // Use our helper functions for reliable timestamp handling
+          const date = extractValidDate({
+            raw_timestamp: messageTimestamp,
+          });
+
+          // Preserve existing timestamp for UI consistency when possible
+          // Use formatMessageTimestamp for consistent formatting across the app
+          const formattedTimestamp =
+            existingMessage.timestamp ||
+            formatMessageTimestamp({
+              raw_timestamp: messageTimestamp,
+            });
+
+          messagesStore.messages[idx] = {
+            ...messagesStore.messages[idx],
+            ...data,
+            // Keep important fields for consistency
+            raw_timestamp: messageTimestamp,
+            timestamp: formattedTimestamp,
+            sent: true,
+            pending: false,
+            message_id: data.id, // Make sure message_id is consistent
+            // Mark as updated via WebSocket
+            updatedViaWebSocket: true,
+          };
+        }
+      } else if (
+        tempMessageIndex !== -1 &&
+        authStore.user?.id === data.sender_id
+      ) {
+        // Replace temp message with real message
+        console.log(`[WebSocket] Replacing temporary message with: ${data.id}`);
+
+        // Get the original temp message
+        const tempMessage = messagesStore.messages[tempMessageIndex];
+        const tempId = tempMessage.id;
+
+        // Determine best timestamp to use (prefer temp message timestamp for UI consistency)
+        const messageTimestamp =
+          tempMessage.raw_timestamp ||
+          data.sent_at ||
+          data.created_at ||
+          new Date().toISOString();
+
+        // Format timestamp for display using our helper function
+        // Try to keep the existing timestamp for UI consistency or generate a new one
+        const formattedTimestamp =
+          tempMessage.timestamp ||
+          formatMessageTimestamp({
+            raw_timestamp: messageTimestamp,
+          });
+
+        // Create enhanced message with all necessary fields
+        const enhancedMessage = {
+          ...data,
+          // Preserve the "isCurrentUser" flag to ensure consistent display
+          isCurrentUser: tempMessage.isCurrentUser,
+          // Store the original temp ID as a reference for better sync
+          temp_id: tempId,
+          sent: true,
+          pending: false,
+          // Ensure consistent timestamp handling
+          raw_timestamp: messageTimestamp,
+          timestamp: formattedTimestamp,
+          message_id: data.id,
+          // Flag to indicate this replaced a temp message
+          replacedTempMessage: true,
+        };
+
+        // Replace the temp message
+        messagesStore.messages[tempMessageIndex] = enhancedMessage;
+
+        // Emit an event that temp message was replaced for components that need to know
+        eventBus.emit("temp-message-replaced", {
+          tempId,
+          realId: data.id,
+          content: data.content,
+        });
+      } else {
+        // Check one more time for duplicates by content and sender
+        const contentMatch = messagesStore.messages.find((m) => {
+          // Don't match already deleted messages
+          if (m.isDeleted) return false;
+
+          // Match by content with normalization
+          const normalizedMsgContent = (m.content || "")
+            .trim()
+            .replace(/\s+/g, " ");
+          const normalizedNewContent = (data.content || "")
+            .trim()
+            .replace(/\s+/g, " ");
+
+          // Must be from same sender
+          if (m.sender_id !== data.sender_id) return false;
+
+          // Content must match closely
+          const contentMatches =
+            normalizedMsgContent === normalizedNewContent ||
+            (normalizedMsgContent.length > 10 &&
+              normalizedNewContent.length > 10 &&
+              (normalizedMsgContent.includes(normalizedNewContent) ||
+                normalizedNewContent.includes(normalizedMsgContent)));
+
+          if (!contentMatches) return false;
+
+          // Check for messages sent within the last minute
+          try {
+            const msgTime = new Date(
+              m.sent_at || m.created_at || m.raw_timestamp || ""
+            ).getTime();
+            const dataTime = new Date(
+              data.sent_at || data.created_at || ""
+            ).getTime();
+            return (
+              !isNaN(msgTime) &&
+              !isNaN(dataTime) &&
+              Math.abs(msgTime - dataTime) < 60000
+            );
+          } catch (e) {
+            return false;
+          }
+        });
+
+        if (contentMatch) {
+          // This is likely a duplicate message from different sources, update it instead
+          console.log(
+            `[WebSocket] Found duplicate message by content, updating instead of adding new`
+          );
+
+          // Find the index of the matching message
+          const idx = messagesStore.messages.findIndex(
+            (m) => m.id === contentMatch.id
+          );
+          if (idx !== -1) {
+            // Update with server data but preserve local formatting
+            const isCurrentUser = contentMatch.isCurrentUser;
+            messagesStore.messages[idx] = {
+              ...contentMatch,
+              ...data,
+              isCurrentUser,
+              message_id: data.id,
+              sent: true,
+              pending: false,
+            };
+          }
+        } else {
+          // Add enhanced message to ensure all necessary fields
+          const messageTimestamp =
+            data.sent_at || data.created_at || new Date().toISOString();
+          // Use our helper function for consistent timestamp formatting
+          const formattedTimestamp = formatMessageTimestamp({
+            raw_timestamp: messageTimestamp,
+          });
+
+          // Create a complete message object with all required fields from both types
+          const enhancedMessage = {
+            ...data,
+            isCurrentUser: data.sender_id === authStore.user?.id,
+            sent: true,
+            pending: false,
+            raw_timestamp: messageTimestamp,
+            message_id: data.id,
+            timestamp: formattedTimestamp,
+            // Add websocket flag to help identify where message came from
+            fromWebSocket: true,
+            // Ensure all required fields are present
+            type: data.type || "text",
+            read: data.read || false,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+          };
+
+          console.log(`[WebSocket] Adding new message: ${data.id}`);
+          messagesStore.messages.push(enhancedMessage);
+
+          // Show notification for new messages if not from the current user
+          if (data.sender_id !== authStore.user?.id && $toast) {
+            $toast.info(`New message from ${data.sender?.name || "User"}`);
+
+            // Emit specific event for new message with details
+            const eventTimestamp =
+              data.sent_at || data.created_at || new Date().toISOString();
+            eventBus.emit("new-message-received", {
+              messageId: data.id,
+              senderId: data.sender_id,
+              senderName: data.sender?.name || "User",
+              content: data.content,
+              timestamp: eventTimestamp,
+              formattedTimestamp: formatMessageTimestamp({
+                raw_timestamp: eventTimestamp,
+              }),
+            });
+          }
+        }
+      }
+
+      // After adding/updating message, emit private-message event for components to catch
+      eventBus.emit("private-message", data);
+    } catch (error) {
+      console.error("[WebSocket] Error processing new message:", error, data);
+
+      // Attempt to still add the message in a simplified form to prevent lost messages
+      try {
+        const fallbackMessage = {
+          id: data.id || `ws-fallback-${Date.now()}`,
+          content: data.content || "(Message content unavailable)",
+          sender_id: data.sender_id || "unknown",
+          recipient_id: data.recipient_id || "unknown",
+          // Required fields from NewMessageData
+          type: data.type || "text",
+          read: data.read || false,
+          created_at: data.created_at || new Date().toISOString(),
+          updated_at: data.updated_at || new Date().toISOString(),
+          // Additional fields
+          isCurrentUser: data.sender_id === authStore.user?.id,
+          sent: true,
+          pending: false,
+          raw_timestamp: data.created_at || new Date().toISOString(),
+          timestamp: formatMessageTimestamp({
+            raw_timestamp: data.created_at || new Date().toISOString(),
+          }),
+          fromWebSocket: true,
+          recoveredFromError: true,
+        };
+
+        // Only add if we don't already have it
+        const exists = messagesStore.messages.some(
+          (m) => m.id === fallbackMessage.id
+        );
+        if (!exists) {
+          messagesStore.messages.push(fallbackMessage);
+        }
+      } catch (fallbackError) {
+        console.error(
+          "[WebSocket] Failed to add fallback message:",
+          fallbackError
+        );
       }
     }
   };
@@ -1007,33 +1498,85 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Enhanced message queuing with persistence
+  // Enhanced message queuing with persistence and duplicate prevention
   const addToQueue = (message: WebSocketMessage): void => {
-    // Prevent queue overflow
-    if (messageQueue.value.length >= maxQueueSize) {
-      console.warn("[WebSocket] Message queue full, removing oldest message");
-      messageQueue.value.shift();
-    }
-
-    // Add unique ID for tracking retries
-    const messageWithId = {
-      ...message,
-      _queueId: `queue_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`,
-      _timestamp: Date.now(),
-    };
-
-    messageQueue.value.push(messageWithId);
-
-    // Persist to sessionStorage for recovery after page refresh
     try {
-      sessionStorage.setItem(
-        "ws_message_queue",
-        JSON.stringify(messageQueue.value)
-      );
+      // Check for duplicates in queue first
+      const isDuplicate = messageQueue.value.some((queuedMessage) => {
+        // For regular messages, check content match
+        if (
+          message.type === WebSocketMessageType.MESSAGE &&
+          queuedMessage.type === WebSocketMessageType.MESSAGE
+        ) {
+          const queuedContent = queuedMessage.data?.content?.trim?.();
+          const newContent = message.data?.content?.trim?.();
+
+          if (queuedContent && newContent && queuedContent === newContent) {
+            // If recipient and sender match, it's a duplicate
+            if (
+              queuedMessage.data?.recipient_id === message.data?.recipient_id &&
+              queuedMessage.data?.sender_id === message.data?.sender_id
+            ) {
+              return true;
+            }
+          }
+        }
+
+        // For typing indicators, check if it's a duplicate for the same user/recipient
+        if (
+          (message.type === WebSocketMessageType.TYPING ||
+            message.type === WebSocketMessageType.STOP_TYPING) &&
+          message.type === queuedMessage.type
+        ) {
+          return (
+            message.data?.user_id === queuedMessage.data?.user_id &&
+            message.data?.recipient_id === queuedMessage.data?.recipient_id
+          );
+        }
+
+        return false;
+      });
+
+      // Don't add duplicates
+      if (isDuplicate) {
+        console.log("[WebSocket] Skipping duplicate queued message");
+        return;
+      }
+
+      // Prevent queue overflow
+      if (messageQueue.value.length >= maxQueueSize) {
+        console.warn("[WebSocket] Message queue full, removing oldest message");
+        messageQueue.value.shift();
+      }
+
+      // Add unique ID and metadata for tracking retries
+      const messageWithId = {
+        ...message,
+        _queueId: `queue_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`,
+        _timestamp: Date.now(),
+        _retryCount: 0, // Track retry attempts
+      };
+
+      messageQueue.value.push(messageWithId);
+
+      // Persist to sessionStorage for recovery after page refresh
+      try {
+        sessionStorage.setItem(
+          "ws_message_queue",
+          JSON.stringify(messageQueue.value)
+        );
+      } catch (error) {
+        console.warn("[WebSocket] Failed to persist message queue:", error);
+      }
     } catch (error) {
-      console.warn("[WebSocket] Failed to persist message queue:", error);
+      console.error("[WebSocket] Error adding message to queue:", error);
+      // Still try to add the message without metadata in case of error
+      messageQueue.value.push({
+        ...message,
+        _timestamp: Date.now(),
+      });
     }
   };
 
@@ -1067,7 +1610,7 @@ export const useWebSocket = defineStore("websocket", () => {
     }
   };
 
-  // Process queued messages with retry logic
+  // Process queued messages with enhanced retry logic and error handling
   const processMessageQueue = (): void => {
     if (
       !isMessagesConnected.value ||
@@ -1077,40 +1620,126 @@ export const useWebSocket = defineStore("websocket", () => {
       return;
     }
 
+    // Ensure socket is in OPEN state
+    if (socketMessages.value.readyState !== WebSocket.OPEN) {
+      console.warn(
+        "[WebSocket] Socket not in OPEN state, delaying queue processing"
+      );
+      return;
+    }
+
     const messagesToProcess = [...messageQueue.value];
     messageQueue.value = [];
 
-    messagesToProcess.forEach((message) => {
-      const queueId = (message as any)._queueId;
-      const retryCount = messageRetryCount.value.get(queueId) || 0;
-
-      if (retryCount >= maxRetries) {
-        console.warn(
-          "[WebSocket] Message exceeded max retries, dropping:",
-          message
-        );
-        messageRetryCount.value.delete(queueId);
-        return;
-      }
-
+    // Process messages with improved handling
+    const currentTime = Date.now();
+    const processPromises = messagesToProcess.map(async (message) => {
       try {
+        // Check message age - drop very old messages that are no longer relevant
+        const messageTime = (message as any)._timestamp || 0;
+        const messageAge = currentTime - messageTime;
+
+        // Drop typing indicators older than 10 seconds
+        if (
+          (message.type === WebSocketMessageType.TYPING ||
+            message.type === WebSocketMessageType.STOP_TYPING) &&
+          messageAge > 10000
+        ) {
+          console.log(
+            "[WebSocket] Dropping old typing indicator:",
+            message.type
+          );
+          return;
+        }
+
+        // Drop very old messages (>1 hour)
+        if (messageAge > 3600000) {
+          console.log("[WebSocket] Dropping very old queued message");
+          return;
+        }
+
+        const queueId = (message as any)._queueId;
+        const retryCount =
+          (message as any)._retryCount ||
+          messageRetryCount.value.get(queueId) ||
+          0;
+
+        if (retryCount >= maxRetries) {
+          console.warn(
+            "[WebSocket] Message exceeded max retries, dropping:",
+            message
+          );
+          messageRetryCount.value.delete(queueId);
+
+          // For chat messages, notify user that message failed to send
+          if (message.type === WebSocketMessageType.MESSAGE && $toast) {
+            $toast.error("Message couldn't be delivered. Please try again.");
+          }
+          return;
+        }
+
+        // Update retry count and add exponential backoff for retries
+        if (retryCount > 0) {
+          const backoffDelay = Math.min(
+            1000 * Math.pow(2, retryCount - 1),
+            10000
+          );
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        }
+
         // Remove queue metadata before sending
         const cleanMessage = { ...message };
         delete (cleanMessage as any)._queueId;
         delete (cleanMessage as any)._timestamp;
+        delete (cleanMessage as any)._retryCount;
 
         socketMessages.value!.send(JSON.stringify(cleanMessage));
         messageRetryCount.value.delete(queueId);
         console.log("[WebSocket] Successfully sent queued message");
       } catch (error) {
         console.error("[WebSocket] Failed to send queued message:", error);
-        messageRetryCount.value.set(queueId, retryCount + 1);
+
+        // Increment retry count
+        const queueId = (message as any)._queueId;
+        const currentRetryCount =
+          (message as any)._retryCount ||
+          messageRetryCount.value.get(queueId) ||
+          0;
+        message = {
+          ...message,
+          _retryCount: currentRetryCount + 1,
+        };
+        messageRetryCount.value.set(queueId, currentRetryCount + 1);
+
+        // Re-add to queue for later retry
         addToQueue(message);
       }
     });
 
-    // Update persisted queue
-    clearPersistedQueue();
+    // Run all message processing
+    Promise.all(processPromises)
+      .then(() => {
+        // Update persisted queue if any messages were re-added
+        if (messageQueue.value.length > 0) {
+          try {
+            sessionStorage.setItem(
+              "ws_message_queue",
+              JSON.stringify(messageQueue.value)
+            );
+          } catch (error) {
+            console.warn(
+              "[WebSocket] Failed to persist updated message queue:",
+              error
+            );
+          }
+        } else {
+          // Clear persisted queue if we processed everything
+          clearPersistedQueue();
+        }
+      })
+      .catch((error) => {
+        console.error("[WebSocket] Error in queue processing:", error);
+      });
   };
 
   // Manual reconnection trigger
@@ -1145,18 +1774,47 @@ export const useWebSocket = defineStore("websocket", () => {
     await connect();
   };
 
-  // Connection health check
-  const checkConnectionHealth = (): {
+  // Enhanced connection health check with automatic recovery
+  const checkConnectionHealth = (
+    autoRecover: boolean = false
+  ): {
     isHealthy: boolean;
     issues: string[];
     recommendations: string[];
+    lastMessageAge: number;
+    socketState: string;
+    reconnectCount: number;
   } => {
     const issues: string[] = [];
     const recommendations: string[] = [];
+    const now = Date.now();
 
+    // Check socket state
+    let socketState = "unknown";
+    if (socketMessages.value) {
+      switch (socketMessages.value.readyState) {
+        case WebSocket.CONNECTING:
+          socketState = "connecting";
+          break;
+        case WebSocket.OPEN:
+          socketState = "open";
+          break;
+        case WebSocket.CLOSING:
+          socketState = "closing";
+          break;
+        case WebSocket.CLOSED:
+          socketState = "closed";
+          break;
+      }
+    }
+
+    // Check connections
     if (!isMessagesConnected.value) {
       issues.push("Messages WebSocket disconnected");
       recommendations.push("Try reconnecting to messaging service");
+    } else if (socketMessages.value?.readyState !== WebSocket.OPEN) {
+      issues.push(`Messages WebSocket in unexpected state: ${socketState}`);
+      recommendations.push("WebSocket connection may be unhealthy");
     }
 
     if (!isPresenceConnected.value) {
@@ -1164,37 +1822,124 @@ export const useWebSocket = defineStore("websocket", () => {
       recommendations.push("Try reconnecting to presence service");
     }
 
+    // Check heartbeat health
     if (pendingPings.value.size > 3) {
-      issues.push("Multiple pending heartbeats");
+      issues.push(`Multiple pending heartbeats (${pendingPings.value.size})`);
       recommendations.push("Connection may be unstable");
     }
 
-    if (messageQueue.value.length > 10) {
-      issues.push("Large message queue");
-      recommendations.push("Messages may be delayed");
+    // Check message queue
+    if (messageQueue.value.length > 0) {
+      issues.push(
+        `Message queue not empty (${messageQueue.value.length} messages)`
+      );
+      if (messageQueue.value.length > 10) {
+        recommendations.push("Messages may be delayed");
+      }
     }
 
+    // Check connection quality
     if (connectionQuality.value === "poor") {
       issues.push("Poor connection quality");
       recommendations.push("Check network connection");
     }
 
-    const now = Date.now();
-    if (isMessagesConnected.value && now - lastMessageTime.value > 300000) {
-      issues.push("No recent message activity");
+    // Calculate time since last activity
+    const lastMessageAge = now - lastMessageTime.value;
+
+    // Check for stale connection
+    if (isMessagesConnected.value && lastMessageAge > 300000) {
+      issues.push(
+        `No recent message activity (${Math.round(
+          lastMessageAge / 60000
+        )} minutes)`
+      );
       recommendations.push("Connection may be stale");
+
+      // Auto-recover stale connections if requested
+      if (autoRecover && lastMessageAge > 600000) {
+        // 10 minutes
+        console.warn(
+          "[WebSocket Health] Connection stale, attempting recovery"
+        );
+        setTimeout(() => forceReconnect(), 500);
+      }
+    }
+
+    // Trigger connection quality assessment
+    assessConnectionQuality();
+
+    // Automatic recovery for other issues
+    if (autoRecover) {
+      // If socket is closed but we think it's connected, try to reconnect
+      if (
+        isMessagesConnected.value &&
+        socketMessages.value?.readyState === WebSocket.CLOSED
+      ) {
+        console.warn(
+          "[WebSocket Health] Socket inconsistency detected, forcing reconnection"
+        );
+        setTimeout(() => forceReconnect(), 1000);
+      }
+
+      // If many pending heartbeats, recover connection
+      if (pendingPings.value.size > 5) {
+        console.warn(
+          "[WebSocket Health] Too many pending pings, forcing reconnection"
+        );
+        setTimeout(() => forceReconnect(), 1500);
+      }
     }
 
     return {
       isHealthy: issues.length === 0,
       issues,
       recommendations,
+      lastMessageAge,
+      socketState,
+      reconnectCount: reconnectAttempts.value,
     };
+  };
+
+  // Periodic health check interval
+  const healthCheckInterval = ref<NodeJS.Timeout | null>(null);
+
+  // Setup automatic health checks
+  const startHealthChecks = (): void => {
+    stopHealthChecks();
+
+    healthCheckInterval.value = setInterval(() => {
+      // Only run health checks if we should be connected
+      if (authStore.isAuthenticated) {
+        const health = checkConnectionHealth(true); // Auto recover if needed
+
+        if (!health.isHealthy) {
+          console.warn(
+            "[WebSocket Health] Connection issues detected:",
+            health.issues
+          );
+        }
+
+        // Process any pending messages in queue
+        if (messageQueue.value.length > 0 && isMessagesConnected.value) {
+          processMessageQueue();
+        }
+      }
+    }, 60000); // Check every minute
+  };
+
+  // Stop health checks
+  const stopHealthChecks = (): void => {
+    if (healthCheckInterval.value) {
+      clearInterval(healthCheckInterval.value);
+      healthCheckInterval.value = null;
+    }
   };
 
   // Enhanced cleanup on unmount
   onUnmounted(() => {
     console.log("[WebSocket] Component unmounting, cleaning up");
+    stopHealthChecks();
     disconnect();
     clear();
   });
@@ -1232,14 +1977,22 @@ export const useWebSocket = defineStore("websocket", () => {
 
     // Subscription Management
     subscribeToUnreadCounts,
+    subscribeToChannel,
+
+    // Health Management
+    startHealthChecks,
+    stopHealthChecks,
 
     // Utilities
     validateToken,
     checkConnectionHealth,
+    updateConnectionQuality,
+    assessConnectionQuality,
 
     // Advanced Features
     processMessageQueue,
     restoreMessageQueue,
+    handleNewMessage, // Exposed for direct message processing if needed
 
     // Internal State (for development monitoring)
     _internal:
@@ -1250,6 +2003,12 @@ export const useWebSocket = defineStore("websocket", () => {
             lastHeartbeatTime: computed(() => lastHeartbeatTime.value),
             lastMessageTime: computed(() => lastMessageTime.value),
             activeSubscriptions: computed(() => activeSubscriptions.value),
+            socketState: computed(() =>
+              socketMessages.value ? socketMessages.value.readyState : -1
+            ),
+            presenceSocketState: computed(() =>
+              socketPresence.value ? socketPresence.value.readyState : -1
+            ),
           }
         : undefined,
   };

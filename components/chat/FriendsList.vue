@@ -209,77 +209,88 @@
             Add friends to start chatting
           </p>
         </div>
-        <div v-else class="space-y-3">
-          <NuxtLink
-            v-for="friend in sortedFriends"
-            :key="friend.id"
-            :to="`/chat/messages/${friend.id}`"
-            @click="
-              () => {
-                console.log('Friend Chat Clicked:', friend.id);
-                console.log('Route params will be:', { id: friend.id });
-                console.log('Route query will be:', { type: null });
-              }
-            "
-          >
-            <div
-              :class="`flex items-center p-4 rounded-lg transition-colors ${
-                $route.path === `/chat/messages/${friend.id}`
-                  ? 'bg-blue-50 border border-blue-100'
-                  : 'hover:bg-gray-50'
-              }`"
-            >
-              <!-- Avatar with online status -->
-              <div class="relative mr-3">
-                <div
-                  class="h-10 w-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
+        <div v-else>
+          <!-- Friend section header -->
+          <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center">
+              <div class="w-1 h-6 bg-blue-500 rounded-r mr-2"></div>
+              <h2 class="font-semibold text-gray-800 text-sm">
+                Your Friends
+                <span
+                  class="ml-1 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full"
                 >
-                  <img
-                    v-if="friend.profile_picture_url"
-                    :src="friend.profile_picture_url"
-                    :alt="friend.name"
-                    class="h-full w-full object-cover"
-                  />
-                  <Icon v-else name="fa:user" class="h-5 w-5 text-gray-500" />
-                </div>
-                <!-- Status indicator -->
-                <div
-                  :class="`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                    getFriendStatus(friend.id) === 'online'
-                      ? 'bg-green-500'
-                      : getFriendStatus(friend.id) === 'busy'
-                      ? 'bg-red-500'
-                      : getFriendStatus(friend.id) === 'away'
-                      ? 'bg-yellow-500'
-                      : 'bg-gray-400'
-                  }`"
-                ></div>
-              </div>
-
-              <!-- Friend info -->
-              <div class="flex-1 min-w-0">
-                <div class="flex justify-between items-start">
-                  <h3 class="font-medium text-gray-900 truncate text-sm">
-                    {{ friend.first_name }} {{ friend.last_name }}
-                  </h3>
-                  <span class="text-xs text-gray-500 ml-1">
-                    {{
-                      getFriendStatus(friend.id) === "online"
-                        ? "Online"
-                        : getFriendStatus(friend.id) === "busy"
-                        ? "Busy"
-                        : getFriendStatus(friend.id) === "away"
-                        ? "Away"
-                        : formatLastActive(getLastActive(friend.id))
-                    }}
-                  </span>
-                </div>
-                <p class="text-xs text-gray-600 truncate mt-1">
-                  @{{ (friend as any).username || friend.email }}
-                </p>
-              </div>
+                  {{ filteredFriends.length }}
+                </span>
+              </h2>
             </div>
-          </NuxtLink>
+          </div>
+
+          <div class="space-y-3">
+            <NuxtLink
+              v-for="friend in sortedFriends"
+              :key="friend.id"
+              :to="`/chat/messages/${friend.id}`"
+              @click="
+                () => {
+                  console.log('Friend Chat Clicked:', friend.id);
+                  console.log('Route params will be:', { id: friend.id });
+                  console.log('Route query will be:', { type: null });
+                }
+              "
+            >
+              <div
+                :class="`flex items-center p-4 rounded-lg transition-colors ${
+                  $route.path === `/chat/messages/${friend.id}`
+                    ? 'bg-blue-50 border border-blue-100'
+                    : 'hover:bg-gray-50 border border-transparent'
+                }`"
+              >
+                <!-- Avatar with online status -->
+                <div class="relative mr-3">
+                  <div
+                    class="h-12 w-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center border border-gray-200 shadow-sm"
+                  >
+                    <img
+                      v-if="friend.profile_picture_url"
+                      :src="friend.profile_picture_url"
+                      :alt="friend.name"
+                      class="h-full w-full object-cover"
+                    />
+                    <Icon v-else name="fa:user" class="h-6 w-6 text-gray-500" />
+                  </div>
+                  <!-- Status indicator -->
+                  <div
+                    :class="`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                      getFriendStatus(friend.id) === 'online'
+                        ? 'bg-green-500'
+                        : getFriendStatus(friend.id) === 'offline'
+                        ? 'bg-gray-300'
+                        : 'bg-gray-400'
+                    }`"
+                  ></div>
+                </div>
+
+                <!-- Friend info -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex justify-between items-start">
+                    <h3 class="font-medium text-gray-900 truncate text-sm">
+                      {{ friend.first_name }} {{ friend.last_name }}
+                    </h3>
+                    <span class="text-xs text-gray-500 ml-1">
+                      {{
+                        getFriendStatus(friend.id) === "online"
+                          ? "Online"
+                          : formatLastActive(getLastActive(friend.id))
+                      }}
+                    </span>
+                  </div>
+                  <p class="text-xs text-gray-600 truncate mt-1">
+                    @{{ (friend as any).username || friend.email }}
+                  </p>
+                </div>
+              </div>
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </template>
@@ -411,9 +422,9 @@ onMounted(async () => {
 // Disconnect WebSocket on component unmount
 onUnmounted(() => {
   // Don't disconnect here since other components might need the connection
-  // Just update the status to away
+  // Just update the status to offline when navigating away from this component
   if (presence.isWsConnected) {
-    presence.updateStatus("away");
+    presence.updateStatus("offline");
   }
 });
 
@@ -658,9 +669,7 @@ const displayedFriends = computed(() => {
 });
 
 // Get friend presence status
-function getFriendStatus(
-  friendId: string
-): "online" | "offline" | "busy" | "away" {
+function getFriendStatus(friendId: string): "online" | "offline" {
   return presence.getStatus(friendId);
 }
 
@@ -699,16 +708,6 @@ const sortedFriends = computed(() => {
     // Online users first
     if (statusA === "online" && statusB !== "online") return -1;
     if (statusB === "online" && statusA !== "online") return 1;
-
-    // Then busy users
-    if (statusA === "busy" && statusB !== "busy" && statusB !== "online")
-      return -1;
-    if (statusB === "busy" && statusA !== "busy" && statusA !== "online")
-      return 1;
-
-    // Then away users
-    if (statusA === "away" && statusB === "offline") return -1;
-    if (statusB === "away" && statusA === "offline") return 1;
 
     // If status is the same, sort alphabetically
     return a.name.localeCompare(b.name);

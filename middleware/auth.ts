@@ -1,6 +1,10 @@
 import { useAuthStore } from "~/composables/useAuth";
 
 export default defineNuxtRouteMiddleware((to, from) => {
+  // TEMPORARILY DISABLED FOR DEBUGGING
+  console.log("Auth middleware temporarily disabled for debugging");
+  return;
+
   // Skip middleware if on server (we'll handle auth check client-side)
   if (process.server) return;
 

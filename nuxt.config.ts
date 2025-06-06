@@ -1,5 +1,4 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-import { defineNuxtConfig } from "nuxt/config";
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
@@ -36,8 +35,11 @@ export default defineNuxtConfig({
   vite: {
     resolve: {
       alias: {
-        "estree-walker": "estree-walker/dist/esm/index.js",
+        "estree-walker": "~/packages/estree-walker-fix.js",
       },
+    },
+    optimizeDeps: {
+      exclude: ["estree-walker"],
     },
   },
 });

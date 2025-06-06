@@ -39,24 +39,13 @@
                 class="h-16 w-16 rounded-full overflow-hidden bg-blue-600/30 border-2 border-blue-500 flex items-center justify-center"
                 title="Profile Picture"
               >
-                <template v-if="isUploadingProfilePicture">
-                  <div
-                    class="h-full w-full flex items-center justify-center bg-black bg-opacity-60"
-                  >
-                    <div
-                      class="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent border-blue-400"
-                    ></div>
-                  </div>
-                </template>
-                <template v-else>
-                  <img
-                    v-if="userProfile?.profile_picture_url"
-                    :src="userProfile.profile_picture_url"
-                    alt="Profile Picture"
-                    class="h-full w-full object-cover"
-                  />
-                  <Icon v-else name="fa:user" class="h-8 w-8 text-blue-400" />
-                </template>
+                <img
+                  v-if="userProfile?.profile_picture_url"
+                  :src="userProfile.profile_picture_url"
+                  alt="Profile Picture"
+                  class="h-full w-full object-cover"
+                />
+                <Icon v-else name="fa:user" class="h-8 w-8 text-blue-400" />
               </div>
             </div>
           </div>
@@ -167,28 +156,13 @@
                 class="h-16 w-16 rounded-full overflow-hidden bg-blue-600/30 border-2 border-blue-500 flex items-center justify-center"
                 title="Profile Picture"
               >
-                <template v-if="isUploadingProfilePicture">
-                  <div
-                    class="h-full w-full flex items-center justify-center bg-black bg-opacity-60"
-                  >
-                    <div
-                      class="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent border-blue-400"
-                    ></div>
-                  </div>
-                </template>
-                <template v-else>
-                  <img
-                    v-if="
-                      profilePicturePreview || userProfile?.profile_picture_url
-                    "
-                    :src="
-                      profilePicturePreview || userProfile?.profile_picture_url
-                    "
-                    alt="Profile Picture"
-                    class="h-full w-full object-cover"
-                  />
-                  <Icon v-else name="fa:user" class="h-8 w-8 text-blue-400" />
-                </template>
+                <img
+                  v-if="userProfile?.profile_picture_url"
+                  :src="userProfile.profile_picture_url"
+                  alt="Profile Picture"
+                  class="h-full w-full object-cover"
+                />
+                <Icon v-else name="fa:user" class="h-8 w-8 text-blue-400" />
               </div>
               <button
                 @click="openProfilePictureModal"
@@ -419,6 +393,8 @@ const isSubmitting = ref(false);
 const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
 const showConfirmPassword = ref(false);
+const isUploadingProfilePicture = ref(false); // Added for profile picture upload state
+const profilePicturePreview = ref<string | null>(null); // Added for profile picture preview
 
 // Form data for profile edit
 const formData = ref({

@@ -2,7 +2,7 @@
   <div class="h-screen flex">
     <!-- Messages List -->
     <div class="w-80 border-r border-gray-200">
-      <ChatMessagesList />
+      <MessagesList />
     </div>
 
     <!-- Content area that shows chat or welcome screen -->
@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import { useAuthStore } from "@/composables/useAuth";
+import MessagesList from "@/components/chat/MessagesList.vue";
 
 // Apply the auth middleware to protect this route
 definePageMeta({

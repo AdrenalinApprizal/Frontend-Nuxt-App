@@ -61,28 +61,12 @@
         @search="handleAdvancedSearch"
       />
 
-      <!-- Messages container with message counter -->
+      <!-- Messages container -->
       <div
         class="flex-1 overflow-auto p-6 space-y-4 relative"
         ref="messagesContainer"
         @scroll="handleScroll"
       >
-        <!-- Enhanced message counter with diagnostic toggle -->
-        <div
-          class="fixed top-20 right-4 bg-white py-1 px-3 rounded-full shadow-md border border-gray-200 flex items-center space-x-2 text-xs z-10"
-        >
-          <span class="font-bold text-blue-600">{{
-            displayMessages.length
-          }}</span>
-          <span class="text-gray-500">messages</span>
-          <button
-            @click="manualRefresh"
-            class="ml-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors"
-            title="Refresh messages"
-          >
-            <Icon name="lucide:refresh-cw" class="h-3 w-3 text-blue-600" />
-          </button>
-        </div>
         <!-- Loading indicator for older messages -->
         <div v-if="isLoadingMore" class="text-center py-2">
           <span class="inline-flex items-center">
@@ -94,9 +78,22 @@
           </span>
         </div>
 
+        <!-- Loading state -->
+        <div
+          v-if="isLoading"
+          class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 z-10"
+        >
+          <div class="flex flex-col items-center">
+            <div
+              class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
+            ></div>
+            <p class="mt-2 text-sm text-gray-500">Loading messages...</p>
+          </div>
+        </div>
+
         <!-- No messages placeholder -->
         <div
-          v-if="displayMessages.length === 0"
+          v-else-if="displayMessages.length === 0"
           class="absolute inset-0 flex items-center justify-center"
         >
           <div v-if="isSearching" class="text-center text-gray-500">
@@ -111,137 +108,159 @@
           </div>
         </div>
 
-        <!-- Messages list -->
+        <!-- Messages list with date separators -->
         <div
-          v-for="message in displayMessages"
-          :key="message.id"
-          class="message"
+          v-for="group in groupedMessages"
+          :key="group.dateKey"
+          class="message-group"
         >
+          <!-- Date separator -->
+          <div class="flex justify-center my-4">
+            <div class="bg-gray-100 rounded-full px-3 py-1">
+              <span class="text-xs text-gray-600 font-medium">
+                {{
+                  group.isToday
+                    ? "Hari Ini"
+                    : group.isYesterday
+                    ? "Kemarin"
+                    : group.date
+                }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Messages for this date -->
           <div
-            :class="`flex ${
-              message.isCurrentUser ? 'justify-end' : 'justify-start'
-            } mb-4`"
+            v-for="message in group.messages"
+            :key="message.id"
+            class="message"
           >
-            <div class="flex flex-col max-w-[70%]">
-              <div
-                :class="`rounded-lg px-4 py-2 ${
-                  message.isCurrentUser
-                    ? message.isDeleted
-                      ? 'bg-gray-200 text-gray-500 italic'
-                      : message.failed
-                      ? 'bg-red-100 border border-red-300 text-gray-800'
-                      : 'bg-blue-500 text-white'
-                    : 'bg-white border border-gray-200 text-gray-800'
-                } min-w-[80px] ${message.failed ? 'cursor-pointer' : ''}`"
-                @click="message.failed && retryFailedMessage(message)"
-              >
-                <!-- Debug badge - DISABLED FOR PRODUCTION -->
-                <!-- 
-                <div class="text-xs opacity-50 mb-1">
-                  {{ message.isCurrentUser ? '➡️ ME' : '⬅️ THEM' }}
-                </div>
-                -->
-                <p class="break-words whitespace-pre-wrap">
-                  <!-- Direct content display with fallbacks -->
-                  {{ message.content || "(No message content)" }}
-                </p>
-                <!-- Message metadata for visibility -->
-                <p class="text-xs text-gray-400 mt-1">
-                  {{
-                    new Date(
-                      message.sent_at || message.timestamp || Date.now()
-                    ).toLocaleString()
-                  }}
-                </p>
-                <p v-if="message.failed" class="text-xs text-red-500 mt-1">
-                  <Icon
-                    name="lucide:alert-triangle"
-                    class="h-3 w-3 inline mr-1"
-                  />
-                  {{
-                    message.errorMessage || "Failed to send - click to retry"
-                  }}
-                </p>
-                <div v-if="message.attachment" class="mt-2">
-                  <img
-                    v-if="message.attachment.type === 'image'"
-                    :src="message.attachment.url"
-                    :alt="message.attachment.name"
-                    class="max-w-full rounded"
-                  />
-                  <a
-                    v-else
-                    :href="message.attachment.url"
-                    :download="message.attachment.name"
-                    class="text-blue-500 hover:underline"
-                  >
-                    {{ message.attachment.name }} ({{
-                      message.attachment.size
-                    }})
-                  </a>
-                </div>
-                <div class="flex items-center justify-end space-x-1 mt-1">
-                  <span
-                    v-if="message.isEdited && !message.isDeleted"
-                    :class="`text-xs ${
-                      message.isCurrentUser ? 'text-white' : 'text-gray-600'
-                    }`"
-                  >
-                    (edited)
-                  </span>
-                  <span
-                    :class="`text-xs ${
-                      message.isCurrentUser ? 'text-white' : 'text-gray-600'
-                    }`"
-                  >
-                    {{ message.timestamp }}
-                  </span>
-                  <span v-if="message.isCurrentUser">
-                    <Icon
-                      v-if="message.read"
-                      name="fa:check-double"
-                      class="h-3 w-3 text-white"
-                      title="Read"
-                    />
-                    <Icon
-                      v-else
-                      name="fa:check"
-                      class="h-3 w-3 text-white"
-                      title="Sent"
-                    />
-                  </span>
-                </div>
-
-                <!-- Message dropdown actions -->
+            <div
+              :class="`flex ${
+                message.isCurrentUser ? 'justify-end' : 'justify-start'
+              } mb-4`"
+            >
+              <div class="flex flex-col max-w-[70%]">
                 <div
-                  v-if="message.isCurrentUser && !message.isDeleted"
-                  class="relative"
+                  :class="`rounded-lg px-4 py-2 ${
+                    message.isCurrentUser
+                      ? message.isDeleted
+                        ? 'bg-gray-200 text-gray-500 italic'
+                        : message.failed
+                        ? 'bg-red-100 border border-red-300 text-gray-800'
+                        : 'bg-blue-500 text-white'
+                      : 'bg-white border border-gray-200 text-gray-800'
+                  } min-w-[80px] ${message.failed ? 'cursor-pointer' : ''}`"
+                  @click="message.failed && retryFailedMessage(message)"
                 >
-                  <button
-                    @click="toggleDropdown(message.id)"
-                    class="absolute top-0 right-0 -mt-1 -mr-8 p-1 rounded-full hover:bg-gray-200"
-                    aria-label="Message options"
-                  >
-                    <Icon name="fa:ellipsis-v" class="h-3 w-3 text-gray-500" />
-                  </button>
+                  <p class="break-words whitespace-pre-wrap">
+                    <!-- Direct content display with fallbacks -->
+                    {{ message.content || "(No message content)" }}
+                  </p>
 
+                  <p v-if="message.failed" class="text-xs text-red-500 mt-1">
+                    <Icon
+                      name="lucide:alert-triangle"
+                      class="h-3 w-3 inline mr-1"
+                    />
+                    {{
+                      message.errorMessage || "Failed to send - click to retry"
+                    }}
+                  </p>
+                  <div v-if="message.attachment" class="mt-2">
+                    <img
+                      v-if="message.attachment.type === 'image'"
+                      :src="message.attachment.url"
+                      :alt="message.attachment.name"
+                      class="max-w-full rounded"
+                    />
+                    <a
+                      v-else
+                      :href="message.attachment.url"
+                      :download="message.attachment.name"
+                      class="text-blue-500 hover:underline"
+                    >
+                      {{ message.attachment.name }} ({{
+                        message.attachment.size
+                      }})
+                    </a>
+                  </div>
+                  <div class="flex items-center justify-end space-x-1 mt-1">
+                    <span
+                      :class="`text-xs ${
+                        message.isCurrentUser
+                          ? 'text-blue-200'
+                          : 'text-gray-500'
+                      }`"
+                    >
+                      {{
+                        formatTimestamp(
+                          message.timestamp ||
+                            message.sent_at ||
+                            message.created_at
+                        )
+                      }}
+                    </span>
+                    <span
+                      v-if="message.isEdited && !message.isDeleted"
+                      :class="`text-xs ${
+                        message.isCurrentUser
+                          ? 'text-blue-200'
+                          : 'text-gray-500'
+                      }`"
+                    >
+                      (edited)
+                    </span>
+                    <span v-if="message.isCurrentUser">
+                      <Icon
+                        v-if="message.read"
+                        name="fa:check-double"
+                        class="h-3 w-3 text-blue-200"
+                        title="Read"
+                      />
+                      <Icon
+                        v-else
+                        name="fa:check"
+                        class="h-3 w-3 text-blue-200"
+                        title="Sent"
+                      />
+                    </span>
+                  </div>
+
+                  <!-- Message dropdown actions -->
                   <div
-                    v-if="showDropdown === message.id"
-                    ref="dropdownRef"
-                    class="absolute right-0 mt-1 mr-8 bg-white rounded-md shadow-lg z-10 w-36 py-1"
+                    v-if="message.isCurrentUser && !message.isDeleted"
+                    class="relative"
                   >
                     <button
-                      @click="handleEditMessage(message.id)"
-                      class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      @click="toggleDropdown(message.id)"
+                      class="absolute top-0 right-0 -mt-1 -mr-8 p-1 rounded-full hover:bg-gray-200"
+                      aria-label="Message options"
                     >
-                      <Icon name="lucide:edit-2" class="h-4 w-4 mr-2" /> Edit
+                      <Icon
+                        name="fa:ellipsis-v"
+                        class="h-3 w-3 text-gray-500"
+                      />
                     </button>
-                    <button
-                      @click="handleUnsendMessage(message.id)"
-                      class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
+
+                    <div
+                      v-if="showDropdown === message.id"
+                      ref="dropdownRef"
+                      class="absolute right-0 mt-1 mr-8 bg-white rounded-md shadow-lg z-10 w-36 py-1"
                     >
-                      <Icon name="lucide:trash" class="h-4 w-4 mr-2" /> Unsend
-                    </button>
+                      <button
+                        @click="handleEditMessage(message.id)"
+                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <Icon name="lucide:edit-2" class="h-4 w-4 mr-2" /> Edit
+                      </button>
+                      <button
+                        @click="handleUnsendMessage(message.id)"
+                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
+                      >
+                        <Icon name="lucide:trash" class="h-4 w-4 mr-2" /> Unsend
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -427,15 +446,19 @@ import RecipientProfile from "./RecipientProfile.vue";
 import { useMessagesStore } from "~/composables/useMessages";
 import { useAuthStore } from "~/composables/useAuth";
 import { useWebSocket, WebSocketMessageType } from "~/composables/useWebSocket";
+import { useWebSocketListener } from "~/composables/useWebSocketListener";
 import { usePresence } from "~/composables/usePresence"; // Add presence service
+import { eventBus } from "~/composables/useEventBus"; // Add event bus
 import { useNuxtApp } from "#app";
 import { useFiles } from "~/composables/useFiles";
 import { useFriendsStore } from "~/composables/useFriends"; // Import the friends store
+import { formatMessageTimestamp } from "~/utils/timestampHelper"; // Import timestamp helper
 
 // Initialize stores and Nuxt app
 const messagesStore = useMessagesStore();
 const authStore = useAuthStore();
 const webSocketStore = useWebSocket();
+const wsListener = useWebSocketListener();
 const friendsStore = useFriendsStore(); // Add friends store
 const presence = usePresence();
 const { $toast } = useNuxtApp();
@@ -497,6 +520,9 @@ interface Message {
   failed?: boolean; // Indicates message failed to send
   errorMessage?: string; // Error message for failed messages
   message_type?: string; // Track message type (text, image, etc.)
+  fromWebSocket?: boolean; // Indicates message came from WebSocket
+  receivedViaWebSocket?: boolean; // Indicates message was received via WebSocket
+  sourceApi?: boolean; // Indicates message came from API
   // Additional fields for alternative API formats
   sender?: any; // Sender information object
   recipient?: any; // Recipient information object
@@ -563,186 +589,90 @@ const messagesContainer = ref<HTMLElement | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const imageInputRef = ref<HTMLInputElement | null>(null);
 
-// Add missing reactive state references
-const wsWatcher = ref<(() => void) | null>(null);
-const messageBackup = ref<Message[]>([]);
+// Simplified fetch function - no complex merging logic
+async function fetchPrivateMessages(page = 1, limit = 20) {
+  console.log(
+    `📡 [ChatArea] Fetching messages for chat with ${props.recipientId}`
+  );
 
-// Load messages from API
-const loadMessages = async (): Promise<Message[]> => {
   try {
-    isLoading.value = true;
-
-    if (!props.recipientId) {
-      return [] as Message[];
-    }
-
-    const requestParams = {
+    const response = await messagesStore.getMessages({
       target_id: props.recipientId,
-      type: "private" as "private",
-      page: 1,
-      limit: 50,
-    };
+      type: "private",
+      page,
+      limit,
+    });
 
-    const response = await messagesStore.getMessages(requestParams);
+    // The getMessages function returns the messages array directly, not in a data property
+    if (response && Array.isArray(response) && response.length > 0) {
+      console.log(
+        `📩 [ChatArea] Received ${response.length} messages from API`
+      );
 
-    if (response.data && response.data.length > 0) {
-      const convertedMessages = response.data.map((msg: any) => {
-        // Extract message ID
-        const messageId =
-          msg.message_id ||
-          msg.id ||
-          `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-        // Extract message type
-        const messageType =
-          msg.message_type || msg.type || msg.content_type || "text";
-
-        // Extract sender ID
-        let senderId =
-          msg.sender_id ||
-          msg.sender?.id ||
-          msg.from_id ||
-          msg.user_id ||
-          msg.author_id;
-
-        if (!senderId) {
-          senderId = currentUser.value?.id || "unknown";
-        }
-
-        // Extract recipient ID
-        let recipientId =
-          msg.recipient_id ||
-          msg.receiver_id ||
-          msg.recipient?.id ||
-          msg.to_id ||
-          msg.target_id;
-
-        if (!recipientId) {
-          if (String(senderId) === String(currentUser.value?.id)) {
-            recipientId = props.recipientId;
-          } else if (String(senderId) === String(props.recipientId)) {
-            recipientId = currentUser.value?.id;
-          } else {
-            recipientId = props.recipientId;
-          }
-        }
-
-        // Determine if message is from current user
-        const enhancedMessage = {
-          ...msg,
-          sender_id: senderId,
-          recipient_id: recipientId,
-        };
-        const isCurrentUser = isCurrentUserMessage(enhancedMessage);
-
-        // Handle attachments
-        let attachment: Attachment | undefined = undefined;
-        const mediaUrl =
-          msg.media_url ||
-          msg.attachment_url ||
-          msg.file_url ||
-          msg.image_url ||
-          msg.url;
-
-        if (mediaUrl) {
-          const isImage =
-            messageType === "image" ||
-            msg.content_type === "image" ||
-            (mediaUrl &&
-              /\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|avif|webp|heif)$/i.test(
-                mediaUrl
-              ));
-
-          attachment = {
-            type: isImage ? "image" : "file",
-            url: mediaUrl,
-            name:
-              msg.file_name ||
-              msg.attachment_name ||
-              (isImage ? "Image" : "File attachment"),
-            size: msg.file_size || msg.size || undefined,
-          };
-        }
-
-        // Handle timestamps
-        const timestampSource =
-          msg.sent_at ||
-          msg.created_at ||
-          msg.timestamp ||
-          msg.date ||
-          new Date().toISOString();
-        const raw_timestamp = timestampSource;
-        const formattedTimestamp = new Date(timestampSource).toLocaleTimeString(
-          [],
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        );
+      // Simple message processing - normalize essential fields
+      const processedMessages = response.map((message: any) => {
+        const isCurrentUserMsg = isCurrentUserMessage(message);
+        console.log(`🔍 [ChatArea] Processing message:`, {
+          id: message.id,
+          sender_id: message.sender_id,
+          recipient_id: message.recipient_id,
+          currentUserId: currentUser.value?.id,
+          isCurrentUser: isCurrentUserMsg,
+          content: message.content?.substring(0, 30),
+        });
 
         return {
-          id: messageId,
-          message_id: messageId,
-          content: msg.content || msg.text || msg.message || "",
-          type: messageType,
-          message_type: messageType,
-          sender_id: senderId,
-          recipient_id: recipientId,
-          sent_at: msg.sent_at || msg.timestamp,
-          created_at: msg.created_at,
-          updated_at: msg.updated_at,
-          raw_timestamp,
-          timestamp: formattedTimestamp,
-          isCurrentUser,
-          read: msg.read || msg.is_read || false,
-          isEdited:
-            msg.updated_at &&
-            msg.created_at &&
-            new Date(msg.updated_at).getTime() >
-              new Date(msg.created_at).getTime(),
-          isDeleted: msg.type === "deleted" || msg.is_deleted || false,
-          attachment,
-          sent: true,
-          sender: msg.sender,
-          recipient: msg.recipient,
-        } as Message;
+          ...message,
+          id: message.id || message.message_id,
+          isCurrentUser: isCurrentUserMsg,
+          timestamp: formatTimestamp(
+            message.timestamp || message.sent_at || message.created_at
+          ),
+          raw_timestamp: message.sent_at || message.created_at,
+        };
       });
 
-      if (convertedMessages.length > 0) {
-        messages.value = convertedMessages;
-        hasLoadedFromAPI.value = true;
-        saveToSessionStorage(messages.value);
+      // Simple replacement - no complex merging
+      if (page === 1) {
+        messages.value = processedMessages;
+      } else {
+        messages.value = [...processedMessages, ...messages.value];
       }
+
+      // Validate and fix message bubble positioning after loading
+      const fixedCount = validateMessageBubbles();
+      if (fixedCount > 0) {
+        console.log(
+          `🛠️ [ChatArea] Fixed ${fixedCount} message bubble positions after fetch`
+        );
+      }
+
+      // Save to storage
+      saveToSessionStorage(messages.value);
+
+      console.log(
+        `✅ [ChatArea] Messages loaded: ${messages.value.length} total`
+      );
     } else {
-      // No messages found - return empty array instead of mock data
-      messages.value = [];
-      return [];
+      console.log(
+        `📭 [ChatArea] No messages returned from API - response:`,
+        response
+      );
+      // Set empty array if no messages
+      if (page === 1) {
+        messages.value = [];
+      }
     }
 
-    return messages.value;
-  } catch (error) {
-    $toast?.error("Failed to load messages");
-    messages.value = [];
-    return [];
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-// Start periodic refresh
-const startPeriodicRefresh = () => {
-  // Clear existing interval
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value);
-  }
-
-  // Set up new interval to refresh messages every 30 seconds
-  refreshInterval.value = setInterval(async () => {
-    if (!isInitializing.value && !isSending.value) {
-      await loadMessages();
+    return response;
+  } catch (error: any) {
+    console.error(`❌ [ChatArea] Error fetching messages:`, error);
+    if ($toast) {
+      $toast.error("Failed to load messages");
     }
-  }, 30000);
-};
+    throw error;
+  }
+}
 
 // Handle clicks outside dropdown to close it
 const handleClickOutside = (event: MouseEvent) => {
@@ -751,127 +681,56 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 };
 
-// WebSocket message handler
+// Simplified WebSocket message handling
 const handleWebSocketMessages = () => {
   if (!webSocketStore.isConnected) {
     return;
   }
 
-  // Add event listener for direct messages with enhanced parsing
-  eventBus.on("direct-message", (newMessage: any) => {
-    // Extract all possible sender and recipient IDs with thorough checks
-    const possibleSenderIds = [
-      newMessage.sender_id,
-      newMessage.sender?.id,
-      newMessage.from_id,
-      newMessage.user_id,
-      newMessage.author_id,
-    ].filter(Boolean);
-
-    const possibleRecipientIds = [
-      newMessage.recipient_id,
-      newMessage.receiver_id,
-      newMessage.recipient?.id,
-      newMessage.to_id,
-      newMessage.target_id,
-    ].filter(Boolean);
-
-    // Check if this message belongs to our current conversation
+  // Listen for new private messages via WebSocket
+  eventBus.on("private-message", (newMessage: any) => {
+    // Check if message is for current conversation
     const isForCurrentChat =
-      possibleSenderIds.includes(props.recipientId) ||
-      possibleRecipientIds.includes(props.recipientId);
+      (newMessage.sender_id === props.recipientId &&
+        newMessage.recipient_id === currentUser.value?.id) ||
+      (newMessage.sender_id === currentUser.value?.id &&
+        newMessage.recipient_id === props.recipientId);
 
     if (isForCurrentChat) {
-      // Use the same message conversion logic as in loadMessages for consistency
-      // Extract critical fields with fallbacks
-      const messageId =
-        newMessage.message_id ||
-        newMessage.id ||
-        `ws-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const messageType =
-        newMessage.message_type ||
-        newMessage.type ||
-        newMessage.content_type ||
-        "text";
-      const messageContent =
-        newMessage.content || newMessage.text || newMessage.message || "";
+      console.log(`📩 [ChatArea] New WebSocket message received`);
 
-      // Use the most likely sender_id
-      const senderId = possibleSenderIds[0] || "unknown";
+      const messageId = newMessage.id || `ws-${Date.now()}`;
 
-      // For recipient_id: If not present, use current user as recipient for messages not sent by them
-      const recipientId =
-        possibleRecipientIds[0] ||
-        (senderId === currentUser.value?.id
-          ? props.recipientId
-          : currentUser.value?.id);
+      // Check if message already exists
+      const existingIndex = messages.value.findIndex(
+        (msg) => msg.id === messageId
+      );
 
-      // Mark the message as from current user or not
-      const isCurrentUser = isCurrentUserMessage({
-        ...newMessage,
-        sender_id: senderId,
-      });
-
-      // Handle attachments with improved format detection
-      let attachment: Attachment | undefined = undefined;
-      const mediaUrl =
-        newMessage.media_url ||
-        newMessage.attachment_url ||
-        newMessage.file_url ||
-        newMessage.image_url ||
-        newMessage.url;
-
-      if (mediaUrl) {
-        const isImage =
-          messageType === "image" ||
-          (mediaUrl &&
-            /\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|avif|webp|heif)$/i.test(
-              mediaUrl
-            ));
-
-        attachment = {
-          type: isImage ? "image" : "file",
-          url: mediaUrl,
-          name:
-            newMessage.file_name ||
-            newMessage.attachment_name ||
-            (isImage ? "Image" : "File attachment"),
-          size: newMessage.file_size || newMessage.size || undefined,
+      if (existingIndex === -1) {
+        // Add new message
+        const formattedMessage = {
+          ...newMessage,
+          id: messageId,
+          isCurrentUser: isCurrentUserMessage(newMessage),
+          timestamp: formatTimestamp(
+            newMessage.timestamp ||
+              newMessage.sent_at ||
+              newMessage.created_at ||
+              new Date().toISOString()
+          ),
+          receivedViaWebSocket: true,
         };
-      }
 
-      // Create a complete formatted message with all necessary fields
-      const formattedMessage: Message = {
-        id: messageId,
-        message_id: messageId,
-        content: messageContent,
-        type: messageType,
-        message_type: messageType,
-        sender_id: senderId,
-        recipient_id: recipientId,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        sent_at:
-          newMessage.sent_at ||
-          newMessage.timestamp ||
-          new Date().toISOString(),
-        created_at: newMessage.created_at || new Date().toISOString(),
-        isCurrentUser,
-        read: newMessage.read || newMessage.is_read || false,
-        isDeleted:
-          newMessage.type === "deleted" || newMessage.is_deleted || false,
-        attachment,
-        sent: true,
-        // Keep original sender/recipient objects if present
-        sender: newMessage.sender,
-        recipient: newMessage.recipient,
-      };
-
-      // Add message if it doesn't already exist
-      if (!messages.value.find((msg) => msg.id === formattedMessage.id)) {
         messages.value.push(formattedMessage);
+
+        // Validate bubble positioning after adding WebSocket message
+        const fixedCount = validateMessageBubbles();
+        if (fixedCount > 0) {
+          console.log(
+            `🛠️ [ChatArea] Fixed ${fixedCount} message bubble positions after WebSocket message`
+          );
+        }
+
         saveToSessionStorage(messages.value);
 
         // Scroll to bottom
@@ -881,15 +740,30 @@ const handleWebSocketMessages = () => {
           }
         });
 
-        // Show toast notification for new message (only if not from current user)
+        // Show notification for messages from others
         if (!formattedMessage.isCurrentUser && $toast) {
-          $toast.info(
-            `New message from ${
-              recipient.value.first_name || recipient.value.name || "contact"
-            }`
-          );
+          $toast.info(`New message from ${recipient.value.name || "contact"}`);
         }
       }
+    }
+  });
+
+  // Handle temp message replacements
+  wsListener.listenToWSEvent("temp-message-replaced", (data) => {
+    const tempIndex = messages.value.findIndex((msg) => msg.id === data.tempId);
+
+    if (tempIndex !== -1) {
+      messages.value[tempIndex] = {
+        ...messages.value[tempIndex],
+        id: data.realId,
+        pending: false,
+        failed: false,
+      };
+
+      saveToSessionStorage(messages.value);
+      console.log(
+        `✅ [ChatArea] Replaced temp message ${data.tempId} with ${data.realId}`
+      );
     }
   });
 };
@@ -1049,7 +923,7 @@ const handleFileChange = async (event: Event) => {
     );
 
     if (response?.data) {
-      await loadMessages(); // Refresh messages
+      await fetchPrivateMessages(); // Refresh messages
       $toast?.success("File sent successfully");
     }
   } catch (error) {
@@ -1082,7 +956,7 @@ const handleImageChange = async (event: Event) => {
     );
 
     if (response?.data) {
-      await loadMessages(); // Refresh messages
+      await fetchPrivateMessages(); // Refresh messages
       $toast?.success("Image sent successfully");
     }
   } catch (error) {
@@ -1094,29 +968,31 @@ const handleImageChange = async (event: Event) => {
 };
 
 // Handle send message
+
+// Simplified send message function
 const handleSendMessage = async (messageContent?: string) => {
   const content = messageContent || inputMessage.value.trim();
-
   if (!content) return;
 
   try {
     isSending.value = true;
 
-    // Create temporary message for optimistic UI
+    // Create optimistic UI message
     const tempMessage: Message = {
       id: `temp-${Date.now()}`,
       content,
-      type: "text",
-      timestamp: new Date().toLocaleTimeString([], {
+      timestamp: new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
       }),
       isCurrentUser: true,
       pending: true,
-      sent: false,
+      sent_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
-    // Add temporary message
+    // Add temp message immediately for responsive UI
     messages.value.push(tempMessage);
     inputMessage.value = "";
 
@@ -1127,29 +1003,34 @@ const handleSendMessage = async (messageContent?: string) => {
       }
     });
 
-    // Send message via API
+    // Send message
     if (editingMessageId.value) {
-      // Edit existing message
       await messagesStore.editMessage(editingMessageId.value, content);
       editingMessageId.value = null;
-    } else {
-      // Send new message
-      await messagesStore.sendMessage(props.recipientId, content);
-    }
 
-    // Remove temporary message and reload
-    messages.value = messages.value.filter((msg) => msg.id !== tempMessage.id);
-    await loadMessages();
+      // Remove temp message but don't refetch for edits to preserve isEdited flag
+      messages.value = messages.value.filter(
+        (msg) => msg.id !== tempMessage.id
+      );
+    } else {
+      await messagesStore.sendMessage(props.recipientId, content);
+
+      // Remove temp message and refresh to get real message from server
+      messages.value = messages.value.filter(
+        (msg) => msg.id !== tempMessage.id
+      );
+      await fetchPrivateMessages();
+    }
   } catch (error) {
     $toast?.error("Failed to send message");
 
-    // Mark message as failed
-    const messageIndex = messages.value.findIndex(
+    // Mark temp message as failed
+    const failedMsgIndex = messages.value.findIndex(
       (msg) => msg.content === content && msg.pending
     );
-    if (messageIndex !== -1) {
-      messages.value[messageIndex] = {
-        ...messages.value[messageIndex],
+    if (failedMsgIndex !== -1) {
+      messages.value[failedMsgIndex] = {
+        ...messages.value[failedMsgIndex],
         pending: false,
         failed: true,
         errorMessage: "Failed to send",
@@ -1261,62 +1142,55 @@ const defaultMessages = [
   },
 ];
 
-// Track active messages
+// Track active messages - simplified state management
 const messages = ref<Message[]>([]);
 
-// Helper function untuk memastikan konsistensi comparison
-// IMPORTANT: This function determines if a message should appear on the RIGHT side (as "ME")
-// It should return TRUE only if the message was sent BY the currently logged-in user
+// Improved helper to determine if message is from current user
 const isCurrentUserMessage = (message: any): boolean => {
-  // Ensure we have valid user data
-  if (!currentUser.value?.id) {
-    return false;
-  }
+  if (!currentUser.value?.id) return false;
 
-  // Convert both IDs to strings for safe comparison and handle edge cases
-  const currentUserId = String(currentUser.value.id).trim();
+  const currentUserId = String(currentUser.value.id);
+
+  // Temp messages are always from current user
+  if (message.id?.startsWith("temp-")) return true;
 
   // Check multiple possible sender ID fields
-  let senderId = "";
+  const senderId = String(
+    message.sender_id ||
+      message.sender?.id ||
+      message.from_id ||
+      message.user_id ||
+      message.author_id ||
+      ""
+  );
 
-  // Try different possible sender ID locations
-  if (message.sender_id) {
-    senderId = String(message.sender_id).trim();
-  } else if (message.sender?.id) {
-    senderId = String(message.sender.id).trim();
-  } else if (message.from_id) {
-    senderId = String(message.from_id).trim();
-  } else if (message.user_id) {
-    senderId = String(message.user_id).trim();
-  }
+  // Primary check: If sender is current user, then message IS from current user
+  if (senderId === currentUserId) return true;
 
-  // If we still don't have a sender ID, try to determine it from other fields
-  if (!senderId && message.id && message.id.startsWith("temp-")) {
-    // Temporary messages are always from the current user
-    return true;
-  }
+  // Secondary check: If sender is NOT current user, then message is NOT from current user
+  if (senderId && senderId !== currentUserId) return false;
 
-  return senderId === currentUserId;
-};
-
-// Helper function to validate and fix message bubble positioning
-const validateMessageBubbles = (): number => {
-  let fixedCount = 0;
-
-  messages.value = messages.value.map((msg) => {
-    const correctIsCurrentUser = isCurrentUserMessage(msg);
-
-    if (msg.isCurrentUser !== correctIsCurrentUser) {
-      fixedCount++;
-      return {
-        ...msg,
-        isCurrentUser: correctIsCurrentUser,
-      };
-    }
-
-    return msg;
+  console.log(`🔍 [ChatArea] Message bubble positioning:`, {
+    messageId: message.id,
+    currentUserId,
+    senderId,
+    recipientId: props.recipientId,
+    isCurrentUser: senderId === currentUserId,
   });
 
+  return false; // Default to false if we can't determine
+};
+
+// Simple validation to ensure correct message bubble positioning
+const validateMessageBubbles = (): number => {
+  let fixedCount = 0;
+  messages.value.forEach((msg, index) => {
+    const correctIsCurrentUser = isCurrentUserMessage(msg);
+    if (msg.isCurrentUser !== correctIsCurrentUser) {
+      messages.value[index].isCurrentUser = correctIsCurrentUser;
+      fixedCount++;
+    }
+  });
   return fixedCount;
 };
 
@@ -1347,108 +1221,107 @@ const sortMessagesByTimestamp = (msgs: Message[]) => {
   });
 };
 
+// Simplified displayed messages - no complex filtering that could hide messages
 const displayMessages = computed(() => {
-  // If there are no messages, return empty array
-  if (!messages.value || messages.value.length === 0) {
+  if (!messages.value || !Array.isArray(messages.value)) {
+    console.log(
+      `🔍 [ChatArea] displayMessages: messages.value is not an array:`,
+      messages.value
+    );
     return [];
   }
 
-  // First filter messages for the current chat room
-  let messagesToDisplay = messages.value.filter((msg) => {
-    // ENHANCED LOGIC: Even more flexible filtering to include all messages from the conversation
-    const currentUserId = currentUser.value?.id;
-    const recipientId = props.recipientId;
+  let messagesToDisplay = messages.value;
 
-    // Safety check - if we don't have crucial data, skip message
-    if (!currentUserId || !recipientId) {
-      return false;
-    }
-
-    // Convert IDs to strings for safer comparison
-    const currentUserIdStr = String(currentUserId);
-    const recipientIdStr = String(recipientId);
-
-    // 1. Accept any message where either current user or recipient is involved as sender/receiver
-    const isSenderCurrentUserOrRecipient =
-      String(msg.sender_id) === currentUserIdStr ||
-      String(msg.sender_id) === recipientIdStr;
-
-    // 2. Accept temporary messages (they are always part of current conversation)
-    const isTempMessage = msg.id && String(msg.id).startsWith("temp-");
-
-    // 3. Special cases - Always accept these message types if present
-    const isSpecialMessage =
-      msg.type === "system" || msg.type === "notification";
-
-    // ULTRA PERMISSIVE: Accept almost any message in the current context
-    // We'll filter out duplicates later if needed
-    // The goal now is to make sure messages show up!
-    const isPartOfConversation =
-      isSenderCurrentUserOrRecipient ||
-      isTempMessage ||
-      isSpecialMessage ||
-      !msg.recipient_id; // Accept messages without recipient_id too
-
-    return isPartOfConversation;
-  });
-
-  // Log how many messages remain after room filtering
-  console.log(
-    `[ChatArea] After room filtering: ${messagesToDisplay.length} messages to display`
-  );
-
-  // CRITICAL FIX: Ensure all messages have correct isCurrentUser flag
-  messagesToDisplay = messagesToDisplay.map((msg) => {
-    // Recalculate isCurrentUser to ensure consistency
-    const correctIsCurrentUser = isCurrentUserMessage(msg);
-
-    // If the stored value doesn't match the calculated value, fix it
-    if (msg.isCurrentUser !== correctIsCurrentUser) {
-      console.warn(
-        `🔧 [ChatArea] Fixing isCurrentUser for message ${msg.id}: ${msg.isCurrentUser} → ${correctIsCurrentUser}`
-      );
-      return {
-        ...msg,
-        isCurrentUser: correctIsCurrentUser,
-      };
-    }
-
-    return msg;
-  });
-
-  // Filter out invalid messages that might cause display issues
-  messagesToDisplay = messagesToDisplay.filter((msg) => {
-    // Always include deleted messages that are properly marked
-    if (msg.isDeleted) return true;
-
-    // For non-deleted messages, verify they have required content
-    const hasValidContent =
-      msg.content !== undefined && msg.content !== null && msg.content !== "";
-    return hasValidContent;
-  });
-
-  // Override with search results when searching
+  // Apply search filtering if active
   if (isSearching.value && filteredMessages.value.length > 0) {
     messagesToDisplay = filteredMessages.value;
   }
 
-  // Sort messages by timestamp to ensure chronological order
-  const sortedMessages = sortMessagesByTimestamp(messagesToDisplay);
-
-  // Final validation to ensure all messages have correct bubble positioning
-  const validatedMessages = sortedMessages.map((msg) => {
-    const shouldBeCurrentUser = isCurrentUserMessage(msg);
-    if (msg.isCurrentUser !== shouldBeCurrentUser) {
-      return {
-        ...msg,
-        isCurrentUser: shouldBeCurrentUser,
-      };
-    }
-    return msg;
+  // Simple sort by timestamp - oldest first
+  const sorted = messagesToDisplay.sort((a, b) => {
+    const timeA = new Date(
+      a.created_at || a.sent_at || a.timestamp || 0
+    ).getTime();
+    const timeB = new Date(
+      b.created_at || b.sent_at || b.timestamp || 0
+    ).getTime();
+    return timeA - timeB;
   });
 
-  return validatedMessages;
+  console.log(
+    `🔍 [ChatArea] displayMessages computed: ${sorted.length} messages`,
+    {
+      rawMessages: messages.value.length,
+      isSearching: isSearching.value,
+      firstMessage: sorted[0]
+        ? {
+            id: sorted[0].id,
+            content: sorted[0].content?.substring(0, 50),
+            isCurrentUser: sorted[0].isCurrentUser,
+            sender_id: sorted[0].sender_id,
+          }
+        : null,
+    }
+  );
+
+  return sorted;
 });
+
+// Group messages by date for better organization
+const groupedMessages = computed(() => {
+  const groups: {
+    [key: string]: {
+      date: string;
+      messages: Message[];
+      isToday: boolean;
+      isYesterday: boolean;
+    };
+  } = {};
+
+  displayMessages.value.forEach((message) => {
+    const messageDate = new Date(
+      message.created_at || message.sent_at || message.timestamp
+    );
+    const dateKey = messageDate.toDateString();
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+
+    if (!groups[dateKey]) {
+      groups[dateKey] = {
+        date: messageDate.toLocaleDateString("id-ID", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        messages: [],
+        isToday: dateKey === today,
+        isYesterday: dateKey === yesterday,
+      };
+    }
+
+    groups[dateKey].messages.push(message);
+  });
+
+  // Convert to array and sort by date
+  return Object.entries(groups)
+    .map(([dateKey, group]) => ({
+      dateKey,
+      ...group,
+    }))
+    .sort(
+      (a, b) => new Date(a.dateKey).getTime() - new Date(b.dateKey).getTime()
+    );
+});
+
+// Format timestamp for display - using the centralized utility
+function formatTimestamp(dateString?: string): string {
+  if (!dateString) return "";
+
+  // Use the centralized function with 'time' format to show actual time (HH:MM)
+  return formatMessageTimestamp({ timestamp: dateString, format: "time" });
+}
 
 // Initialize WebSocket connection
 const connectWebSocket = async () => {
@@ -1532,8 +1405,7 @@ const manualRefresh = async () => {
     messages.value = [];
 
     // Force reload from API
-    hasLoadedFromAPI.value = false;
-    await loadMessages();
+    await fetchPrivateMessages();
 
     // Show toast with message count
     if (messages.value.length > 0) {
@@ -1568,479 +1440,188 @@ const isComponentInitialized = ref(false);
 // Set production mode - diagnostics are now fully disabled
 
 onMounted(async () => {
-  try {
-    // Make sure we have friends data
-    if (!friendsStore.friends.length) {
-      await friendsStore.getFriends();
-    }
+  console.log(
+    `🚀 [ChatArea] Component mounted for recipientId: ${props.recipientId}`
+  );
 
-    // CRITICAL SEQUENCE: Connect to WebSocket before loading messages
-    // Flag to track if WebSocket is properly connected
-    let wsConnected = false;
-
-    // Step 1: Check authentication and connect WebSocket FIRST
-    if (authStore.isAuthenticated) {
-      await connectWebSocket();
-      wsConnected = webSocketStore.isConnected;
-    } else {
-      try {
-        // Try to retrieve user info and then connect
-        await authStore.getUserInfo();
-        await connectWebSocket();
-        wsConnected = webSocketStore.isConnected;
-      } catch (error) {
-        if ($toast) {
-          $toast.error("Authentication error");
-        }
-      }
-    }
-
-    // Wait a small amount of time to ensure WebSocket has fully initialized
-    // This helps prevent race conditions where WebSocket appears connected but isn't fully ready
-    if (wsConnected) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
-    // Step 2: AFTER WebSocket is connected (or attempted), load messages
-    await loadMessages();
-
-    // Wait a moment to ensure all async operations complete, then verify we have messages
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // If for some reason we still don't have messages, try loading them again
-    if (messages.value.length === 0 && !isLoading.value) {
-      await loadMessages();
-    }
-
-    // Start periodic refresh to ensure sync with backend
-    startPeriodicRefresh();
-
-    // After loading, check if we have messages in the store to display
-    if (messagesStore.messages && messagesStore.messages.length > 0) {
-      // Convert the messages to our format
-      const convertedMessages = messagesStore.messages.map((message: any) => {
-        // Use helper function for consistent comparison
-        const isCurrentUser = isCurrentUserMessage(message);
-        let attachment: Attachment | undefined = undefined;
-        if (message.media_url) {
-          const isImage =
-            message.type === "image" ||
-            (message.media_url &&
-              /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(message.media_url));
-          attachment = {
-            type: isImage ? "image" : "file",
-            url: message.media_url,
-            name: isImage ? "Image" : "File attachment",
-          };
-        }
-        return {
-          id: message.id,
-          content: message.content || "",
-          timestamp:
-            message.sent_at || message.created_at
-              ? new Date(
-                  message.sent_at || message.created_at
-                ).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-          isCurrentUser,
-          read: message.read || false,
-          isEdited:
-            new Date(message.updated_at).getTime() >
-            new Date(message.created_at).getTime(),
-          isDeleted: message.type === "deleted",
-          attachment,
-          sent: true, // Mark API messages as already sent
-        } as Message;
-      });
-      messages.value = convertedMessages;
-    } else {
-      // Initialize messages if no cached messages
-      if (props.recipientId) {
-        await loadMessages();
-      } else if (props.chatMessages && props.chatMessages.length > 0) {
-        messages.value = [...props.chatMessages];
-      } else {
-        messages.value = defaultMessages as Message[];
-      }
-    }
-
-    // Initial scroll to bottom
-    nextTick(() => {
-      if (messagesEndRef.value && messages.value.length > 0) {
-        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-      }
-    });
-
-    // Add event listener
-    document.addEventListener("mousedown", handleClickOutside);
-
-    // CRITICAL FIX: Completely redesigned initialization sequence
-    // Step 1: First mark initializing state to prevent any race conditions
-    isInitializing.value = true;
-    hasLoadedFromAPI.value = false;
-
-    // Step 2: Connect WebSocket FIRST and wait for it to be fully established
-    if (!webSocketStore.isConnected) {
-      try {
-        await webSocketStore.connect();
-      } catch (wsError) {
-        // Continue without WebSocket - we'll use API polling as fallback
-      }
-    }
-
-    // Step 3: Pause briefly to ensure WebSocket is fully initialized before proceeding
-    // This helps prevent race conditions in the WebSocket handler setup
-    if (webSocketStore.isConnected) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
-    // Step 4: Disable any existing WebSocket message handlers to prevent interference
-    if (wsWatcher.value) {
-      wsWatcher.value();
-      wsWatcher.value = null;
-    }
-
-    // Step 5: Only now, load messages from API
-    if (!hasLoadedFromAPI.value) {
-      await loadMessages();
-    }
-
-    // Save original message count after API loading
-    const messageCountAfterAPI = messages.value.length;
-
-    // Step 6: Create multiple backups of API-loaded messages
-    if (messages.value.length > 0) {
-      // Save in memory
-      messageBackup.value = [...messages.value];
-
-      // Save to session storage with single backup to prevent quota issues
-      const conversationKey = `chat_${props.recipientId}`;
-      try {
-        sessionStorage.setItem(
-          `api_loaded_${conversationKey}`,
-          JSON.stringify(messages.value)
-        );
-      } catch (error) {
-        // Silently handle quota exceeded errors
-      }
-    }
-
-    // Step 7: Mark initialization as complete BEFORE setting up WebSocket handler
-    // This is crucial to prevent the WebSocket handler from thinking we're still initializing
-    isInitializing.value = false;
-
-    // Step 8: Finally, set up the WebSocket message handler ONLY after everything else is done
-    if (webSocketStore.isConnected) {
-      // Track message count before WebSocket handler setup
-      const messageCountBeforeWS = messages.value.length;
-
-      // Set up WebSocket message handler with our messages already loaded
-      handleWebSocketMessages();
-
-      // Check immediately if messages were lost during setup
-      const messageCountAfterWS = messages.value.length;
-
-      // Immediately restore if WebSocket handler somehow removed messages
-      if (
-        messageCountAfterWS < messageCountBeforeWS &&
-        messageCountBeforeWS > 0
-      ) {
-        console.warn(
-          `⚠️ [ChatArea] IMMEDIATE RECOVERY: Lost ${
-            messageCountBeforeWS - messageCountAfterWS
-          } messages!`
-        );
-
-        // Restore from memory backup first (fastest)
-        if (messageBackup.value.length >= messageCountBeforeWS) {
-          console.log(
-            `🔄 [ChatArea] Restoring ${messageBackup.value.length} messages from memory backup`
-          );
-          messages.value = [...messageBackup.value];
-        }
-        // Fall back to session storage if memory backup failed
-        else {
-          try {
-            const conversationKey = `chat_${props.recipientId}`;
-            const backupData = sessionStorage.getItem(
-              `api_loaded_${conversationKey}`
-            );
-
-            // Also try to load messages directly from API as a last resort
-            if (!backupData) {
-              console.log(
-                "🔄 [ChatArea] No backup found in session storage, loading from API"
-              );
-              // CRITICAL FIX: Force a direct API reload as last resort
-              hasLoadedFromAPI.value = false;
-              const freshMessages = await loadMessages();
-              if (freshMessages && freshMessages.length > 0) {
-                console.log(
-                  `🔄 [ChatArea] Successfully loaded ${freshMessages.length} fresh messages from API`
-                );
-                messages.value = freshMessages;
-              } else {
-                console.warn(
-                  "⚠️ [ChatArea] API reload also failed to retrieve messages"
-                );
-              }
-            }
-            // Try to restore from session storage if available
-            else if (backupData) {
-              const restoredMessages = JSON.parse(backupData) as Message[];
-              if (restoredMessages && restoredMessages.length > 0) {
-                console.log(
-                  `🔄 [ChatArea] Restoring ${restoredMessages.length} messages from session backup`
-                );
-                messages.value = restoredMessages;
-              }
-            }
-          } catch (error) {
-            console.error(
-              "❌ [ChatArea] Failed to restore messages from backup:",
-              error
-            );
-
-            // LAST RESORT: Force a fresh API load
-            hasLoadedFromAPI.value = false;
-            loadMessages().catch((err) =>
-              console.error("API reload failed:", err)
-            );
-          }
-        }
-      }
-    } else {
+  // Simple message loading priority: props -> session storage -> API
+  if (props.chatMessages && props.chatMessages.length > 0) {
+    console.log(
+      `📨 [ChatArea] Using prop messages (${props.chatMessages.length})`
+    );
+    messages.value = props.chatMessages;
+  } else {
+    const storedMessages = loadFromSessionStorage();
+    if (storedMessages.length > 0) {
       console.log(
-        "⚠️ [ChatArea] WebSocket not connected - using fallback polling only"
+        `💾 [ChatArea] Using stored messages (${storedMessages.length})`
       );
-    }
-
-    // Setup periodic message refresh to ensure sync with backend
-    startPeriodicRefresh();
-
-    console.log("[ChatArea] Component initialization complete");
-  } catch (error) {
-    console.error("Error initializing chat:", error);
-    if ($toast) {
-      $toast.error("Failed to initialize chat");
+      messages.value = storedMessages;
+    } else {
+      console.log(`📡 [ChatArea] Fetching messages from API`);
+      isLoading.value = true;
+      try {
+        await fetchPrivateMessages();
+      } catch (error) {
+        console.error("Failed to fetch messages:", error);
+      } finally {
+        isLoading.value = false;
+      }
     }
   }
+
+  // Fix message bubble positioning
+  validateMessageBubbles();
+
+  // Initial scroll to bottom
+  nextTick(() => {
+    if (messagesEndRef.value) {
+      messagesEndRef.value.scrollIntoView();
+    }
+  });
+
+  // Set up event listeners
+  document.addEventListener("mousedown", handleClickOutside);
+
+  // Connect WebSocket for real-time updates
+  await connectWebSocket();
+  handleWebSocketMessages();
+
+  console.log(
+    `✅ [ChatArea] Initialization complete with ${messages.value.length} messages`
+  );
 });
 
-// State tracking flags
-const isInitializing = ref(true);
-const hasLoadedFromAPI = ref(false);
-const sessionStorageSaveTimeout = ref<NodeJS.Timeout | null>(null);
-const refreshInterval = ref<NodeJS.Timeout | null>(null);
-
-// Session storage management constants
-const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB limit (conservative)
-const MAX_MESSAGES_PER_CHAT = 100; // Limit messages per chat to prevent bloat
-const STORAGE_CLEANUP_THRESHOLD = 0.8; // Clean up when 80% full
-
-// Enhanced session storage with quota management
-const getStorageUsage = () => {
-  try {
-    let totalSize = 0;
-    for (let key in sessionStorage) {
-      if (sessionStorage.hasOwnProperty(key)) {
-        totalSize += sessionStorage.getItem(key)?.length || 0;
-      }
-    }
-    return totalSize;
-  } catch (e) {
-    return 0;
+// Simple session storage management
+const saveToSessionStorage = (messagesList: Message[]) => {
+  if (!messagesList || messagesList.length === 0) {
+    return; // Don't save empty arrays
   }
-};
 
-const cleanupOldConversations = () => {
   try {
-    const chatKeys = Object.keys(sessionStorage).filter((key) =>
-      key.startsWith("chat_")
+    const conversationKey = `chat_${props.recipientId}`;
+
+    // Optimize storage by keeping only the essential fields
+    const optimizedMessages = messagesList.map((msg) => ({
+      id: msg.id,
+      content: msg.content,
+      sender_id: msg.sender_id,
+      recipient_id: msg.recipient_id,
+      timestamp: msg.timestamp,
+      raw_timestamp: msg.raw_timestamp,
+      sent_at: msg.sent_at,
+      created_at: msg.created_at,
+      updated_at: msg.updated_at,
+      isCurrentUser: msg.isCurrentUser,
+      isEdited: msg.isEdited,
+      isDeleted: msg.isDeleted,
+      attachment: msg.attachment,
+      pending: msg.pending,
+      failed: msg.failed,
+      read: msg.read,
+    }));
+
+    sessionStorage.setItem(conversationKey, JSON.stringify(optimizedMessages));
+
+    console.log(
+      `💾 [ChatArea] Saved ${optimizedMessages.length} messages to session storage for recipient ${props.recipientId}`
+    );
+  } catch (error) {
+    console.error(
+      "❌ [ChatArea] Failed to save messages to session storage:",
+      error
     );
 
-    if (chatKeys.length === 0) {
-      return;
-    }
-
-    // Sort by last accessed time (if available) or remove oldest
-    const keyTimestamps = chatKeys.map((key) => {
-      const timestamp = sessionStorage.getItem(`${key}_timestamp`);
-      return {
-        key,
-        timestamp: timestamp ? parseInt(timestamp) : 0,
-      };
-    });
-
-    // Remove oldest conversations first (keep newest half)
-    const conversationsToRemove = keyTimestamps
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .slice(0, Math.floor(chatKeys.length / 2)); // Remove half of old conversations
-
-    conversationsToRemove.forEach((item) => {
+    // Try with a more aggressive optimization if the data was too large
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
       try {
-        sessionStorage.removeItem(item.key);
-        sessionStorage.removeItem(`${item.key}_timestamp`);
-        sessionStorage.removeItem(`api_loaded_${item.key}`); // Also remove API load flags
-      } catch (e) {
-        // Silent error handling in production
-      }
-    });
-  } catch (e) {
-    // Silent error handling in production
-  }
-};
+        // Keep only the most recent 50 messages
+        const reducedMessages = messagesList.slice(-50).map((msg) => ({
+          id: msg.id,
+          content: msg.content,
+          sender_id: msg.sender_id,
+          timestamp: msg.timestamp,
+          isCurrentUser: msg.isCurrentUser,
+        }));
 
-const truncateMessages = (messagesList: Message[]) => {
-  if (messagesList.length > MAX_MESSAGES_PER_CHAT) {
-    // Keep the most recent messages
-    return messagesList.slice(-MAX_MESSAGES_PER_CHAT);
-  }
-  return messagesList;
-};
-
-// Enhanced session storage with tracking and cleanup
-const saveToSessionStorage = (messagesList: Message[]) => {
-  console.log(
-    `💾 [SessionStorage] Preparing to save ${messagesList.length} messages`
-  );
-
-  // Clear any pending save
-  if (sessionStorageSaveTimeout.value) {
-    clearTimeout(sessionStorageSaveTimeout.value);
-  }
-
-  // Debounce the save operation
-  sessionStorageSaveTimeout.value = setTimeout(async () => {
-    try {
-      // Check storage usage before saving
-      const currentUsage = getStorageUsage();
-      const usageRatio = currentUsage / MAX_STORAGE_SIZE;
-
-      console.log(
-        `📊 [SessionStorage] Current usage: ${(usageRatio * 100).toFixed(1)}%`
-      );
-
-      // Cleanup if approaching quota
-      if (usageRatio > STORAGE_CLEANUP_THRESHOLD) {
-        console.log(`🧹 [SessionStorage] Approaching quota, cleaning up...`);
-        cleanupOldConversations();
-      }
-
-      // Truncate messages if too many
-      const messagesToSave = truncateMessages(messagesList);
-
-      const conversationKey = `chat_${props.recipientId}`;
-      const timestampKey = `${conversationKey}_timestamp`;
-
-      // Save with compression-like approach - only save essential data
-      const essentialMessages = messagesToSave.map((msg) => ({
-        id: msg.id,
-        content: msg.content,
-        sender_id: msg.sender_id,
-        timestamp: msg.timestamp,
-        type: msg.type,
-        attachment: msg.attachment,
-        isCurrentUser: msg.isCurrentUser,
-      }));
-
-      sessionStorage.setItem(
-        conversationKey,
-        JSON.stringify(essentialMessages)
-      );
-      sessionStorage.setItem(timestampKey, Date.now().toString());
-
-      // After emergency cleanup, check if we need to restore messages
-      if (messagesToSave.length < messagesList.length) {
-        await restoreMissingMessages();
-      }
-    } catch (storageError: any) {
-      console.error(
-        "❌ [SessionStorage] Error saving to session storage:",
-        storageError
-      );
-
-      // Handle quota exceeded error
-      if (storageError.name === "QuotaExceededError") {
-        console.log(
-          "🚨 [SessionStorage] Quota exceeded, performing emergency cleanup"
+        const conversationKey = `chat_${props.recipientId}`;
+        sessionStorage.setItem(
+          conversationKey,
+          JSON.stringify(reducedMessages)
         );
+
+        console.log(
+          "💾 [ChatArea] Saved reduced message set due to storage quota limits"
+        );
+      } catch (secondError) {
+        console.error(
+          "❌ [ChatArea] Failed to save even reduced message set:",
+          secondError
+        );
+        // Clear this conversation's storage if we can't save anything
         try {
-          // Emergency cleanup - remove all chat data except current
-          const currentKey = `chat_${props.recipientId}`;
-          Object.keys(sessionStorage).forEach((key) => {
-            if (key.startsWith("chat_") && key !== currentKey) {
-              sessionStorage.removeItem(key);
-            }
-          });
-
-          // Try saving again with minimal data
-          const minimalMessages = messagesList.slice(-20).map((msg) => ({
-            id: msg.id,
-            content: msg.content?.substring(0, 200) || "", // Truncate content
-            sender_id: msg.sender_id,
-            timestamp: msg.timestamp,
-            isCurrentUser: msg.isCurrentUser,
-          }));
-
-          sessionStorage.setItem(currentKey, JSON.stringify(minimalMessages));
-          console.log(
-            "✅ [SessionStorage] Emergency save completed with minimal data"
-          );
-
-          // After emergency save, try to restore any lost messages
-          await restoreMissingMessages();
-        } catch (emergencyError) {
-          console.error(
-            "❌ [SessionStorage] Emergency save failed:",
-            emergencyError
-          );
-          // Clear all session storage as last resort
-          sessionStorage.clear();
-          console.log(
-            "🧹 [SessionStorage] Cleared all session storage as last resort"
-          );
+          sessionStorage.removeItem(`chat_${props.recipientId}`);
+        } catch (e) {
+          // Ignore cleanup errors
         }
       }
     }
-  }, 500); // 500ms debounce
-};
-
-// After successful emergency save, try to restore any missing messages
-const restoreMissingMessages = async (): Promise<void> => {
-  console.log(
-    "🔄 [SessionStorage] Checking for missing messages to restore..."
-  );
-
-  try {
-    // First check memory backup
-    if (messageBackup.value.length > messages.value.length) {
-      messages.value = [...messageBackup.value];
-      return;
-    }
-
-    // Check API backup
-    const apiMessages = await loadMessages();
-    if (
-      Array.isArray(apiMessages) &&
-      apiMessages.length > messages.value.length
-    ) {
-      messages.value = apiMessages;
-      return;
-    }
-  } catch (error) {
-    // Silent error handling in production
-    if ($toast) {
-      $toast.error("Error restoring messages");
-    }
   }
 };
+
+const loadFromSessionStorage = (): Message[] => {
+  try {
+    const conversationKey = `chat_${props.recipientId}`;
+    const storedData = sessionStorage.getItem(conversationKey);
+
+    if (!storedData) {
+      console.log(
+        `📭 [ChatArea] No stored messages found for recipient ${props.recipientId}`
+      );
+      return [];
+    }
+
+    const parsedMessages = JSON.parse(storedData) as Message[];
+
+    if (!Array.isArray(parsedMessages)) {
+      console.warn("⚠️ [ChatArea] Stored data is not an array, ignoring");
+      return [];
+    }
+
+    console.log(
+      `💾 [ChatArea] Loaded ${parsedMessages.length} messages from session storage for recipient ${props.recipientId}`
+    );
+
+    return parsedMessages;
+  } catch (error) {
+    console.error(
+      "❌ [ChatArea] Failed to load messages from session storage:",
+      error
+    );
+    // Clear corrupted data
+    try {
+      sessionStorage.removeItem(`chat_${props.recipientId}`);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    return [];
+  }
+};
+
+// Cleanup when component is unmounted
+onUnmounted(() => {
+  console.log("🧹 [ChatArea] Component unmounting - cleaning up");
+
+  // Remove event listeners
+  eventBus.off("private-message");
+
+  // Clear any pending timers
+  if (typingTimeout.value) {
+    clearTimeout(typingTimeout.value);
+  }
+
+  console.log("✅ [ChatArea] Cleanup completed");
+});
 
 // Production mode - emergency debug functions removed
 </script>

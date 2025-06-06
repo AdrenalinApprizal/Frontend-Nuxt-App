@@ -3,9 +3,6 @@ import { useAuthStore } from "~/composables/useAuth";
 import Cookies from "js-cookie";
 
 export default defineNuxtPlugin((nuxtApp) => {
-  // Mendapatkan konfigurasi runtime
-  const config = useRuntimeConfig();
-
   // Define a global fetch function that includes authentication headers
   const apiFetch = async (url: string, options: RequestInit = {}) => {
     // Get store only when needed (avoid hydration issues)
@@ -32,8 +29,6 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Only add Authorization and Cookie headers if we have a token
     if (token) {
       headerOptions["Authorization"] = `Bearer ${token}`;
-      // Don't set Cookie header directly, let the browser handle it
-      // The token is already in the cookie from the login process
     }
 
     const headers = new Headers(headerOptions);
@@ -42,17 +37,54 @@ export default defineNuxtPlugin((nuxtApp) => {
     const mergedOptions: RequestInit = {
       ...options,
       headers,
-      // Gunakan 'same-origin' sebagai default agar tidak terjadi masalah CORS
-      // hanya gunakan 'include' jika server API dikonfigurasi untuk menerima credentials
       credentials: options.credentials || "same-origin",
     };
 
-    // Complete URL with base URL, now using the internal proxy
-    // This ensures that the request goes through our proxy which handles routing and CORS
-    const completeUrl = url.startsWith("http")
-      ? url
-      : // Use the internal proxy endpoint instead of direct API access
-        `/api/proxy${url.startsWith("/") ? url : `/${url}`}`;
+    // Complete URL construction - simplified approach
+    let completeUrl;
+
+    if (url.startsWith("http")) {
+      // Full URL provided, use as-is
+      completeUrl = url;
+    } else if (url.startsWith("/api/proxy")) {
+      // URL already has proxy prefix, use as-is
+      completeUrl = url;
+    } else {
+      // Use the internal proxy endpoint instead of direct API access
+      const normalizedPath = url.startsWith("/") ? url : `/${url}`;
+      completeUrl = `/api/proxy${normalizedPath}`;
+    }
+
+    // Basic validation to ensure URL doesn't contain obvious issues
+    if (completeUrl.includes("undefined") || completeUrl.includes("null")) {
+      throw new Error(`Invalid URL construction detected: ${completeUrl}`);
+    }
+
+    // Log the URL for debugging purposes
+    if (process.dev) {
+      console.log(`Making API request to: ${completeUrl}`);
+
+      // Add additional logging for requests involving groups
+      if (completeUrl.includes("/groups")) {
+        console.log("Debug - Group API request details:", {
+          originalUrl: url,
+          constructed: completeUrl,
+          method: mergedOptions.method || "GET",
+        });
+      }
+
+      // Add detailed logging for messages/history endpoint
+      if (completeUrl.includes("/messages/history")) {
+        console.log("Debug - Messages History request details:", {
+          originalUrl: url,
+          constructed: completeUrl,
+          method: mergedOptions.method || "GET",
+          queryParams: completeUrl.includes("?")
+            ? completeUrl.substring(completeUrl.indexOf("?") + 1)
+            : "none",
+        });
+      }
+    }
 
     try {
       // Make the fetch request
@@ -93,6 +125,27 @@ export default defineNuxtPlugin((nuxtApp) => {
       return response;
     } catch (error) {
       console.error(`API request to ${completeUrl} failed:`, error);
+
+      // Enhanced error message for URL parsing issues
+      if (error instanceof TypeError && error.message.includes("Invalid URL")) {
+        console.error("URL construction details:", {
+          originalUrl: url,
+          constructedUrl: completeUrl,
+        });
+
+        // For group-related requests, add more details to help debug
+        if (url.includes("/groups")) {
+          const groupIdMatch = url.match(/\/groups\/([^\/\?]+)/);
+          const groupId = groupIdMatch ? groupIdMatch[1] : "unknown";
+          console.error(`Group API request failed for group ID: ${groupId}`);
+        }
+
+        // Return a more friendly error for API consumers
+        throw new Error(
+          `API request failed: Could not construct a valid URL for '${url}'. Please check the URL format.`
+        );
+      }
+
       throw error;
     }
   };
@@ -158,20 +211,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       data: any,
       options: RequestInit = {}
     ): Promise<T> {
-      // Special logging for avatar updates
-      if (url.includes("/users/profile/avatar")) {
-        console.log(
-          "PUT request for profile avatar with data type:",
-          typeof data
-        );
-        if (data && data.profile_picture_url) {
-          console.log(
-            "profile_picture_url is present in the data, length:",
-            data.profile_picture_url.substring(0, 30) + "... (truncated)"
-          );
-        }
-      }
-
       const response = await apiFetch(url, {
         ...options,
         method: "PUT",
@@ -196,6 +235,43 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     // DELETE request helper with JSON parsing
     async delete<T = any>(url: string, options: RequestInit = {}): Promise<T> {
+      // Enhanced handling for message deletion to ensure correct endpoint
+      if (url.includes("/messages/")) {
+        // Extract the message ID from the URL
+        const pathParts = url.split("/");
+        const messageId = pathParts.pop() || "";
+
+        console.log(
+          `[API] Processing delete request for message: ${messageId}`
+        );
+        console.log(`[API] Original URL: ${url}`);
+
+        // Check if the URL indicates a group message
+        const isGroupMessage =
+          url.includes("/groups/") || url.includes("?type=group");
+
+        // If it's a temporary ID, we need to handle it differently
+        if (messageId.startsWith("temp-")) {
+          console.log(`[API] Delete request for temp message: ${messageId}`);
+          // This will be handled in the useMessages store
+          // We'll just normalize the URL format here
+          url = `/messages/${messageId}`;
+          console.log(`[API] Normalized temp message deletion URL to: ${url}`);
+        } else {
+          // For all message IDs, ensure we're using the correct endpoint format
+          url = `/messages/${messageId}`;
+
+          // If it's explicitly a group message, make sure we handle it properly
+          if (isGroupMessage) {
+            console.log(`[API] This is a group message deletion`);
+            // The proxy handler in [...path].ts will recognize this as a group message deletion
+            // and route it properly based on the messageId
+          }
+        }
+
+        console.log(`[API] Final message deletion URL: ${url}`);
+      }
+
       const response = await apiFetch(url, {
         ...options,
         method: "DELETE",
@@ -219,22 +295,6 @@ export default defineNuxtPlugin((nuxtApp) => {
             ? {} // Let browser set appropriate content-type with boundary for FormData
             : { "Content-Type": "application/json" };
 
-        // Handle FormData requests
-        if (data instanceof FormData) {
-          try {
-            // Enhanced logging for authentication headers
-            const authStore = useAuthStore();
-            const token =
-              authStore.token ||
-              (process.client ? Cookies.get("auth_token") : null);
-            if (!token) {
-              console.warn("No auth token available for FormData request!");
-            }
-          } catch (e) {
-            // Could not process FormData entries
-          }
-        }
-
         return apiFetch(url, {
           ...options,
           method: "POST",
@@ -255,25 +315,10 @@ export default defineNuxtPlugin((nuxtApp) => {
           body = data;
           // Let browser set appropriate content-type with boundary for FormData
           contentTypeHeaders = {};
-
-          try {
-            // Process FormData entries if needed
-          } catch (e) {
-            // Could not process FormData entries
-          }
         } else {
           // JSON handling
           body = JSON.stringify(data);
           contentTypeHeaders = { "Content-Type": "application/json" };
-        }
-
-        // Enhanced logging for authentication headers
-        const authStore = useAuthStore();
-        const token =
-          authStore.token ||
-          (process.client ? Cookies.get("auth_token") : null);
-        if (!token) {
-          console.warn(`No auth token available for request to ${url}!`);
         }
 
         return apiFetch(url, {
@@ -304,7 +349,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Check server connectivity
     checkServerStatus: async (url: string) => {
       try {
-        // Coba menggunakan OPTIONS untuk menghindari pembatasan CORS untuk preflight requests
+        // Try using OPTIONS to avoid CORS limitations for preflight requests
         const response = await fetch(url, {
           method: "OPTIONS",
           cache: "no-cache",
@@ -312,7 +357,7 @@ export default defineNuxtPlugin((nuxtApp) => {
             Accept: "application/json",
           },
         }).catch(() => {
-          // Jika OPTIONS gagal, coba dengan GET
+          // If OPTIONS fails, try with GET
           return fetch(url, {
             method: "GET",
             cache: "no-cache",

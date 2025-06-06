@@ -59,14 +59,6 @@
           {{ recipient.phone }}
         </p>
       </div>
-
-      <div v-if="recipient.location" class="mb-4">
-        <p class="text-xs text-gray-500 mb-1">Location</p>
-        <p class="text-sm text-gray-800 flex items-center">
-          <Icon name="fa:map-marker" class="h-3 w-3 mr-2 text-gray-400" />
-          {{ recipient.location }}
-        </p>
-      </div>
     </div>
 
     <!-- Actions -->
@@ -184,7 +176,6 @@ interface Recipient {
   profile_picture_url?: string;
   status: "online" | "offline" | "busy";
   phone?: string;
-  location?: string;
 }
 
 const props = defineProps<{

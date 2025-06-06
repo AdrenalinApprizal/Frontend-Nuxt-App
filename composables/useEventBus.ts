@@ -1,6 +1,6 @@
 import mitt from "mitt";
 
-type EventTypes = {
+export type EventTypes = {
   "unread-counts-updated": any[];
   "message-received": any;
   "message-sent": any;
@@ -16,8 +16,10 @@ type EventTypes = {
     userId: string;
     status: "online" | "offline";
     lastSeen?: string;
+    timestamp?: string;
+    formattedLastSeen?: string | null;
   };
-  "direct-message": any;
+  "private-message": any;
   "group-message": any;
   "refresh-messages": void;
   "friend-added": void;
@@ -25,6 +27,17 @@ type EventTypes = {
   "websocket-connected": "messages" | "presence";
   "websocket-disconnected": "messages" | "presence";
   "connection-quality-changed": "excellent" | "good" | "poor" | "disconnected";
+  // Additional events
+  "message-reaction": any;
+  "temp-message-replaced": { tempId: string; realId: string; content: string };
+  "new-message-received": {
+    messageId: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    timestamp: string;
+    formattedTimestamp?: string;
+  };
 };
 
 export const eventBus = mitt<EventTypes>();

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Timestamp Formatting - ChatArea vs GroupChatArea</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+      <h1 class="text-2xl font-bold mb-6">Timestamp Formatting Test</h1>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Test Results -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-lg font-semibold mb-4">Timestamp Format Tests</h2>
+          <div id="test-results" class="space-y-2"></div>
+          <button
+            onclick="runTests()"
+            class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Run Timestamp Tests
+          </button>
+        </div>
+
+        <!-- Expected vs Actual -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-lg font-semibold mb-4">Format Comparison</h2>
+          <div id="format-comparison" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- Sample Message Display -->
+      <div class="mt-6 bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-4">Sample Message Formatting</h2>
+        <div id="sample-messages" class="space-y-4"></div>
+      </div>
+    </div>
+
+    <script>
+      // Simulate the formatMessageTimestamp function from utils/timestampHelper.ts
+      function formatMessageTimestamp(options) {
+        const { timestamp, raw_timestamp, format = "relative" } = options;
+
+        try {
+          const timestampToUse = raw_timestamp || timestamp;
+          if (!timestampToUse) {
+            return "Unknown time";
+          }
+
+          const date = new Date(timestampToUse);
+          if (isNaN(date.getTime())) {
+            return String(timestampToUse);
+          }
+
+          const now = new Date();
+          const messageDate = new Date(date);
+          const diffInMs = now.getTime() - messageDate.getTime();
+          const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+          const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+          const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+          switch (format) {
+            case "full":
+              return messageDate.toLocaleString();
+
+            case "time":
+              return messageDate.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+
+            case "date":
+              return messageDate.toLocaleDateString();
+
+            case "relative":
+            default:
+              if (diffInMinutes < 1) {
+                return "Just now";
+              } else if (diffInMinutes < 60) {
+                return `${diffInMinutes}m ago`;
+              } else if (diffInHours < 24) {
+                return `${diffInHours}h ago`;
+              } else if (diffInDays < 7) {
+                return `${diffInDays}d ago`;
+              } else {
+                return messageDate.toLocaleDateString();
+              }
+          }
+        } catch (error) {
+          return String(raw_timestamp || timestamp || "Unknown time");
+        }
+      }
+
+      // Simulate the formatTimestamp function from ChatArea.vue
+      function formatTimestamp(dateString) {
+        if (!dateString) return "";
+        return formatMessageTimestamp({ timestamp: dateString });
+      }
+
+      function runTests() {
+        const now = new Date();
+        const testCases = [
+          {
+            label: "Current time",
+            timestamp: now.toISOString(),
+            expected: "Just now",
+          },
+          {
+            label: "5 minutes ago",
+            timestamp: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
+            expected: "5m ago",
+          },
+          {
+            label: "2 hours ago",
+            timestamp: new Date(
+              now.getTime() - 2 * 60 * 60 * 1000
+            ).toISOString(),
+            expected: "2h ago",
+          },
+          {
+            label: "3 days ago",
+            timestamp: new Date(
+              now.getTime() - 3 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            expected: "3d ago",
+          },
+          {
+            label: "Old date (2024-01-01)",
+            timestamp: "2024-01-01T12:00:00Z",
+            expected: new Date("2024-01-01T12:00:00Z").toLocaleDateString(),
+          },
+          {
+            label: "Invalid timestamp",
+            timestamp: "invalid-date",
+            expected: "invalid-date",
+          },
+          {
+            label: "Empty timestamp",
+            timestamp: "",
+            expected: "",
+          },
+        ];
+
+        const resultsContainer = document.getElementById("test-results");
+        const comparisonContainer =
+          document.getElementById("format-comparison");
+
+        resultsContainer.innerHTML = "";
+        comparisonContainer.innerHTML = "";
+
+        testCases.forEach((testCase, index) => {
+          const result = formatTimestamp(testCase.timestamp);
+          const passed =
+            result === testCase.expected ||
+            (testCase.label.includes("ago") && result.includes("ago"));
+
+          // Test results
+          const resultDiv = document.createElement("div");
+          resultDiv.className = `p-2 rounded ${
+            passed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          }`;
+          resultDiv.innerHTML = `
+            <strong>${testCase.label}:</strong> ${
+            passed ? "✅ PASS" : "❌ FAIL"
+          }<br>
+            <small>Result: "${result}"</small>
+          `;
+          resultsContainer.appendChild(resultDiv);
+
+          // Format comparison
+          const compDiv = document.createElement("div");
+          compDiv.className = "text-sm border-b pb-2";
+          compDiv.innerHTML = `
+            <strong>${testCase.label}</strong><br>
+            Expected: "${testCase.expected}"<br>
+            Actual: "${result}"
+          `;
+          comparisonContainer.appendChild(compDiv);
+        });
+
+        // Sample messages
+        createSampleMessages();
+      }
+
+      function createSampleMessages() {
+        const sampleContainer = document.getElementById("sample-messages");
+        sampleContainer.innerHTML = "";
+
+        const now = new Date();
+        const sampleMessages = [
+          {
+            content: "Hey there! How are you?",
+            timestamp: now.toISOString(),
+            isCurrentUser: false,
+          },
+          {
+            content: "I'm doing great, thanks for asking!",
+            timestamp: new Date(now.getTime() - 2 * 60 * 1000).toISOString(),
+            isCurrentUser: true,
+          },
+          {
+            content: "Want to meet up later?",
+            timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+            isCurrentUser: false,
+          },
+          {
+            content: "Sure! How about 7 PM?",
+            timestamp: new Date(
+              now.getTime() - 2 * 60 * 60 * 1000
+            ).toISOString(),
+            isCurrentUser: true,
+          },
+        ];
+
+        sampleMessages.forEach((message) => {
+          const messageDiv = document.createElement("div");
+          messageDiv.className = `flex ${
+            message.isCurrentUser ? "justify-end" : "justify-start"
+          } mb-4`;
+
+          messageDiv.innerHTML = `
+            <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+              message.isCurrentUser
+                ? "bg-blue-500 text-white"
+                : "bg-white border border-gray-200 text-gray-800"
+            }">
+              <p class="break-words">${message.content}</p>
+              <div class="flex items-center justify-end mt-1">
+                <span class="text-xs ${
+                  message.isCurrentUser ? "text-blue-200" : "text-gray-500"
+                }">
+                  ${formatTimestamp(message.timestamp)}
+                </span>
+              </div>
+            </div>
+          `;
+
+          sampleContainer.appendChild(messageDiv);
+        });
+      }
+
+      // Run tests on page load
+      document.addEventListener("DOMContentLoaded", runTests);
+    </script>
+  </body>
+</html>

@@ -22,6 +22,16 @@ const NOTIFICATION_API_BASE_URL = "http://localhost:8083/api";
 const FILE_SERVICE_BASE_URL = "http://localhost:8084"; // File service base URL
 const PRESENCE_SERVICE_BASE_URL = "http://localhost:8085/api"; // Presence service base URL
 
+// Helper function to ensure URLs are properly formatted
+const ensureValidUrl = (url: string): string => {
+  // Add http:// protocol if missing
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = `http://${url}`;
+  }
+  // Make sure we don't have double slashes in the path portion
+  return url.replace(/([^:]\/)\/+/g, "$1");
+};
+
 // Helper function to set CORS headers
 const setCorsHeaders = (event: any) => {
   setHeader(event, "Access-Control-Allow-Origin", "*");
@@ -108,6 +118,19 @@ export default defineEventHandler(async (event) => {
     const pathArray = Array.isArray(params.path) ? params.path : [params.path];
     let pathString = pathArray.join("/");
 
+    console.log(`[Server Proxy] Raw params:`, params);
+    console.log(`[Server Proxy] Path array:`, pathArray);
+    console.log(`[Server Proxy] Path string:`, pathString);
+
+    // Clean up path string - remove any 'api/proxy' prefix if it somehow gets included
+    if (pathString.startsWith("api/proxy/")) {
+      pathString = pathString.substring(10); // Remove 'api/proxy/' prefix
+      console.log(`[Server Proxy] Cleaned path string:`, pathString);
+    } else if (pathString.startsWith("proxy/")) {
+      pathString = pathString.substring(6); // Remove 'proxy/' prefix
+      console.log(`[Server Proxy] Cleaned path string:`, pathString);
+    }
+
     if (pathArray.join("/").includes("friends/add")) {
       console.log(
         "[Server Proxy] Forcing POST method for /friends/add endpoint"
@@ -168,31 +191,141 @@ export default defineEventHandler(async (event) => {
       console.log(
         `[Server Proxy] Routing to PRESENCE_SERVICE_BASE_URL: ${baseUrl}`
       );
+
+      // Special handling for presence/users endpoint with query parameters
+      if (
+        pathString.startsWith("presence/users") &&
+        Object.keys(query).length > 0
+      ) {
+        console.log(
+          `[Server Proxy] Special handling for presence/users endpoint with query params`
+        );
+        console.log(`[Server Proxy] Query parameters:`, query);
+
+        // Log the user_ids to help debug URL construction issues
+        if (query.user_ids) {
+          console.log(`[Server Proxy] User IDs parameter: ${query.user_ids}`);
+
+          // Ensure the user_ids parameter is properly handled
+          try {
+            // Add detailed logging
+            console.log(`[Server Proxy] Presence user_ids detailed info:`, {
+              rawValue: query.user_ids,
+              type: typeof query.user_ids,
+              containsComma: String(query.user_ids).includes(","),
+              length: String(query.user_ids).length,
+            });
+
+            // Ensure base URL has protocol
+            if (
+              !baseUrl.startsWith("http://") &&
+              !baseUrl.startsWith("https://")
+            ) {
+              baseUrl = `http://${baseUrl}`;
+              console.log(
+                `[Server Proxy] Added protocol to presence service URL: ${baseUrl}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `[Server Proxy] Error processing presence user_ids:`,
+              error
+            );
+          }
+        }
+      }
     }
     // Route messages and groups to appropriate service
     else if (
       pathString.startsWith("messages") ||
-      pathString.startsWith("groups/messages")
+      pathString.startsWith("groups/messages") ||
+      (pathString.startsWith("group/") && pathString.includes("/messages"))
     ) {
       baseUrl = GROUP_API_BASE_URL; // Messages service is on port 8082
+      console.log(
+        `[Server Proxy] MESSAGES ROUTING: Setting baseUrl to ${baseUrl} for path: ${pathString}`
+      );
 
-      // Special handling for media uploads - don't add /api prefix for direct media endpoint
-      if (pathString === "messages/media") {
-        baseUrl = "http://localhost:8082"; // Direct to messaging service without /api prefix
+      // Special handling for messages/history endpoint
+      if (pathString === "messages/history") {
         console.log(
-          `[Server Proxy] Routing media uploads directly to: ${baseUrl}/messages/media`
+          `[Server Proxy] Special handling for messages/history endpoint`
+        );
+        // Ensure baseUrl has protocol
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+          baseUrl = `http://${baseUrl}`;
+        }
+      }
+
+      // Special handling for message deletion endpoint
+      else if (pathString.startsWith("messages/") && method === "DELETE") {
+        // Extract the message ID
+        const parts = pathString.split("/");
+        const messageId = parts.length > 1 ? parts[1] : null;
+
+        console.log(`[Server Proxy] Handling message deletion: ${messageId}`);
+
+        // Check if this is a group message deletion (based on query params)
+        const isGroupMessage = query.type === "group" || query.group_id;
+        const groupId = query.group_id || null;
+
+        // Add special logging for message deletion
+        console.log(`[Server Proxy] Message DELETE operation:`, {
+          messageId,
+          originalPath: pathString,
+          isGroupMessage,
+          groupId,
+          method,
+        });
+
+        // Make sure base URL has protocol and is set to the correct service
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+          baseUrl = `http://${baseUrl}`;
+        }
+
+        // Ensure we're using the GROUP_API_BASE_URL for message operations
+        if (baseUrl !== GROUP_API_BASE_URL) {
+          console.log(
+            `[Server Proxy] Setting base URL to GROUP_API_BASE_URL for message deletion`
+          );
+          baseUrl = GROUP_API_BASE_URL;
+
+          // Make sure protocol is included
+          if (
+            !baseUrl.startsWith("http://") &&
+            !baseUrl.startsWith("https://")
+          ) {
+            baseUrl = `http://${baseUrl}`;
+          }
+        }
+
+        // Log the final destination for the deletion request
+        console.log(
+          `[Server Proxy] Will route message deletion to: ${baseUrl}/messages/${messageId}`
         );
       }
-      // Remove 'groups/' prefix if it exists
-      else if (pathString.startsWith("groups/")) {
+
+      // Remove 'groups/' prefix if it exists (for legacy compatibility)
+      if (pathString.startsWith("groups/")) {
         pathString = pathString.replace("groups/", "");
+        console.log(
+          `[Server Proxy] MESSAGES ROUTING: Cleaned groups prefix, new path: ${pathString}`
+        );
       }
       console.log(`[Server Proxy] Routing to MESSAGE_API_BASE_URL: ${baseUrl}`);
     }
-    // Route other group-specific requests
-    else if (pathString.startsWith("groups")) {
-      baseUrl = GROUP_API_BASE_URL;
+    // Route other group-specific requests (both "groups" and "group" paths)
+    else if (
+      pathString.startsWith("groups") ||
+      pathString.startsWith("group")
+    ) {
+      baseUrl = ensureValidUrl(GROUP_API_BASE_URL);
       console.log(`[Server Proxy] Routing to GROUP_API_BASE_URL: ${baseUrl}`);
+      // Log group request details for debugging
+      console.log(`[Server Proxy] GROUP REQUEST DETAILS:`);
+      console.log(`[Server Proxy] - Original path: ${pathString}`);
+      console.log(`[Server Proxy] - Base URL: ${baseUrl}`);
+      console.log(`[Server Proxy] - Query params:`, query);
     }
     // Route to file service (handle both files and media)
     else if (pathString.startsWith("files") || pathString.startsWith("media")) {
@@ -323,7 +456,123 @@ export default defineEventHandler(async (event) => {
 
     // Build target URL - special handling for different services
     let url;
-    if (isFileRequest) {
+
+    // Handle messages/history endpoint specially
+    if (pathString === "messages/history") {
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Construct URL with explicit formatting for messages/history
+      url = `${baseWithProtocol}/messages/history`;
+      console.log(
+        `[Server Proxy] Special URL construction for messages/history: ${url}`
+      );
+    }
+    // Handle presence/users endpoint specially
+    else if (pathString.startsWith("presence/users")) {
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Construct URL with explicit formatting for presence/users
+      url = `${baseWithProtocol}/presence/users`;
+      console.log(
+        `[Server Proxy] Special URL construction for presence/users: ${url}`
+      );
+
+      // If we have user_ids in query parameters, handle them specially
+      if (query.user_ids) {
+        console.log(
+          `[Server Proxy] Processing presence user_ids: ${query.user_ids}`
+        );
+
+        // Special handling for comma-separated IDs
+        const userIdsValue = query.user_ids as string;
+        if (userIdsValue.includes(",")) {
+          console.log(`[Server Proxy] Detected comma-separated user IDs`);
+
+          try {
+            // Split, trim, and re-encode each ID separately
+            const idParts = userIdsValue.split(",");
+            const encodedIds = idParts
+              .map((id) => encodeURIComponent(id.trim()))
+              .join(",");
+
+            // Construct URL with properly encoded user_ids
+            url = `${url}?user_ids=${encodedIds}`;
+            console.log(
+              `[Server Proxy] Constructed presence URL with encoded IDs: ${url}`
+            );
+          } catch (encodeError) {
+            console.error(
+              `[Server Proxy] Error encoding user_ids:`,
+              encodeError
+            );
+
+            // Fallback to standard encoding
+            const presenceParams = new URLSearchParams();
+            presenceParams.append("user_ids", userIdsValue);
+            url = `${url}?${presenceParams.toString()}`;
+            console.log(`[Server Proxy] Fallback presence URL: ${url}`);
+          }
+        } else {
+          // For single IDs, standard encoding is fine
+          const presenceParams = new URLSearchParams();
+          presenceParams.append("user_ids", userIdsValue);
+          url = `${url}?${presenceParams.toString()}`;
+          console.log(`[Server Proxy] Added user_ids to presence URL: ${url}`);
+        }
+      }
+    }
+    // Handle message deletion endpoint specially
+    else if (
+      pathString.startsWith("messages/") &&
+      pathString.split("/").length >= 2 &&
+      method === "DELETE"
+    ) {
+      // Extract the message ID
+      const parts = pathString.split("/");
+      const messageId = parts[1];
+
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Construct URL specifically for message deletion
+      url = `${baseWithProtocol}/messages/${messageId}`;
+
+      console.log(
+        `[Server Proxy] Special URL construction for message deletion: ${url}`
+      );
+    }
+    // Handle presence endpoints specially
+    else if (pathString.startsWith("presence/")) {
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Get the path after "presence/"
+      const presencePath = pathString.substring("presence/".length);
+
+      // Construct URL for presence endpoints
+      url = `${baseWithProtocol}/${pathString}`;
+
+      console.log(
+        `[Server Proxy] Special URL construction for presence endpoint: ${url}`
+      );
+
+      // Special handling for users endpoint with query parameters
+      if (presencePath.startsWith("users") && Object.keys(query).length > 0) {
+        console.log(
+          `[Server Proxy] Handling presence/users with query parameters`
+        );
+      }
+    } else if (isFileRequest) {
       // For file service, ensure proper API path structure
       // Convert 'files/...' to '/api/files/...' and 'media/...' to '/api/media/...'
       if (pathString.startsWith("files/")) {
@@ -349,18 +598,64 @@ export default defineEventHandler(async (event) => {
       // For notification service
       url = `${baseUrl}/${pathString}`;
       console.log(`[Server Proxy] Routing notification request to: ${url}`);
+    } else if (
+      pathString.startsWith("groups") ||
+      pathString.startsWith("group")
+    ) {
+      // Special handling for group requests with explicit URL construction
+      // First, ensure the base URL has a protocol
+      const baseWithProtocol =
+        baseUrl.startsWith("http://") || baseUrl.startsWith("https://")
+          ? baseUrl
+          : `http://${baseUrl}`;
+
+      // Then construct the full URL
+      url = `${baseWithProtocol}/${pathString}`;
+
+      // Validate the URL to ensure it's properly formatted
+      try {
+        new URL(url); // This will throw if the URL is invalid
+        console.log(`[Server Proxy] Valid group URL constructed: ${url}`);
+      } catch (error) {
+        console.error(`[Server Proxy] Invalid group URL detected: ${url}`);
+        // Attempt to fix the URL if possible
+        url = ensureValidUrl(`${baseWithProtocol}/${pathString}`);
+        console.log(`[Server Proxy] Corrected group URL: ${url}`);
+      }
     } else {
-      url = `${baseUrl}/${pathString}`;
+      // Simplified URL construction for all other cases
+      const baseWithProtocol =
+        baseUrl.startsWith("http://") || baseUrl.startsWith("https://")
+          ? baseUrl
+          : `http://${baseUrl}`;
+
+      url = `${baseWithProtocol}/${pathString}`;
+      console.log(
+        `[Server Proxy] Generic URL construction: baseUrl=${baseUrl}, pathString=${pathString}, final URL=${url}`
+      );
     }
 
-    const queryString = new URLSearchParams(
-      query as Record<string, string>
-    ).toString();
-    if (queryString) {
-      url += `?${queryString}`;
+    // Add query parameters if present (but only if not already handled in special cases)
+    const alreadyHasQueryParams = url.includes("?");
+    if (!alreadyHasQueryParams) {
+      const queryString = new URLSearchParams(
+        query as Record<string, string>
+      ).toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
     }
 
     console.log(`[Server Proxy] Forwarding to: ${url}`);
+
+    // Special logging for media requests
+    if (pathString.includes("media")) {
+      console.log(`[Server Proxy] MEDIA REQUEST DETAILS:`);
+      console.log(`[Server Proxy] - Original path string: ${pathString}`);
+      console.log(`[Server Proxy] - Base URL: ${baseUrl}`);
+      console.log(`[Server Proxy] - Final URL: ${url}`);
+      console.log(`[Server Proxy] - Method: ${forcedMethod}`);
+    }
 
     // Special logging for messages/history requests
     if (pathString.includes("messages/history")) {
@@ -368,8 +663,34 @@ export default defineEventHandler(async (event) => {
       console.log(`[Server Proxy] - Base URL: ${baseUrl}`);
       console.log(`[Server Proxy] - Path: ${pathString}`);
       console.log(`[Server Proxy] - Query params:`, query);
-      console.log(`[Server Proxy] - Final URL: ${url}`);
+      console.log(`[Server Proxy] - Final URL before validation: ${url}`);
       console.log(`[Server Proxy] - Method: ${forcedMethod}`);
+
+      // Extra validation for messages/history endpoint
+      try {
+        new URL(url);
+      } catch (error) {
+        console.error(
+          `[Server Proxy] Invalid URL for messages/history: ${url}`
+        );
+        // Try to fix the URL by ensuring it has a protocol and fixing any double slashes
+        let fixedUrl = url;
+
+        // Ensure protocol exists
+        if (
+          !fixedUrl.startsWith("http://") &&
+          !fixedUrl.startsWith("https://")
+        ) {
+          fixedUrl = `http://${fixedUrl}`;
+        }
+
+        // Fix any double slashes that aren't part of the protocol
+        fixedUrl = fixedUrl.replace(/([^:]\/)\/+/g, "$1");
+
+        // Update the URL
+        url = fixedUrl;
+        console.log(`[Server Proxy] Fixed messages/history URL: ${url}`);
+      }
     }
 
     // Build headers
@@ -578,10 +899,25 @@ export default defineEventHandler(async (event) => {
       console.log("[Server Proxy] Skipping token validation for auth endpoint");
     }
 
+    // Simple URL validation before making the request
+    try {
+      new URL(url);
+      console.log(`[Server Proxy] URL validation successful: ${url}`);
+    } catch (error) {
+      console.error(`[Server Proxy] Invalid URL detected: ${url}`);
+      throw new Error(`Cannot create a valid URL: ${url}`);
+    }
+
+    // Log detailed request information for debugging
+    console.log(`[Server Proxy] Making ${options.method} request to: ${url}`);
+    console.log(`[Server Proxy] Headers:`, headers);
+
     // Make the request to the backend API
     const response = await fetch(url, options);
 
-    console.log(`[Server Proxy] Backend response status: ${response.status}`);
+    console.log(
+      `[Server Proxy] Backend response status: ${response.status} from ${url}`
+    );
 
     // Handle error responses by returning status code and message
     if (!response.ok) {

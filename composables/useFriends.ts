@@ -7,9 +7,8 @@ interface User {
   email: string;
   profile_picture_url?: string;
   avatar?: string;
-  status?: "online" | "offline" | "busy";
+  status?: "online" | "offline";
   phone?: string;
-  location?: string;
 }
 
 interface FriendRequest {

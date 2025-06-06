@@ -93,10 +93,8 @@
                   :class="`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white ${
                     member.presenceStatus === 'online'
                       ? 'bg-green-500'
-                      : member.presenceStatus === 'busy'
-                      ? 'bg-red-500'
-                      : member.presenceStatus === 'away'
-                      ? 'bg-yellow-500'
+                      : member.presenceStatus === 'offline'
+                      ? 'bg-gray-300'
                       : 'bg-gray-400'
                   }`"
                 ></div>
@@ -163,9 +161,7 @@
       <div class="flex justify-between items-center mb-3">
         <h3 class="font-medium text-black">
           Media
-          <span class="text-gray-500 text-sm"
-            >({{ groupMedia.value.length }})</span
-          >
+          <span class="text-gray-500 text-sm">({{ groupMedia.length }})</span>
         </h3>
         <button
           @click="showMediaModal = true"
@@ -195,7 +191,7 @@
 
         <div v-else class="grid grid-cols-3 gap-2">
           <div
-            v-for="(item, index) in groupMedia.value.slice(0, 3)"
+            v-for="(item, index) in groupMedia.slice(0, 3)"
             :key="item.id"
             class="aspect-square bg-gray-200 rounded-md overflow-hidden cursor-pointer relative group"
             @click="openMediaPreview(item)"
@@ -225,9 +221,7 @@
       <div class="flex justify-between items-center mb-3">
         <h3 class="text-black font-medium">
           File
-          <span class="text-gray-500 text-sm"
-            >({{ groupFiles.value.length }})</span
-          >
+          <span class="text-gray-500 text-sm">({{ groupFiles.length }})</span>
         </h3>
         <button
           @click="showFilesModal = true"
@@ -257,7 +251,7 @@
 
         <div v-else class="space-y-3">
           <div
-            v-for="file in groupFiles.value.slice(0, 3)"
+            v-for="file in groupFiles.slice(0, 3)"
             :key="file.id"
             class="flex items-center bg-gray-50 p-2 rounded-md hover:bg-gray-100"
           >
@@ -693,21 +687,30 @@ import { useAuthStore } from "~/composables/useAuth";
 import { usePresence } from "~/composables/usePresence";
 import { useNuxtApp } from "#app";
 
-type PresenceStatus = "online" | "offline" | "busy" | "away";
+type PresenceStatus = "online" | "offline";
 
 interface Member {
   id: string;
-  name: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  username?: string;
+  // Processed name fields from extractMemberName function
+  extracted_name?: string;
+  display_name?: string;
   status: PresenceStatus;
   role: "admin" | "member";
   avatar?: string;
+  avatar_url?: string;
+  profile_picture_url?: string;
   isBlocked?: boolean;
   user_id: string;
   email?: string;
-  profile_picture_url?: string;
-  username?: string;
   selected?: boolean;
   shareSelected?: boolean;
+  is_owner?: boolean;
+  joined_at?: string;
 }
 
 interface GroupDetails {
@@ -755,7 +758,7 @@ const props = defineProps<{
   groupDetails: GroupDetails;
 }>();
 
-defineEmits(["update:group", "close"]);
+const emit = defineEmits(["update:group", "close"]);
 
 // Services
 const { $toast } = useNuxtApp();
@@ -830,19 +833,73 @@ const blockedMembersCount = computed(
   () => props.groupDetails.members.filter((member) => member.isBlocked).length
 );
 
-const membersWithStatus = computed(() =>
-  props.groupDetails.members.map((member) => ({
-    ...member,
-    presenceStatus: presence.getStatus(member.user_id),
-    lastActive: formatLastActive(presence.getLastActive(member.user_id)),
-  }))
-);
+const membersWithStatus = computed(() => {
+  console.log(`📊 [GroupInfoPanel] Processing members:`, {
+    groupDetails: props.groupDetails,
+    membersLength: props.groupDetails.members?.length || 0,
+    members: props.groupDetails.members,
+  });
+
+  if (
+    !props.groupDetails.members ||
+    !Array.isArray(props.groupDetails.members)
+  ) {
+    console.warn("⚠️ [GroupInfoPanel] No valid members array found");
+    return [];
+  }
+
+  return props.groupDetails.members.map((member) => {
+    // Use the processed name from useGroups extractMemberName function
+    let displayName =
+      member.extracted_name || member.display_name || "Unknown User";
+
+    console.log(
+      `📊 [GroupInfoPanel] Member ${member.id} processed name: "${displayName}"`,
+      {
+        extracted_name: member.extracted_name,
+        display_name: member.display_name,
+        first_name: member.first_name,
+        last_name: member.last_name,
+        full_name: member.full_name,
+        name: member.name,
+        username: member.username,
+      }
+    );
+
+    const processedMember = {
+      ...member,
+      // Use the constructed display name
+      name: displayName,
+      // Get presence status
+      presenceStatus: presence.getStatus(member.user_id || member.id),
+      lastActive: formatLastActive(
+        presence.getLastActive(member.user_id || member.id)
+      ),
+      // Ensure avatar field
+      avatar: member.avatar || member.avatar_url || member.profile_picture_url,
+      // Handle role properly
+      role: member.is_owner ? "admin" : member.role || "member",
+    };
+
+    console.log(`📊 [GroupInfoPanel] Processed member:`, {
+      original: member,
+      processed: processedMember,
+      constructedName: displayName,
+    });
+
+    return processedMember;
+  });
+});
 
 const filteredFriends = computed(() =>
   friends.value.filter(
     (friend: Member) =>
-      friend.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      friend.username?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      friend.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      false ||
+      friend.username
+        ?.toLowerCase()
+        .includes(searchQuery.value.toLowerCase()) ||
+      false
   )
 );
 
@@ -992,6 +1049,33 @@ async function loadMoreFiles(): Promise<void> {
     currentFilesPage.value--;
   } finally {
     isLoadingMoreFiles.value = false;
+  }
+}
+
+// Member management functions
+async function handleAddMembers(): Promise<void> {
+  try {
+    const selectedMemberIds = friends.value
+      .filter((friend: Member) => friend.selected)
+      .map((friend: Member) => friend.user_id);
+
+    if (selectedMemberIds.length === 0) return;
+
+    await groupsStore.addGroupMembers(props.groupDetails.id, selectedMemberIds);
+
+    // Reset selection and close popup
+    friends.value.forEach((friend: Member) => {
+      friend.selected = false;
+    });
+    showAddMemberPopup.value = false;
+
+    // Show success message
+    $toast.success("Members added to group successfully");
+
+    // Emit event to update group details
+    emit("update:group");
+  } catch (err) {
+    handleError(err, "Failed to add members to group");
   }
 }
 

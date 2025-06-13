@@ -122,125 +122,12 @@
           :key="message.id"
           class="message"
         >
-          <div
-            :class="`flex ${
-              message.isCurrentUser ? 'justify-end' : 'justify-start'
-            } mb-4`"
-          >
-            <div v-if="!message.isCurrentUser" class="mr-2">
-              <div
-                class="h-10 w-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
-              >
-                <img
-                  v-if="message.sender?.avatar"
-                  :src="message.sender.avatar"
-                  :alt="message.sender?.name"
-                  class="h-full w-full object-cover"
-                />
-                <Icon v-else name="fa:user" class="h-5 w-5 text-gray-500" />
-              </div>
-            </div>
-            <div class="flex flex-col max-w-[70%]">
-              <!-- Sender name for group messages -->
-              <div
-                v-if="!message.isCurrentUser"
-                class="text-xs text-gray-600 mb-1 ml-1"
-              >
-                {{ message.sender?.name }}
-              </div>
-              <div
-                v-if="message.isCurrentUser"
-                class="text-xs text-gray-600 mb-1 self-end"
-              >
-                You
-              </div>
-
-              <div
-                :class="`rounded-lg px-4 py-2 ${
-                  message.isCurrentUser
-                    ? message.isDeleted
-                      ? 'bg-gray-200 text-gray-500 italic'
-                      : 'bg-blue-500 text-white'
-                    : 'bg-white border border-gray-200 text-gray-800'
-                }`"
-              >
-                <p class="break-words whitespace-pre-wrap">
-                  {{ message.content }}
-                </p>
-                <div v-if="message.attachment" class="mt-2">
-                  <img
-                    v-if="message.attachment.type === 'image'"
-                    :src="message.attachment.url"
-                    :alt="message.attachment.name"
-                    class="max-w-full rounded"
-                  />
-                  <a
-                    v-else
-                    :href="message.attachment.url"
-                    :download="message.attachment.name"
-                    class="text-blue-500 hover:underline"
-                  >
-                    {{ message.attachment.name }} ({{
-                      message.attachment.size
-                    }})
-                  </a>
-                </div>
-                <div class="flex items-center justify-end space-x-1 mt-1">
-                  <span
-                    v-if="message.isEdited && !message.isDeleted"
-                    :class="`text-xs ${
-                      message.isCurrentUser ? 'text-white' : 'text-gray-600'
-                    }`"
-                  >
-                    (edited)
-                  </span>
-                  <span
-                    :class="`text-xs ${
-                      message.isCurrentUser ? 'text-white' : 'text-gray-600'
-                    }`"
-                  >
-                    {{
-                      message.timestamp ||
-                      formatTimestamp(message.sent_at || message.created_at)
-                    }}
-                  </span>
-                </div>
-
-                <!-- Message dropdown actions -->
-                <div
-                  v-if="message.isCurrentUser && !message.isDeleted"
-                  class="relative"
-                >
-                  <button
-                    @click="toggleDropdown(message.id)"
-                    class="absolute top-0 right-0 -mt-1 -mr-8 p-1 rounded-full hover:bg-gray-200"
-                    aria-label="Message options"
-                  >
-                    <Icon name="fa:ellipsis-v" class="h-3 w-3 text-gray-500" />
-                  </button>
-
-                  <div
-                    v-if="showDropdown === message.id"
-                    ref="dropdownRef"
-                    class="absolute right-0 mt-1 mr-8 bg-white rounded-md shadow-lg z-10 w-36 py-1"
-                  >
-                    <button
-                      @click="handleEditMessage(message.id)"
-                      class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <Icon name="lucide:edit-2" class="h-4 w-4 mr-2" /> Edit
-                    </button>
-                    <button
-                      @click="handleUnsendMessage(message.id)"
-                      class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
-                    >
-                      <Icon name="lucide:trash" class="h-4 w-4 mr-2" /> Unsend
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <GroupMessageItem
+            :message="message"
+            @edit-click="handleEditMessage"
+            @delete-click="handleUnsendMessage"
+            @retry-click="retryMessage"
+          />
         </div>
         <!-- End of messages indicator for auto-scroll -->
         <div ref="messagesEndRef"></div>
@@ -354,6 +241,7 @@ import { usePresence } from "~/composables/usePresence";
 import { useNuxtApp } from "#app";
 import SearchOnGroup from "./SearchOnGroup.vue";
 import GroupInfoPanel from "./GroupInfoPanel.vue";
+import GroupMessageItem from "./GroupMessageItem.vue"; // Add GroupMessageItem import
 import { useFiles } from "~/composables/useFiles";
 import { useMessagesStore } from "~/composables/useMessages";
 import { useWebSocketListener } from "~/composables/useWebSocketListener";

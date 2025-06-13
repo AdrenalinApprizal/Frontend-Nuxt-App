@@ -1,5 +1,5 @@
 <template>
-  <div class="w-80 border-l border-gray-200 bg-white overflow-y-auto h-full">
+  <div class="w-80 h-full border-l border-gray-200 bg-white overflow-y-auto shadow-lg">
     <div class="p-4 border-b border-gray-200">
       <div class="flex justify-between items-center mb-4">
         <div></div>
@@ -16,8 +16,8 @@
           class="h-24 w-24 rounded-full overflow-hidden bg-gray-200 mb-3 flex items-center justify-center"
         >
           <img
-            v-if="groupDetails.avatar"
-            :src="groupDetails.avatar"
+            v-if="groupDetails.avatar_url"
+            :src="groupDetails.avatar_url"
             :alt="groupDetails.name"
             class="h-full w-full object-cover"
           />
@@ -50,12 +50,24 @@
       </div>
 
       <div v-if="expandedSection === 'members'" class="px-4 pb-4">
-        <p v-if="blockedMembersCount > 0" class="text-xs text-red-500 mb-3">
-          {{ blockedMembersCount }} person{{
-            blockedMembersCount > 1 ? "s" : ""
-          }}
-          blocked
-        </p>
+        <!-- Blocked members warning -->
+        <div
+          v-if="blockedMembersCount > 0"
+          class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg"
+        >
+          <div class="flex items-center text-red-700">
+            <Icon name="fa:ban" class="h-4 w-4 mr-2" />
+            <span class="text-sm font-medium">
+              {{ blockedMembersCount }} member{{
+                blockedMembersCount > 1 ? "s" : ""
+              }}
+              blocked
+            </span>
+          </div>
+          <p class="text-xs text-red-600 mt-1">
+            Blocked members cannot send or receive messages in this group
+          </p>
+        </div>
 
         <button
           @click="showAddMemberPopup = true"
@@ -73,12 +85,18 @@
           <div
             v-for="member in membersWithStatus"
             :key="member.id"
-            class="flex items-center justify-between"
+            :class="`flex items-center justify-between p-2 rounded-lg transition-all duration-200 ${
+              member.isBlocked
+                ? 'bg-red-50 border border-red-200'
+                : 'hover:bg-gray-50'
+            }`"
           >
             <div class="flex items-center">
-              <div class="relative mr-2">
+              <div class="relative mr-3">
                 <div
-                  class="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center"
+                  :class="`w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center ${
+                    member.isBlocked ? 'opacity-60 grayscale' : ''
+                  }`"
                 >
                   <img
                     v-if="member.avatar"
@@ -88,66 +106,134 @@
                   />
                   <Icon v-else name="fa:user" class="h-4 w-4 text-gray-500" />
                 </div>
-                <!-- Status indicator -->
+
+                <!-- Blocked indicator overlay -->
                 <div
+                  v-if="member.isBlocked"
+                  class="absolute inset-0 flex items-center justify-center bg-red-500 bg-opacity-20 rounded-full"
+                >
+                  <Icon name="fa:ban" class="h-3 w-3 text-red-600" />
+                </div>
+
+                <!-- Status indicator - only show if not blocked -->
+                <div
+                  v-if="!member.isBlocked"
                   :class="`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white ${
                     member.presenceStatus === 'online'
                       ? 'bg-green-500'
-                      : member.presenceStatus === 'offline'
-                      ? 'bg-gray-300'
+                      : member.presenceStatus === 'busy'
+                      ? 'bg-red-500'
+                      : member.presenceStatus === 'away'
+                      ? 'bg-yellow-500'
                       : 'bg-gray-400'
                   }`"
                 ></div>
               </div>
               <div class="flex flex-col">
-                <span class="text-sm text-black">{{ member.name }}</span>
-                <span
-                  class="text-xs text-gray-500"
-                  v-if="member.presenceStatus !== 'online'"
-                >
-                  {{ member.lastActive }}
-                </span>
-                <span class="text-xs text-green-500" v-else> Online </span>
-                <div
-                  v-if="member.isBlocked"
-                  class="ml-2 text-red-500"
-                  title="Blocked user"
-                >
-                  <Icon name="fa:ban" class="h-3 w-3" />
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="`text-sm font-medium ${
+                      member.isBlocked
+                        ? 'text-gray-500 line-through'
+                        : 'text-black'
+                    }`"
+                  >
+                    {{ member.name }}
+                  </span>
+                  <span
+                    v-if="member.isBlocked"
+                    class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium"
+                  >
+                    Blocked
+                  </span>
                 </div>
+
+                <div v-if="!member.isBlocked">
+                  <span
+                    v-if="member.presenceStatus === 'online'"
+                    class="text-xs text-green-500 font-medium"
+                  >
+                    Online
+                  </span>
+                  <span v-else class="text-xs text-gray-500">
+                    {{ member.lastActive }}
+                  </span>
+                </div>
+
+                <span
+                  v-if="member.isBlocked"
+                  class="text-xs text-red-500"
+                >
+                  User blocked • Cannot receive messages
+                </span>
               </div>
             </div>
             <div class="relative">
               <button
-                class="text-gray-400 hover:text-gray-600"
+                :class="`p-1 rounded-full transition-colors ${
+                  member.isBlocked
+                    ? 'text-red-400 hover:text-red-600 hover:bg-red-100'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                }`"
                 @click.stop="toggleMemberDropdown(member.id)"
               >
                 <Icon name="fa:ellipsis-v" class="h-3 w-3" />
               </button>
+
               <div
                 v-if="activeDropdown === member.id"
                 ref="dropdownRef"
-                class="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded shadow-lg z-10"
+                class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden"
               >
                 <button
-                  class="flex w-full text-left px-4 py-2 text-sm hover:bg-gray-100 items-center"
+                  :class="`flex w-full text-left px-4 py-3 text-sm items-center transition-colors ${
+                    member.isBlocked
+                      ? 'hover:bg-green-50 text-green-700'
+                      : 'hover:bg-red-50 text-red-700'
+                  }`"
                   @click="
                     member.isBlocked
                       ? handleUnblockMember(member.id)
                       : handleBlockMember(member.id)
                   "
+                  :disabled="isLoading"
                 >
-                  <template v-if="member.isBlocked">
-                    <Icon name="lucide:user-minus" class="inline-block mr-2" />
-                    <span class="text-green-600"> Unblock User </span>
-                  </template>
-                  <template v-else>
-                    <Icon
-                      name="fa:ban"
-                      class="text-red-600 inline-block mr-2"
-                    />
-                    <span class="text-red-600">Block User</span>
-                  </template>
+                  <Icon
+                    v-if="member.isBlocked"
+                    name="fa:check"
+                    class="mr-3 h-4 w-4 text-green-600"
+                  />
+                  <Icon
+                    v-else
+                    name="fa:ban"
+                    class="mr-3 h-4 w-4 text-red-600"
+                  />
+                  <div class="flex flex-col">
+                    <span
+                      :class="`font-medium ${
+                        member.isBlocked ? 'text-green-700' : 'text-red-700'
+                      }`"
+                    >
+                      {{ member.isBlocked ? "Unblock User" : "Block User" }}
+                    </span>
+                    <span
+                      :class="`text-xs ${
+                        member.isBlocked ? 'text-green-600' : 'text-red-600'
+                      }`"
+                    >
+                      {{
+                        member.isBlocked
+                          ? "Allow messages again"
+                          : "Stop receiving messages"
+                      }}
+                    </span>
+                  </div>
+
+                  <div v-if="isLoading" class="ml-auto">
+                    <div
+                      class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin opacity-50"
+                    ></div>
+                  </div>
                 </button>
               </div>
             </div>
@@ -818,6 +904,7 @@ const filesPagination = ref<PaginationResponse>({
 
 // Computed properties
 const groupName = computed(() => props.groupDetails.name);
+const isLoading = computed(() => groupsStore.loading);
 
 // Make sure the refs are properly typed
 const filesPaginationRef = computed(() => filesPagination.value);
@@ -829,228 +916,51 @@ const isAdmin = computed(() => {
   );
 });
 
-const blockedMembersCount = computed(
-  () => props.groupDetails.members.filter((member) => member.isBlocked).length
-);
-
-const membersWithStatus = computed(() => {
-  console.log(`📊 [GroupInfoPanel] Processing members:`, {
-    groupDetails: props.groupDetails,
-    membersLength: props.groupDetails.members?.length || 0,
-    members: props.groupDetails.members,
-  });
-
-  if (
-    !props.groupDetails.members ||
-    !Array.isArray(props.groupDetails.members)
-  ) {
-    console.warn("⚠️ [GroupInfoPanel] No valid members array found");
-    return [];
-  }
-
-  return props.groupDetails.members.map((member) => {
-    // Use the processed name from useGroups extractMemberName function
-    let displayName =
-      member.extracted_name || member.display_name || "Unknown User";
-
-    console.log(
-      `📊 [GroupInfoPanel] Member ${member.id} processed name: "${displayName}"`,
-      {
-        extracted_name: member.extracted_name,
-        display_name: member.display_name,
-        first_name: member.first_name,
-        last_name: member.last_name,
-        full_name: member.full_name,
-        name: member.name,
-        username: member.username,
-      }
-    );
-
-    const processedMember = {
-      ...member,
-      // Use the constructed display name
-      name: displayName,
-      // Get presence status
-      presenceStatus: presence.getStatus(member.user_id || member.id),
-      lastActive: formatLastActive(
-        presence.getLastActive(member.user_id || member.id)
-      ),
-      // Ensure avatar field
-      avatar: member.avatar || member.avatar_url || member.profile_picture_url,
-      // Handle role properly
-      role: member.is_owner ? "admin" : member.role || "member",
-    };
-
-    console.log(`📊 [GroupInfoPanel] Processed member:`, {
-      original: member,
-      processed: processedMember,
-      constructedName: displayName,
-    });
-
-    return processedMember;
-  });
-});
-
-const filteredFriends = computed(() =>
-  friends.value.filter(
-    (friend: Member) =>
-      friend.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      false ||
-      friend.username
-        ?.toLowerCase()
-        .includes(searchQuery.value.toLowerCase()) ||
-      false
-  )
-);
-
+// Add missing computed properties
 const hasNoMedia = computed(() => groupMedia.value.length === 0);
 const hasNoFiles = computed(() => groupFiles.value.length === 0);
 
-// Use computed properties for the media preview navigation
-const currentMediaIndex = computed(() => {
-  if (!selectedMedia.value || !groupMedia.value) return -1;
-  return groupMedia.value.findIndex(
-    (item) => item.id === selectedMedia.value?.id
+// Filter friends for adding members (excluding current group members)
+const filteredFriends = computed(() => {
+  if (!searchQuery.value) return friends.value;
+  
+  return friends.value.filter((friend: Member) =>
+    friend.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    friend.username?.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
 
-const hasPreviousMedia = computed(() => {
-  return currentMediaIndex.value > 0;
+// Media navigation computed properties
+const currentMediaIndex = computed(() => {
+  if (!selectedMedia.value || !groupMedia.value?.length) return -1;
+  return groupMedia.value.findIndex((item) => item.id === selectedMedia.value?.id);
 });
 
-const hasNextMedia = computed(() => {
-  return currentMediaIndex.value < groupMedia.value.length - 1;
-});
+const hasPreviousMedia = computed(() => currentMediaIndex.value > 0);
+const hasNextMedia = computed(() => currentMediaIndex.value < groupMedia.value.length - 1);
 
-// Utility functions
-function formatLastActive(timestamp: string | null): string {
-  if (!timestamp) return "Offline";
-
-  const lastActive = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - lastActive.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} min ago`;
-
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "Yesterday";
-  return `${diffDays} days ago`;
-}
-
-const handleError = (error: unknown, message: string) => {
-  console.error(`${message}:`, error);
-  if ($toast) {
-    $toast.error(message);
-  }
+// Enhanced file size formatting
+const formatFileSize = (sizeInBytes?: number | string): string => {
+  if (!sizeInBytes) return "Unknown size";
+  
+  const size = typeof sizeInBytes === 'string' ? parseInt(sizeInBytes) : sizeInBytes;
+  
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 };
 
-// Media and file loading functions
-async function loadGroupMedia(): Promise<void> {
-  try {
-    isLoadingMedia.value = true;
-    if (!props.groupDetails?.id) return;
+// Enhanced thumbnail and file URL functions
+const getThumbnailUrl = (fileId: string): string => {
+  const media = groupMedia.value.find((item) => item.id === fileId);
+  return media?.thumbnail_url || media?.url || "https://via.placeholder.com/150";
+};
 
-    const response = await getGroupMedia(
-      props.groupDetails.id,
-      "all",
-      currentMediaPage.value,
-      8
-    );
-    if (response?.data) {
-      groupMedia.value = response.data;
-    }
-    if (response?.pagination) {
-      mediaPagination.value = response.pagination;
-    }
-  } catch (err) {
-    handleError(err, "Failed to load media");
-  } finally {
-    isLoadingMedia.value = false;
-  }
-}
-
-async function loadMoreMedia(): Promise<void> {
-  if (!props.groupDetails?.id || isLoadingMoreMedia.value) return;
-
-  try {
-    isLoadingMoreMedia.value = true;
-    currentMediaPage.value++;
-
-    const response = await getGroupMedia(
-      props.groupDetails.id,
-      "all",
-      currentMediaPage.value,
-      8
-    );
-
-    if (response?.data) {
-      groupMedia.value = [...groupMedia.value, ...response.data];
-    }
-    if (response?.pagination) {
-      mediaPagination.value = response.pagination;
-    }
-  } catch (err) {
-    handleError(err, "Failed to load more media");
-    currentMediaPage.value--;
-  } finally {
-    isLoadingMoreMedia.value = false;
-  }
-}
-
-async function loadGroupFiles(): Promise<void> {
-  try {
-    isLoadingFiles.value = true;
-    if (!props.groupDetails?.id) return;
-
-    const response = await getGroupFiles(
-      props.groupDetails.id,
-      currentFilesPage.value,
-      8
-    );
-    if (response?.data) {
-      groupFiles.value = response.data;
-    }
-    if (response?.pagination) {
-      filesPagination.value = response.pagination;
-    }
-  } catch (err) {
-    handleError(err, "Failed to load files");
-  } finally {
-    isLoadingFiles.value = false;
-  }
-}
-
-async function loadMoreFiles(): Promise<void> {
-  if (!props.groupDetails?.id || isLoadingMoreFiles.value) return;
-
-  try {
-    isLoadingMoreFiles.value = true;
-    currentFilesPage.value++;
-
-    const response = await getGroupFiles(
-      props.groupDetails.id,
-      currentFilesPage.value,
-      8
-    );
-
-    if (response?.data) {
-      groupFiles.value = [...groupFiles.value, ...response.data];
-    }
-    if (response?.pagination) {
-      filesPagination.value = response.pagination;
-    }
-  } catch (err) {
-    handleError(err, "Failed to load more files");
-    currentFilesPage.value--;
-  } finally {
-    isLoadingMoreFiles.value = false;
-  }
-}
+const getFileUrl = (fileId: string): string => {
+  const media = groupMedia.value.find((item) => item.id === fileId);
+  return media?.url || "#";
+};
 
 // Member management functions
 async function handleAddMembers(): Promise<void> {
@@ -1184,10 +1094,214 @@ async function handleUnblockMember(memberId: string): Promise<void> {
   }
 }
 
-// Event handlers
-function handleClickOutside(event: MouseEvent): void {
-  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
-    activeDropdown.value = null;
+// Add missing interface definitions and improve type safety
+interface BlockedUser {
+  user_id: string;
+  blocked_at: string;
+}
+
+// Add blocked users state and computed property
+const blockedUsers = computed(() => groupsStore.blockedUsers || []);
+
+// Enhanced members with blocking status
+const membersWithBlockingStatus = computed(() => {
+  return props.groupDetails.members.map((member) => {
+    const userId = member.id || member.user_id || "";
+    const blockedUser = blockedUsers.value.find((blockedUser: BlockedUser) => {
+      return blockedUser.user_id === userId || 
+             blockedUser.user_id === member.id || 
+             blockedUser.user_id === member.user_id;
+    });
+
+    const isBlocked = !!blockedUser;
+    
+    return {
+      ...member,
+      isBlocked,
+      blockedAt: blockedUser?.blocked_at,
+      presenceStatus: presence.getStatus(member.user_id || member.id),
+      lastActive: formatLastActive(
+        presence.getLastActive(member.user_id || member.id)
+      ),
+      avatar: member.avatar || member.avatar_url || member.profile_picture_url,
+      role: member.is_owner ? "admin" : member.role || "member",
+    };
+  });
+});
+
+// Update the existing membersWithStatus to use the enhanced version
+const membersWithStatus = computed(() => {
+  console.log(`📊 [GroupInfoPanel] Processing members with blocking status:`, {
+    groupDetails: props.groupDetails,
+    membersLength: props.groupDetails.members?.length || 0,
+    blockedUsersCount: blockedUsers.value.length,
+  });
+
+  return membersWithBlockingStatus.value.map((member) => {
+    // Use the processed name from useGroups extractMemberName function
+    let displayName =
+      member.extracted_name || member.display_name || 
+      member.name || member.full_name || 
+      `${member.first_name || ''} ${member.last_name || ''}`.trim() ||
+      member.username || "Unknown User";
+
+    return {
+      ...member,
+      name: displayName,
+    };
+  });
+});
+
+// Add enhanced blocked members count that uses actual API data
+const blockedMembersCount = computed(() => {
+  return membersWithStatus.value.filter((member) => member.isBlocked).length;
+});
+
+// Enhanced last active formatting function
+function formatLastActive(lastActiveTimestamp: string | null): string {
+  if (!lastActiveTimestamp) return "Not available";
+
+  try {
+    const lastActiveDate = new Date(lastActiveTimestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor(
+      (now.getTime() - lastActiveDate.getTime()) / 1000
+    );
+
+    if (diffInSeconds < 60) return "Just now";
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hr ago`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7)
+      return `${diffInDays} day${diffInDays > 1 ? "s" : ""} ago`;
+
+    return lastActiveDate.toLocaleDateString();
+  } catch (error) {
+    return "Not available";
+  }
+}
+
+// Data loading functions
+async function loadGroupMedia(): Promise<void> {
+  if (!props.groupDetails?.id) return;
+  
+  isLoadingMedia.value = true;
+  try {
+    const response = await getGroupMedia(props.groupDetails.id, {
+      page: currentMediaPage.value,
+      limit: 20,
+    });
+    
+    if (response) {
+      groupMedia.value = response.data || [];
+      mediaPagination.value = response.pagination || mediaPagination.value;
+    }
+  } catch (err) {
+    handleError(err, "Failed to load group media");
+  } finally {
+    isLoadingMedia.value = false;
+  }
+}
+
+async function loadGroupFiles(): Promise<void> {
+  if (!props.groupDetails?.id) return;
+  
+  isLoadingFiles.value = true;
+  try {
+    const response = await getGroupFiles(props.groupDetails.id, {
+      page: currentFilesPage.value,
+      limit: 20,
+    });
+    
+    if (response) {
+      groupFiles.value = response.data || [];
+      filesPagination.value = response.pagination || filesPagination.value;
+    }
+  } catch (err) {
+    handleError(err, "Failed to load group files");
+  } finally {
+    isLoadingFiles.value = false;
+  }
+}
+
+async function loadMoreMedia(): Promise<void> {
+  if (!mediaPagination.value.has_more_pages || isLoadingMoreMedia.value) return;
+  
+  isLoadingMoreMedia.value = true;
+  try {
+    currentMediaPage.value += 1;
+    const response = await getGroupMedia(props.groupDetails.id, {
+      page: currentMediaPage.value,
+      limit: 20,
+    });
+    
+    if (response?.data) {
+      groupMedia.value.push(...response.data);
+      mediaPagination.value = response.pagination || mediaPagination.value;
+    }
+  } catch (err) {
+    handleError(err, "Failed to load more media");
+  } finally {
+    isLoadingMoreMedia.value = false;
+  }
+}
+
+async function loadMoreFiles(): Promise<void> {
+  if (!filesPagination.value.has_more_pages || isLoadingMoreFiles.value) return;
+  
+  isLoadingMoreFiles.value = true;
+  try {
+    currentFilesPage.value += 1;
+    const response = await getGroupFiles(props.groupDetails.id, {
+      page: currentFilesPage.value,
+      limit: 20,
+    });
+    
+    if (response?.data) {
+      groupFiles.value.push(...response.data);
+      filesPagination.value = response.pagination || filesPagination.value;
+    }
+  } catch (err) {
+    handleError(err, "Failed to load more files");
+  } finally {
+    isLoadingMoreFiles.value = false;
+  }
+}
+
+// Add function to load blocked users when component initializes
+async function loadBlockedUsers(): Promise<void> {
+  try {
+    if (props.groupDetails?.id) {
+      await groupsStore.getGroupBlocks(props.groupDetails.id);
+    }
+  } catch (err) {
+    console.error("Failed to load blocked users:", err);
+  }
+}
+
+// Add function to load friends for adding members
+async function loadFriends(): Promise<void> {
+  try {
+    // This should load friends from your friends store
+    // You'll need to implement this based on your friends composable
+    console.log("Loading friends for group member addition...");
+    // friends.value = await friendsStore.getFriends();
+  } catch (err) {
+    console.error("Failed to load friends:", err);
+  }
+}
+
+// Error handling utility
+function handleError(error: any, defaultMessage: string): void {
+  console.error(defaultMessage, error);
+  const message = error?.message || defaultMessage;
+  if ($toast) {
+    $toast.error(message);
   }
 }
 
@@ -1196,6 +1310,8 @@ onMounted(() => {
   if (props.groupDetails?.id) {
     loadGroupMedia();
     loadGroupFiles();
+    loadBlockedUsers();
+    loadFriends();
   }
   document.addEventListener("mousedown", handleClickOutside);
 });

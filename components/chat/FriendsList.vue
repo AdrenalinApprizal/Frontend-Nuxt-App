@@ -4,13 +4,15 @@
     <div class="mb-6 flex justify-between items-center">
       <h1 class="text-xl font-bold text-gray-800">Friends</h1>
       <div class="flex items-center space-x-2">
-        <NotificationDropdown />
+        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+          <NotificationDropdown />
+        </div>
         <button
           @click="showAddFriendPopup = true"
-          class="p-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors"
+          class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors shadow-sm"
           aria-label="Add Friend"
         >
-          <Icon name="lucide:user-plus" class="h-4 w-4" />
+          <Icon name="lucide:user-plus" class="h-5 w-5" />
         </button>
       </div>
     </div>
@@ -28,19 +30,25 @@
         placeholder="Search friends"
         class="pl-11 w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all text-sm"
       />
+      <div
+        v-if="isSearchingFriends"
+        class="absolute right-3 top-1/2 transform -translate-y-1/2"
+      >
+        <div
+          class="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"
+        ></div>
+      </div>
     </div>
 
     <!-- Loading state -->
     <div
       v-if="friendsStore.isLoading"
-      class="flex-1 flex items-center justify-center"
+      class="flex-1 flex flex-col items-center justify-center"
     >
-      <div class="flex flex-col items-center">
-        <div
-          class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
-        ></div>
-        <p class="mt-2 text-sm text-gray-500">Loading...</p>
-      </div>
+      <div
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
+      ></div>
+      <p class="mt-2 text-sm text-gray-500">Loading friends...</p>
     </div>
 
     <!-- Error state -->
@@ -48,310 +56,243 @@
       v-else-if="friendsStore.error"
       class="flex-1 flex items-center justify-center"
     >
-      <div class="flex flex-col items-center text-center">
-        <Icon name="lucide:alert-triangle" class="h-8 w-8 text-red-500 mb-2" />
-        <p class="text-red-500">{{ friendsStore.error }}</p>
+      <div class="bg-red-50 p-4 rounded-lg border border-red-200 text-center">
+        <p class="text-red-500 font-medium">{{ friendsStore.error }}</p>
         <button
+          class="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm transition-colors"
           @click="refreshData"
-          class="mt-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
         >
-          Try Again
+          Retry
         </button>
       </div>
     </div>
 
     <template v-else>
-      <!-- Friend Requests Section -->
-      <div v-if="pendingRequests.length > 0" class="mb-5">
-        <div v-if="requestsHidden">
-          <!-- Collapsed view - shows a summary with count -->
-          <div
-            class="border border-blue-200 rounded-xl shadow-sm overflow-hidden cursor-pointer hover:bg-blue-50 transition-all"
-            @click="requestsHidden = false"
-          >
-            <div class="p-4 flex items-center justify-between bg-white">
-              <div class="flex items-center space-x-3">
-                <div class="w-1 h-6 bg-blue-500 rounded-r"></div>
-                <div class="flex flex-col">
-                  <div class="flex items-center">
-                    <span class="font-semibold text-gray-800 text-sm">
-                      Friend Requests
-                    </span>
-                    <span
-                      class="ml-2 bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-medium"
-                    >
-                      {{ pendingRequests.length }}
-                    </span>
-                  </div>
-                  <p class="text-sm text-gray-500 mt-1">
-                    {{
-                      pendingRequests.length === 1
-                        ? `${
-                            pendingRequests[0].sender?.name || "Someone"
-                          } wants to be your friend`
-                        : `${
-                            pendingRequests[0].sender?.name || "Someone"
-                          } and ${pendingRequests.length - 1} other${
-                            pendingRequests.length > 2 ? "s" : ""
-                          }`
-                    }}
-                  </p>
-                </div>
-              </div>
-              <div class="text-blue-500">
-                <Icon name="lucide:chevron-down" class="h-5 w-5" />
-              </div>
-            </div>
-          </div>
+      <!-- Friend Requests Section - Collapsible -->
+      <div
+        v-if="incomingRequests.length > 0"
+        class="mb-6 bg-blue-50 rounded-lg overflow-hidden border border-blue-100"
+      >
+        <div
+          class="flex justify-between items-center p-3 cursor-pointer bg-blue-100 hover:bg-blue-200 transition-colors"
+          @click="requestsHidden = !requestsHidden"
+        >
+          <h2 class="font-medium text-blue-800 text-sm flex items-center">
+            <Icon name="fa:user-plus" class="mr-2 h-3.5 w-3.5" />
+            Friend Requests
+            <span
+              class="ml-2 px-1.5 py-0.5 bg-blue-500 text-white text-xs rounded-full"
+            >
+              {{ incomingRequests.length }}
+            </span>
+          </h2>
+          <button class="text-blue-700 hover:text-blue-900 p-1">
+            <Icon
+              :name="requestsHidden ? 'lucide:chevron-down' : 'lucide:chevron-up'"
+              class="h-4 w-4"
+            />
+          </button>
         </div>
-        <div v-else>
-          <!-- Expanded view - shows all friend requests -->
-          <div class="flex justify-between items-center mb-3">
-            <div class="flex items-center">
-              <div class="w-1 h-6 bg-blue-500 rounded-r mr-2"></div>
-              <h2 class="font-semibold text-gray-800 text-sm">
-                Friend Requests
-                <span
-                  class="ml-1 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full"
-                >
-                  {{ pendingRequests.length }}
-                </span>
-              </h2>
-            </div>
-            <button
-              @click="requestsHidden = true"
-              class="text-xs text-blue-500 hover:text-blue-700 transition-colors flex items-center"
-            >
-              <span>Collapse</span>
-              <Icon name="lucide:chevron-up" class="h-3 w-3 ml-1" />
-            </button>
-          </div>
-          <div
-            class="border border-blue-200 rounded-xl shadow-sm divide-y divide-gray-200 overflow-hidden"
-          >
-            <div
-              v-for="request in pendingRequests"
-              :key="request.id"
-              class="p-4 bg-white hover:bg-blue-50 transition-colors"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                  <div
-                    class="h-12 w-12 rounded-full overflow-hidden bg-gradient-to-r from-blue-400 to-blue-600 mr-4 flex-shrink-0 flex items-center justify-center border-2 border-white shadow-sm"
-                  >
-                    <img
-                      v-if="request.sender?.profile_picture_url"
-                      :src="request.sender.profile_picture_url"
-                      :alt="request.sender?.name || 'User'"
-                      class="h-full w-full object-cover"
-                    />
-                    <Icon v-else name="fa:user" class="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p class="font-medium text-gray-800">
-                      {{ request.sender?.name || "User" }}
-                    </p>
-                    <p class="text-xs text-gray-500 flex items-center mt-1">
-                      <Icon name="lucide:download" class="h-3 w-3 mr-1" />
-                      Sent you a request
-                    </p>
-                  </div>
-                </div>
-                <div class="flex space-x-2">
-                  <button
-                    @click="handleRejectRequest(request.id)"
-                    class="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-red-100 hover:text-red-600 transition-all transform hover:scale-105"
-                    aria-label="Reject Request"
-                  >
-                    <Icon name="lucide:x" class="h-4 w-4" />
-                  </button>
-                  <button
-                    @click="handleAcceptRequest(request.id)"
-                    class="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 hover:text-blue-700 transition-all transform hover:scale-105"
-                    aria-label="Accept Request"
-                  >
-                    <Icon name="lucide:check" class="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="pendingRequests.length > 0"
-              class="bg-gray-50 p-3 text-center"
-            >
-              <button
-                class="text-xs text-blue-600 hover:text-blue-800 font-medium"
-              >
-                {{
-                  pendingRequests.length > 2
-                    ? "View all requests"
-                    : "Manage requests"
-                }}
-              </button>
-            </div>
-          </div>
+
+        <div v-if="!requestsHidden" class="p-3 space-y-2 bg-blue-50">
+          <FriendRequest
+            v-for="request in incomingRequests"
+            :key="request.friendship_id || request.id || `request-${Math.random()}`"
+            :request="request"
+            @accept="handleAcceptRequest"
+            @reject="handleRejectRequest"
+          />
         </div>
       </div>
 
-      <!-- Friends list -->
+      <!-- Friends List Section -->
       <div class="flex-1 overflow-auto">
+        <h2 class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-3">
+          {{ onlineFriendsCount > 0 ? "Online" : "All" }} Friends
+          <span v-if="sortedFriends.length > 0" class="ml-2 text-gray-400">
+            ({{ sortedFriends.length }})
+          </span>
+        </h2>
+
         <div
-          v-if="filteredFriends.length === 0"
-          class="h-full flex flex-col items-center justify-center text-center p-6"
+          v-if="sortedFriends.length === 0"
+          class="h-64 flex flex-col items-center justify-center text-center p-6 bg-gray-50 rounded-lg border border-gray-100"
         >
           <Icon name="fa:user" class="h-12 w-12 text-gray-300 mb-3" />
           <p class="text-gray-500 font-medium">
             {{
-              searchQuery ? `No results for "${searchQuery}"` : "No friends yet"
+              searchQuery
+                ? `No results for "${searchQuery}"`
+                : "No friends yet"
             }}
           </p>
           <p class="text-sm text-gray-400 mt-2">
             Add friends to start chatting
           </p>
+          <button
+            @click="showAddFriendPopup = true"
+            class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md flex items-center text-sm"
+          >
+            <Icon name="lucide:user-plus" class="mr-2 h-3.5 w-3.5" />
+            Add Friend
+          </button>
         </div>
-        <div v-else>
-          <!-- Friend section header -->
-          <div class="flex justify-between items-center mb-3">
-            <div class="flex items-center">
-              <div class="w-1 h-6 bg-blue-500 rounded-r mr-2"></div>
-              <h2 class="font-semibold text-gray-800 text-sm">
-                Your Friends
-                <span
-                  class="ml-1 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full"
-                >
-                  {{ filteredFriends.length }}
-                </span>
-              </h2>
-            </div>
-          </div>
 
-          <div class="space-y-3">
-            <NuxtLink
-              v-for="friend in sortedFriends"
-              :key="friend.id"
-              :to="`/chat/messages/${friend.id}`"
-              @click="
-                () => {
-                  console.log('Friend Chat Clicked:', friend.id);
-                  console.log('Route params will be:', { id: friend.id });
-                  console.log('Route query will be:', { type: null });
-                }
-              "
-            >
+        <div v-else class="space-y-2.5">
+          <div
+            v-for="friend in sortedFriends"
+            :key="friend.id"
+            @click="handleFriendSelect(friend.id)"
+            :class="`flex items-center p-3 rounded-xl transition-all cursor-pointer ${
+              $route.path === `/chat/messages/${friend.id}`
+                ? 'bg-blue-50 border border-blue-200 shadow-sm'
+                : 'hover:bg-gray-50 border border-transparent'
+            }`"
+          >
+            <!-- Friend avatar with status indicator -->
+            <div class="relative mr-3">
               <div
-                :class="`flex items-center p-4 rounded-lg transition-colors ${
-                  $route.path === `/chat/messages/${friend.id}`
-                    ? 'bg-blue-50 border border-blue-100'
-                    : 'hover:bg-gray-50 border border-transparent'
-                }`"
+                class="h-11 w-11 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
               >
-                <!-- Avatar with online status -->
-                <div class="relative mr-3">
-                  <div
-                    class="h-12 w-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center border border-gray-200 shadow-sm"
-                  >
-                    <img
-                      v-if="friend.profile_picture_url"
-                      :src="friend.profile_picture_url"
-                      :alt="friend.name"
-                      class="h-full w-full object-cover"
-                    />
-                    <Icon v-else name="fa:user" class="h-6 w-6 text-gray-500" />
-                  </div>
-                  <!-- Status indicator -->
-                  <div
-                    :class="`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                      getFriendStatus(friend.id) === 'online'
-                        ? 'bg-green-500'
-                        : getFriendStatus(friend.id) === 'offline'
-                        ? 'bg-gray-300'
-                        : 'bg-gray-400'
-                    }`"
-                  ></div>
-                </div>
-
-                <!-- Friend info -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex justify-between items-start">
-                    <h3 class="font-medium text-gray-900 truncate text-sm">
-                      {{ friend.first_name }} {{ friend.last_name }}
-                    </h3>
-                    <span class="text-xs text-gray-500 ml-1">
-                      {{
-                        getFriendStatus(friend.id) === "online"
-                          ? "Online"
-                          : formatLastActive(getLastActive(friend.id))
-                      }}
-                    </span>
-                  </div>
-                  <p class="text-xs text-gray-600 truncate mt-1">
-                    @{{ (friend as any).username || friend.email }}
-                  </p>
-                </div>
+                <img
+                  v-if="friend.profile_picture_url || friend.avatar"
+                  :src="friend.profile_picture_url || friend.avatar"
+                  :alt="friend.name"
+                  class="h-full w-full object-cover"
+                  @error="handleImageError"
+                />
+                <Icon v-else name="fa:user" class="h-5 w-5 text-gray-500" />
               </div>
-            </NuxtLink>
+
+              <!-- Status indicator - only show for online users -->
+              <div
+                v-if="getFriendStatus(friend.id) === 'online'"
+                class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white"
+              ></div>
+            </div>
+
+            <!-- Friend info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center">
+                <h3 class="font-semibold text-gray-900 truncate">
+                  {{ getFriendDisplayName(friend) }}
+                </h3>
+                <span class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                  {{
+                    friend.last_active
+                      ? formatLastActive(friend.last_active)
+                      : formatLastActive(getLastActive(friend.id))
+                  }}
+                </span>
+              </div>
+
+              <div class="flex items-center mt-0.5">
+                <!-- Status text -->
+                <p class="text-xs text-gray-500 truncate flex-1">
+                  {{
+                    getFriendStatus(friend.id) === "online"
+                      ? "Active now"
+                      : friend.username
+                      ? `@${friend.username}`
+                      : friend.email || "offline"
+                  }}
+                </p>
+
+                <!-- Unread count badge -->
+                <span
+                  v-if="friend.unread_count && friend.unread_count > 0"
+                  class="inline-flex items-center justify-center px-2 py-0.5 ml-2 text-xs font-medium leading-none text-white bg-red-500 rounded-full"
+                >
+                  {{ friend.unread_count }}
+                </span>
+
+                <!-- Message icon for current chat -->
+                <Icon
+                  v-if="$route.path === `/chat/messages/${friend.id}`"
+                  name="lucide:message-square"
+                  class="text-blue-500 ml-1 h-3.5 w-3.5"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </template>
 
-    <!-- Add Friend Popup -->
+    <!-- Add Friend Popup - Enhanced styling -->
     <div
       v-if="showAddFriendPopup"
       class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
     >
       <div
-        class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
+        class="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl transform transition-all"
       >
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">Add a Friend</h2>
+        <div class="flex justify-between items-center mb-5">
+          <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+            <Icon name="fa:user-plus" class="mr-2 h-5 w-5 text-blue-500" />
+            Add a Friend
+          </h2>
           <button
+            type="button"
             @click="closeAddFriendPopup"
             class="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            aria-label="Close"
           >
             <Icon name="fa:times" class="h-4 w-4" />
           </button>
         </div>
 
-        <!-- Add by Username -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Username
-          </label>
-          <div class="flex space-x-2">
-            <input
-              type="text"
-              v-model="addByUsername"
-              placeholder="Enter username"
-              class="flex-1 p-3 border border-gray-300 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            />
-            <button
-              @click="handleAddFriendByUsername"
-              :disabled="!addByUsername.trim() || isAddingByUsername"
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div v-if="isAddingByUsername" class="flex items-center">
-                <div
-                  class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
-                ></div>
-                Adding...
+        <p class="text-sm text-gray-600 mb-4">
+          You can add a friend with their username. It's case sensitive!
+        </p>
+
+        <form @submit.prevent="handleAddFriendByUsername" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Username
+            </label>
+            <div class="relative">
+              <input
+                type="text"
+                v-model="addByUsername"
+                placeholder="Enter friend's username"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-10"
+                :disabled="isAddingByUsername"
+              />
+              <div
+                class="absolute left-3 top-1/2 transform -translate-y-1/2"
+              >
+                <Icon name="fa:user" class="h-4 w-4 text-gray-400" />
               </div>
-              <span v-else>Add</span>
+            </div>
+          </div>
+
+          <div class="flex justify-end space-x-3 pt-2">
+            <button
+              type="button"
+              @click="closeAddFriendPopup"
+              class="px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 flex items-center"
+              :disabled="!addByUsername.trim() || isAddingByUsername"
+            >
+              <div
+                v-if="isAddingByUsername"
+                class="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"
+              ></div>
+              <Icon
+                v-else
+                name="lucide:user-plus"
+                class="mr-2 h-4 w-4"
+              />
+              {{ isAddingByUsername ? "Sending..." : "Send Request" }}
             </button>
           </div>
-          <p class="text-xs text-gray-500 mt-2">
-            Enter your friend's username to send them a friend request
-          </p>
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            @click="closeAddFriendPopup"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-          >
-            Close
-          </button>
-        </div>
+        </form>
       </div>
     </div>
   </div>
@@ -713,4 +654,91 @@ const sortedFriends = computed(() => {
     return a.name.localeCompare(b.name);
   });
 });
+
+// Filter only incoming friend requests
+const incomingRequests = computed(() => {
+  return friendsStore.pendingRequests?.filter((request) => {
+    if (!request) return false;
+
+    // Check if it's an incoming request based on different API response formats
+    if (request.direction === "incoming") return true;
+    if (request.type === "received") return true;
+    if (
+      request.status === "pending" &&
+      request.recipient_id !== request.requestor_id
+    )
+      return true;
+
+    // Default case - assume it's incoming if we can't determine
+    return true;
+  }) || [];
+});
+
+// Count online friends
+const onlineFriendsCount = computed(() => {
+  return sortedFriends.value.filter(
+    (friend) => getFriendStatus(friend.id) === "online"
+  ).length;
+});
+
+// Handle friend selection with enhanced functionality
+const handleFriendSelect = async (friendId: string) => {
+  try {
+    // Find the friend data to get the name
+    const friend = sortedFriends.value.find((f) => f.id === friendId);
+
+    // Construct friend name with multiple fallbacks
+    let friendName = "";
+    if (friend) {
+      friendName = getFriendDisplayName(friend);
+    }
+
+    // Debug logging
+    console.log("🔍 [FriendsList] handleFriendSelect called:", {
+      friendId,
+      friend,
+      friendName,
+      sortedFriendsCount: sortedFriends.value.length,
+    });
+
+    // Navigate to the chat with this friend
+    const url = `/chat/messages/${friendId}${
+      friendName ? `?name=${encodeURIComponent(friendName)}` : ""
+    }`;
+    console.log("🚀 [FriendsList] Navigating to URL:", url);
+    
+    await navigateTo(url);
+  } catch (err) {
+    console.error("[FriendsList] Error navigating to friend chat:", err);
+    $toast.error("Failed to open chat");
+  }
+};
+
+// Get friend display name with fallbacks
+function getFriendDisplayName(friend: any): string {
+  if (friend.name) {
+    return friend.name;
+  } else if (friend.first_name && friend.last_name) {
+    return `${friend.first_name} ${friend.last_name}`;
+  } else if (friend.first_name) {
+    return friend.first_name;
+  } else if (friend.display_name) {
+    return friend.display_name;
+  } else if (friend.full_name) {
+    return friend.full_name;
+  } else if (friend.username) {
+    return friend.username;
+  }
+  return "Unknown User";
+}
+
+// Handle image loading errors
+function handleImageError(event: Event) {
+  const target = event.target as HTMLImageElement;
+  if (target && target.parentElement) {
+    target.style.display = "none";
+    target.parentElement.classList.add("avatar-error");
+    // The Icon component will show as fallback
+  }
+}
 </script>

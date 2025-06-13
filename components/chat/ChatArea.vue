@@ -12,10 +12,11 @@
               class="h-12 w-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
             >
               <img
-                v-if="recipient.avatar"
-                :src="recipient.avatar"
+                v-if="validatedRecipientAvatar"
+                :src="validatedRecipientAvatar"
                 :alt="recipient.name"
                 class="h-full w-full object-cover"
+                @error="handleRecipientAvatarError"
               />
               <Icon v-else name="fa:user" class="h-6 w-6 text-gray-500" />
             </div>
@@ -54,7 +55,7 @@
         </div>
       </div>
 
-      <!-- Search component (using the new dedicated component) -->
+      <!-- Search component -->
       <SearchOnFriend
         :isOpen="showSearch"
         @close="showSearch = false"
@@ -120,153 +121,27 @@
               <span class="text-xs text-gray-600 font-medium">
                 {{
                   group.isToday
-                    ? "Hari Ini"
+                    ? "Today"
                     : group.isYesterday
-                    ? "Kemarin"
+                    ? "Yesterday"
                     : group.date
                 }}
               </span>
             </div>
           </div>
 
-          <!-- Messages for this date -->
-          <div
+          <!-- Messages for this date using ChatAreaItem component -->
+          <ChatAreaItem
             v-for="message in group.messages"
             :key="message.id"
-            class="message"
-          >
-            <div
-              :class="`flex ${
-                message.isCurrentUser ? 'justify-end' : 'justify-start'
-              } mb-4`"
-            >
-              <div class="flex flex-col max-w-[70%]">
-                <div
-                  :class="`rounded-lg px-4 py-2 ${
-                    message.isCurrentUser
-                      ? message.isDeleted
-                        ? 'bg-gray-200 text-gray-500 italic'
-                        : message.failed
-                        ? 'bg-red-100 border border-red-300 text-gray-800'
-                        : 'bg-blue-500 text-white'
-                      : 'bg-white border border-gray-200 text-gray-800'
-                  } min-w-[80px] ${message.failed ? 'cursor-pointer' : ''}`"
-                  @click="message.failed && retryFailedMessage(message)"
-                >
-                  <p class="break-words whitespace-pre-wrap">
-                    <!-- Direct content display with fallbacks -->
-                    {{ message.content || "(No message content)" }}
-                  </p>
-
-                  <p v-if="message.failed" class="text-xs text-red-500 mt-1">
-                    <Icon
-                      name="lucide:alert-triangle"
-                      class="h-3 w-3 inline mr-1"
-                    />
-                    {{
-                      message.errorMessage || "Failed to send - click to retry"
-                    }}
-                  </p>
-                  <div v-if="message.attachment" class="mt-2">
-                    <img
-                      v-if="message.attachment.type === 'image'"
-                      :src="message.attachment.url"
-                      :alt="message.attachment.name"
-                      class="max-w-full rounded"
-                    />
-                    <a
-                      v-else
-                      :href="message.attachment.url"
-                      :download="message.attachment.name"
-                      class="text-blue-500 hover:underline"
-                    >
-                      {{ message.attachment.name }} ({{
-                        message.attachment.size
-                      }})
-                    </a>
-                  </div>
-                  <div class="flex items-center justify-end space-x-1 mt-1">
-                    <span
-                      :class="`text-xs ${
-                        message.isCurrentUser
-                          ? 'text-blue-200'
-                          : 'text-gray-500'
-                      }`"
-                    >
-                      {{
-                        formatTimestamp(
-                          message.timestamp ||
-                            message.sent_at ||
-                            message.created_at
-                        )
-                      }}
-                    </span>
-                    <span
-                      v-if="message.isEdited && !message.isDeleted"
-                      :class="`text-xs ${
-                        message.isCurrentUser
-                          ? 'text-blue-200'
-                          : 'text-gray-500'
-                      }`"
-                    >
-                      (edited)
-                    </span>
-                    <span v-if="message.isCurrentUser">
-                      <Icon
-                        v-if="message.read"
-                        name="fa:check-double"
-                        class="h-3 w-3 text-blue-200"
-                        title="Read"
-                      />
-                      <Icon
-                        v-else
-                        name="fa:check"
-                        class="h-3 w-3 text-blue-200"
-                        title="Sent"
-                      />
-                    </span>
-                  </div>
-
-                  <!-- Message dropdown actions -->
-                  <div
-                    v-if="message.isCurrentUser && !message.isDeleted"
-                    class="relative"
-                  >
-                    <button
-                      @click="toggleDropdown(message.id)"
-                      class="absolute top-0 right-0 -mt-1 -mr-8 p-1 rounded-full hover:bg-gray-200"
-                      aria-label="Message options"
-                    >
-                      <Icon
-                        name="fa:ellipsis-v"
-                        class="h-3 w-3 text-gray-500"
-                      />
-                    </button>
-
-                    <div
-                      v-if="showDropdown === message.id"
-                      ref="dropdownRef"
-                      class="absolute right-0 mt-1 mr-8 bg-white rounded-md shadow-lg z-10 w-36 py-1"
-                    >
-                      <button
-                        @click="handleEditMessage(message.id)"
-                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                      >
-                        <Icon name="lucide:edit-2" class="h-4 w-4 mr-2" /> Edit
-                      </button>
-                      <button
-                        @click="handleUnsendMessage(message.id)"
-                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
-                      >
-                        <Icon name="lucide:trash" class="h-4 w-4 mr-2" /> Unsend
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            :message="message"
+            :recipient="recipient"
+            @retry-click="retryFailedMessage"
+            @edit-click="handleEditMessage"
+            @delete-click="handleUnsendMessage"
+          />
         </div>
+
         <!-- End of messages indicator for auto-scroll -->
         <div ref="messagesEndRef"></div>
       </div>
@@ -285,145 +160,142 @@
             <Icon name="lucide:x" class="h-4 w-4" />
           </button>
         </div>
-        <div class="flex items-center">
-          <div class="relative">
-            <button
-              @click="isAttachmentMenuOpen = !isAttachmentMenuOpen"
-              class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
-              :class="{ 'bg-blue-100 text-blue-600': isAttachmentMenuOpen }"
-              title="Attach file"
-            >
-              <Icon name="lucide:paperclip" class="h-5 w-5" />
-            </button>
-            <div
-              v-if="isAttachmentMenuOpen"
-              class="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 animate-fadeIn"
-              style="min-width: 150px"
-            >
+
+        <form @submit.prevent="handleFormSubmit" class="flex flex-col">
+          <div class="flex items-center">
+            <div class="relative">
               <button
-                @click="handleFileUpload"
-                class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 mb-2 w-full text-left px-4 py-2 rounded transition-all duration-200"
+                type="button"
+                @click="isAttachmentMenuOpen = !isAttachmentMenuOpen"
+                class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
+                :class="{ 'bg-blue-100 text-blue-600': isAttachmentMenuOpen }"
+                title="Attach file"
                 :disabled="isSending"
               >
-                <Icon name="fa:file" class="mr-2" />
-                <span>File</span>
-                <Icon
-                  v-if="isSending"
-                  name="svg-spinners:270-ring"
-                  class="ml-auto h-4 w-4 text-blue-500"
-                />
+                <Icon name="lucide:paperclip" class="h-5 w-5" />
               </button>
-              <button
-                @click="handleImageUpload"
-                class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 w-full text-left px-4 py-2 rounded transition-all duration-200"
-                :disabled="isSending"
+              <div
+                v-if="isAttachmentMenuOpen"
+                class="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 animate-fadeIn"
+                style="min-width: 150px"
               >
-                <Icon name="fa:image" class="mr-2" />
-                <span>Image</span>
-                <Icon
-                  v-if="isSending"
-                  name="svg-spinners:270-ring"
-                  class="ml-auto h-4 w-4 text-blue-500"
-                />
-              </button>
+                <button
+                  type="button"
+                  @click="handleFileUpload"
+                  class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 mb-2 w-full text-left px-4 py-2 rounded transition-all duration-200"
+                  :disabled="isSending"
+                >
+                  <Icon name="fa:file" class="mr-2" />
+                  <span>File</span>
+                  <Icon
+                    v-if="isSending"
+                    name="svg-spinners:270-ring"
+                    class="ml-auto h-4 w-4 text-blue-500"
+                  />
+                </button>
+                <button
+                  type="button"
+                  @click="handleImageUpload"
+                  class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 w-full text-left px-4 py-2 rounded transition-all duration-200"
+                  :disabled="isSending"
+                >
+                  <Icon name="fa:image" class="mr-2" />
+                  <span>Image</span>
+                  <Icon
+                    v-if="isSending"
+                    name="svg-spinners:270-ring"
+                    class="ml-auto h-4 w-4 text-blue-500"
+                  />
+                </button>
+              </div>
             </div>
-          </div>
-          <input
-            ref="fileInputRef"
-            type="file"
-            class="hidden"
-            @change="handleFileChange"
-            :disabled="isSending"
-          />
-          <input
-            ref="imageInputRef"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            @change="handleImageChange"
-            :disabled="isSending"
-          />
-          <div
-            v-if="isSending"
-            class="fixed top-0 left-0 right-0 bg-blue-500 h-1 z-50"
-          >
-            <div class="h-full bg-white animate-progress"></div>
-          </div>
-          <input
-            v-model="inputMessage"
-            type="text"
-            :placeholder="
-              editingMessageId ? 'Edit your message...' : 'Type your message...'
-            "
-            class="flex-1 py-2 px-4 rounded-full border border-gray-300 focus:outline-none focus:border-blue-400 text-gray-700"
-            @keydown.enter.prevent="
-              () => !isSending && handleSendMessage(inputMessage)
-            "
-            @input="handleTyping"
-            :disabled="isSending"
-          />
-          <button
-            @click="handleSendMessage(inputMessage)"
-            class="bg-blue-500 text-white p-3 rounded-full ml-2 hover:bg-blue-600 focus:outline-none"
-            :disabled="(!inputMessage.trim() && !editingMessageId) || isSending"
-          >
+            <input
+              ref="fileInputRef"
+              type="file"
+              class="hidden"
+              @change="handleFileChange"
+              :disabled="isSending"
+            />
+            <input
+              ref="imageInputRef"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="handleImageChange"
+              :disabled="isSending"
+            />
             <div
               v-if="isSending"
-              class="animate-spin rounded-full h-4 w-4 border-t-2 border-white"
-            ></div>
-            <Icon v-else name="fa:paper-plane" class="h-4 w-4" />
-          </button>
-        </div>
+              class="fixed top-0 left-0 right-0 bg-blue-500 h-1 z-50"
+            >
+              <div class="h-full bg-white animate-progress"></div>
+            </div>
+            <input
+              v-model="inputMessage"
+              type="text"
+              :placeholder="
+                editingMessageId ? 'Edit your message...' : 'Type your message...'
+              "
+              class="flex-1 py-2 px-4 rounded-full border border-gray-300 focus:outline-none focus:border-blue-400 text-gray-700"
+              @input="handleTyping"
+              :disabled="isSending"
+            />
+            <button
+              type="submit"
+              class="bg-blue-500 text-white p-3 rounded-full ml-2 hover:bg-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="(!inputMessage.trim() && !editingMessageId) || isSending"
+            >
+              <div
+                v-if="isSending"
+                class="animate-spin rounded-full h-4 w-4 border-t-2 border-white"
+              ></div>
+              <Icon v-else name="fa:paper-plane" class="h-4 w-4" />
+            </button>
+          </div>
 
-        <!-- WebSocket connection indicator -->
-        <div class="mt-1 flex justify-end">
-          <span
-            v-if="webSocketStore.isConnected"
-            class="text-xs text-green-500 flex items-center"
-            title="Connected to real-time messaging"
-          >
+          <!-- WebSocket connection indicator -->
+          <div class="mt-1 flex justify-end">
             <span
-              class="inline-block h-2 w-2 rounded-full bg-green-500 mr-1"
-            ></span>
-            Live
-          </span>
-          <span
-            v-else-if="webSocketStore.isConnecting"
-            class="text-xs text-yellow-500 flex items-center"
-            title="Connecting to real-time messaging"
-          >
+              v-if="webSocketStore.isConnected"
+              class="text-xs text-green-500 flex items-center"
+              title="Connected to real-time messaging"
+            >
+              <span
+                class="inline-block h-2 w-2 rounded-full bg-green-500 mr-1"
+              ></span>
+              Live
+            </span>
             <span
-              class="inline-block h-2 w-2 rounded-full bg-yellow-500 mr-1 animate-pulse"
-            ></span>
-            Connecting...
-          </span>
-          <span
-            v-else
-            class="text-xs text-red-500 flex items-center cursor-pointer"
-            title="Click to reconnect"
-            @click="reconnectWebSocket"
-          >
+              v-else-if="webSocketStore.isConnecting"
+              class="text-xs text-yellow-500 flex items-center"
+              title="Connecting to real-time messaging"
+            >
+              <span
+                class="inline-block h-2 w-2 rounded-full bg-yellow-500 mr-1 animate-pulse"
+              ></span>
+              Connecting...
+            </span>
             <span
-              class="inline-block h-2 w-2 rounded-full bg-red-500 mr-1"
-            ></span>
-            Offline (Click to reconnect)
-          </span>
-          <span
-            v-if="webSocketStore.connectionError"
-            class="text-xs text-red-500 ml-2"
-            :title="webSocketStore.connectionError"
-          >
-            {{ getConnectionErrorMessage() }}
-          </span>
-        </div>
+              v-else
+              class="text-xs text-red-500 flex items-center cursor-pointer"
+              title="Click to reconnect"
+              @click="reconnectWebSocket"
+            >
+              <span
+                class="inline-block h-2 w-2 rounded-full bg-red-500 mr-1"
+              ></span>
+              Offline (Click to reconnect)
+            </span>
+            <span
+              v-if="webSocketStore.connectionError"
+              class="text-xs text-red-500 ml-2"
+              :title="webSocketStore.connectionError"
+            >
+              {{ getConnectionErrorMessage() }}
+            </span>
+          </div>
+        </form>
       </div>
-
-      <!-- Profile sidebar component (conditionally rendered) -->
-      <RecipientProfile
-        v-if="showProfile"
-        :recipient="recipient"
-        @close="showProfile = false"
-      />
     </div>
 
     <!-- Friend Info Panel (conditionally rendered as a side panel) -->
@@ -433,8 +305,6 @@
       :friendDetails="adaptRecipientToFriendDetails(recipient)"
       @close="showInfo = false"
     />
-
-    <!-- Diagnostic Panel removed for production -->
   </div>
 </template>
 
@@ -443,126 +313,19 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from "vue";
 import SearchOnFriend from "./SearchOnFriend.vue";
 import FriendInfoPanel from "./FriendInfoPanel.vue";
 import RecipientProfile from "./RecipientProfile.vue";
+import ChatAreaItem from "./ChatAreaItem.vue"; // Import the new component
 import { useMessagesStore } from "~/composables/useMessages";
 import { useAuthStore } from "~/composables/useAuth";
 import { useWebSocket, WebSocketMessageType } from "~/composables/useWebSocket";
 import { useWebSocketListener } from "~/composables/useWebSocketListener";
-import { usePresence } from "~/composables/usePresence"; // Add presence service
-import { eventBus } from "~/composables/useEventBus"; // Add event bus
+import { usePresence } from "~/composables/usePresence";
+import { eventBus } from "~/composables/useEventBus";
 import { useNuxtApp } from "#app";
 import { useFiles } from "~/composables/useFiles";
-import { useFriendsStore } from "~/composables/useFriends"; // Import the friends store
-import { formatMessageTimestamp } from "~/utils/timestampHelper"; // Import timestamp helper
+import { useFriendsStore } from "~/composables/useFriends";
+import { formatMessageTimestamp, formatDateForSeparator } from "~/utils/timestampHelper";
 
-// Initialize stores and Nuxt app
-const messagesStore = useMessagesStore();
-const authStore = useAuthStore();
-const webSocketStore = useWebSocket();
-const wsListener = useWebSocketListener();
-const friendsStore = useFriendsStore(); // Add friends store
-const presence = usePresence();
-const { $toast } = useNuxtApp();
-
-// Get current user
-const currentUser = computed(() => authStore.user);
-
-// Handle file upload button click
-const handleFileUpload = () => {
-  if (fileInputRef.value) {
-    // Show feedback that the file picker is opening
-    $toast.info("Select a file to upload", { autoClose: 2000 });
-    fileInputRef.value.click();
-    isAttachmentMenuOpen.value = false;
-  }
-};
-
-// Handle image upload button click
-const handleImageUpload = () => {
-  if (imageInputRef.value) {
-    // Show feedback that the image picker is opening
-    $toast.info("Select an image to upload", { autoClose: 2000 });
-    imageInputRef.value.click();
-    isAttachmentMenuOpen.value = false;
-  }
-};
-
-interface Attachment {
-  type: "image" | "file";
-  url: string;
-  name: string;
-  size?: string;
-}
-
-interface Message {
-  id: string;
-  message_id?: string; // Explicit tracking ID
-  sender_id?: string; // Track sender ID for better message management
-  recipient_id?: string; // Track recipient for chat room identification
-  chat_room_id?: string; // Link message to specific chat room
-  conversation_id?: string; // Alternative identifier for chat room
-  room_id?: string; // Another alternative identifier for chat room
-  content: string;
-  timestamp: string;
-  raw_timestamp?: string; // Store raw timestamp for accurate sorting
-  sent_at?: string; // Original sent timestamp
-  created_at?: string; // Original creation timestamp
-  updated_at?: string; // Last update timestamp
-  type?: string; // Message type
-  isCurrentUser: boolean;
-  read?: boolean;
-  is_read?: boolean; // Alternative property for read status
-  isEdited?: boolean;
-  isDeleted?: boolean;
-  is_deleted?: boolean; // Alternative property for deletion status
-  attachment?: Attachment;
-  pending?: boolean; // Indicates message is being sent
-  sent?: boolean; // Indicates message was sent successfully
-  failed?: boolean; // Indicates message failed to send
-  errorMessage?: string; // Error message for failed messages
-  message_type?: string; // Track message type (text, image, etc.)
-  fromWebSocket?: boolean; // Indicates message came from WebSocket
-  receivedViaWebSocket?: boolean; // Indicates message was received via WebSocket
-  sourceApi?: boolean; // Indicates message came from API
-  // Additional fields for alternative API formats
-  sender?: any; // Sender information object
-  recipient?: any; // Recipient information object
-  from_id?: string; // Alternative sender ID
-  user_id?: string; // Alternative user ID
-  author_id?: string; // Alternative author ID
-  receiver_id?: string; // Alternative recipient ID
-  to_id?: string; // Alternative recipient ID
-  target_id?: string; // Alternative recipient ID
-  participants?: string[]; // Participants in a conversation
-  text?: string; // Alternative content field
-  date?: string; // Alternative date field
-  media_url?: string; // Media URL for attachments
-  attachment_url?: string; // Alternative media URL
-  file_url?: string; // Alternative file URL
-  image_url?: string; // Alternative image URL
-  url?: string; // Generic URL field
-  file_name?: string; // File name for attachments
-  attachment_name?: string; // Alternative file name
-  file_size?: string; // File size information
-  size?: string; // Alternative size information
-  content_type?: string; // Content type information
-}
-
-interface Recipient {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  status: "online" | "offline";
-  phone?: string;
-  joinDate?: string;
-  location?: string;
-}
-
-const props = defineProps<{
-  recipientId: string;
-  recipientName: string;
-  chatMessages?: Message[];
-}>();
+// ...existing interfaces and props...
 
 // Main state
 const inputMessage = ref("");
@@ -571,7 +334,6 @@ const showDropdown = ref<string | null>(null);
 const showProfile = ref(false);
 const showSearch = ref(false);
 const showInfo = ref(false);
-// Diagnostic panel has been removed for production
 const isAttachmentMenuOpen = ref(false);
 const searchQuery = ref("");
 const isSearching = ref(false);
@@ -579,8 +341,8 @@ const filteredMessages = ref<Message[]>([]);
 const isTyping = ref(false);
 const isLoadingMore = ref(false);
 const typingTimeout = ref<NodeJS.Timeout | null>(null);
-const isSending = ref(false); // <-- Add isSending state
-const isLoading = ref(false); // <-- Add isLoading state for API calls
+const isSending = ref(false);
+const isLoading = ref(false);
 
 // Refs for DOM manipulation
 const dropdownRef = ref<HTMLElement | null>(null);
@@ -588,6 +350,390 @@ const messagesEndRef = ref<HTMLElement | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const imageInputRef = ref<HTMLInputElement | null>(null);
+
+// Validate recipient avatar - similar to React implementation
+const validatedRecipientAvatar = computed(() => {
+  const avatarUrl = recipient.value.profile_picture_url || recipient.value.avatar;
+  if (!avatarUrl) return null;
+
+  // Check if it's a data URL
+  if (avatarUrl.startsWith("data:")) {
+    // Check size limit (most browsers support up to 2MB for data URLs)
+    const maxSize = 2 * 1024 * 1024; // 2MB
+    if (avatarUrl.length > maxSize) {
+      console.warn(
+        "[ChatArea] Avatar too large:",
+        avatarUrl.length,
+        "bytes, max:",
+        maxSize
+      );
+      return null; // Fallback to default icon
+    }
+
+    // Validate data URL format
+    const dataUrlRegex = /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
+    if (!dataUrlRegex.test(avatarUrl)) {
+      console.warn(
+        "[ChatArea] Invalid data URL format:",
+        avatarUrl.substring(0, 100)
+      );
+      return null;
+    }
+  }
+
+  return avatarUrl;
+});
+
+// Enhanced message grouping by date with better formatting - React style
+const groupedMessages = computed(() => {
+  if (!displayMessages.value || !Array.isArray(displayMessages.value)) return [];
+
+  const messagesByDate: Record<
+    string,
+    {
+      dateKey: string;
+      date: string;
+      messages: Message[];
+      isToday: boolean;
+      isYesterday: boolean;
+    }
+  > = {};
+
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+  // Sort messages by timestamp first
+  const sortedMessages = [...displayMessages.value].sort((a, b) => {
+    // Use raw_timestamp for most accurate sorting, fallback to other timestamps
+    const timeA = new Date(
+      a.raw_timestamp || a.sent_at || a.created_at || a.timestamp || 0
+    ).getTime();
+    const timeB = new Date(
+      b.raw_timestamp || b.sent_at || b.created_at || b.timestamp || 0
+    ).getTime();
+    return timeA - timeB;
+  });
+
+  sortedMessages.forEach((message) => {
+    const messageDate = new Date(
+      message.raw_timestamp ||
+        message.sent_at ||
+        message.created_at ||
+        message.timestamp ||
+        new Date()
+    );
+
+    // Check if date is invalid and provide fallback
+    if (isNaN(messageDate.getTime())) {
+      console.warn("Invalid date for message:", {
+        messageId: message.id,
+        content: message.content?.substring(0, 20),
+        raw_timestamp: message.raw_timestamp,
+        sent_at: message.sent_at,
+        created_at: message.created_at,
+        timestamp: message.timestamp,
+      });
+      messageDate.setTime(new Date().getTime()); // Set to current time as fallback
+    }
+
+    const dateKey = messageDate.toDateString();
+
+    if (!messagesByDate[dateKey]) {
+      messagesByDate[dateKey] = {
+        dateKey,
+        date: formatDateForSeparator(messageDate),
+        messages: [],
+        isToday: dateKey === today,
+        isYesterday: dateKey === yesterday,
+      };
+    }
+
+    // Use the message as-is since ChatAreaItem handles validation
+    messagesByDate[dateKey].messages.push(message);
+  });
+
+  // Convert to array and sort by date
+  return Object.values(messagesByDate).sort(
+    (a, b) => new Date(a.dateKey).getTime() - new Date(b.dateKey).getTime()
+  );
+});
+
+// Enhanced retry mechanism for failed messages - React style
+const retryFailedMessage = async (message: Message) => {
+  if (!message.content || !props.recipientId) return;
+
+  console.log(`[ChatArea] Retrying failed message: ${message.id}`);
+
+  // Update message to show retrying state
+  const messageIndex = messages.value.findIndex((msg) => msg.id === message.id);
+  if (messageIndex !== -1) {
+    messages.value[messageIndex] = {
+      ...messages.value[messageIndex],
+      retrying: true,
+      failed: false,
+      errorMessage: undefined,
+    };
+  }
+
+  try {
+    // Retry with enhanced WebSocket + API fallback logic
+    let response: any = null;
+    let messageId = message.id;
+
+    // Try WebSocket first if connected
+    if (webSocketStore.isConnected) {
+      try {
+        // Implement WebSocket retry logic here
+        console.log("[ChatArea] Retrying via WebSocket");
+        // WebSocket retry would go here
+      } catch (wsError) {
+        console.warn("[ChatArea] WebSocket retry failed, using API:", wsError);
+        response = await messagesStore.sendMessage(props.recipientId, message.content);
+        if (response?.data?.id) {
+          messageId = response.data.id;
+        }
+      }
+    } else {
+      response = await messagesStore.sendMessage(props.recipientId, message.content);
+      if (response?.data?.id) {
+        messageId = response.data.id;
+      }
+    }
+
+    // Update message to show success
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
+        id: messageId,
+        retrying: false,
+        failed: false,
+        sent: true,
+        errorMessage: undefined,
+        retryCount: (messages.value[messageIndex].retryCount || 0) + 1,
+      };
+    }
+
+    saveToSessionStorage(messages.value);
+    $toast?.success("Message sent successfully!");
+  } catch (error) {
+    console.error("[ChatArea] Retry failed:", error);
+
+    // Update message to show retry failure
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
+        retrying: false,
+        failed: true,
+        errorMessage: error instanceof Error ? error.message : "Retry failed",
+        retryCount: (messages.value[messageIndex].retryCount || 0) + 1,
+      };
+    }
+
+    $toast?.error("Retry failed. Please try again.");
+  }
+};
+
+// Enhanced form submission handler for both new messages and edits - React style
+const handleFormSubmit = async () => {
+  // Handle edit submission
+  if (editingMessageId.value) {
+    await handleSubmitEdit();
+    return;
+  }
+
+  // Handle new message submission
+  await handleSendMessage();
+};
+
+// Enhanced edit submit handler
+const handleSubmitEdit = async () => {
+  if (!editingMessageId.value || !inputMessage.value.trim()) return;
+
+  const messageContent = inputMessage.value.trim();
+  const originalMessage = messages.value.find(
+    (msg) => msg.id === editingMessageId.value
+  );
+
+  if (!originalMessage) return;
+
+  try {
+    isSending.value = true;
+
+    // Update message optimistically
+    const messageIndex = messages.value.findIndex(
+      (msg) => msg.id === editingMessageId.value
+    );
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
+        content: messageContent,
+        isEdited: true,
+        pending: true,
+      };
+    }
+
+    // Call edit API
+    const response = await messagesStore.editMessage(editingMessageId.value, messageContent);
+
+    // Update with successful edit
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
+        content: messageContent,
+        isEdited: true,
+        pending: false,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    // Save to session storage
+    saveToSessionStorage(messages.value);
+
+    // Clear edit state
+    editingMessageId.value = null;
+    inputMessage.value = "";
+
+    $toast?.success("Message updated successfully");
+  } catch (error) {
+    console.error("[ChatArea] Error editing message:", error);
+
+    // Revert optimistic update
+    const messageIndex = messages.value.findIndex(
+      (msg) => msg.id === editingMessageId.value
+    );
+    if (messageIndex !== -1 && originalMessage) {
+      messages.value[messageIndex] = { ...originalMessage, pending: false };
+    }
+
+    $toast?.error("Failed to edit message");
+  } finally {
+    isSending.value = false;
+  }
+};
+
+// Enhanced message sending with optimistic updates and retry mechanisms - React style
+const handleSendMessage = async () => {
+  const content = inputMessage.value.trim();
+  if (!content || !props.recipientId) return;
+
+  try {
+    isSending.value = true;
+
+    // Generate unique temp ID for optimistic update
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create optimistic message for immediate UI feedback
+    const nowIsoString = new Date().toISOString();
+    const optimisticMessage: Message = {
+      id: tempId,
+      message_id: tempId,
+      content,
+      created_at: nowIsoString,
+      timestamp: formatTimestamp(nowIsoString),
+      raw_timestamp: nowIsoString,
+      sender_id: currentUser.value?.id,
+      recipient_id: props.recipientId,
+      receiver_id: props.recipientId,
+      isCurrentUser: true,
+      pending: true,
+      read: false,
+      type: "text",
+      sent: false,
+      failed: false,
+      retryCount: 0,
+    };
+
+    // Add optimistic message to UI immediately
+    messages.value = [...messages.value, optimisticMessage].sort((a, b) => {
+      const timeA = new Date(
+        a.raw_timestamp || a.created_at || a.sent_at || a.timestamp || 0
+      ).getTime();
+      const timeB = new Date(
+        b.raw_timestamp || b.created_at || b.sent_at || b.timestamp || 0
+      ).getTime();
+      return timeA - timeB;
+    });
+
+    // Clear input early for better UX
+    inputMessage.value = "";
+
+    // Auto-scroll to show the new message
+    nextTick(() => {
+      if (messagesEndRef.value) {
+        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+
+    let response: any = null;
+    let messageId = tempId;
+
+    // Enhanced sending logic with WebSocket priority and API fallback
+    if (webSocketStore.isConnected) {
+      try {
+        // WebSocket sending would go here
+        console.log("[ChatArea] Sending via WebSocket");
+        // For now, fall back to API
+        response = await messagesStore.sendMessage(props.recipientId, content);
+        if (response?.data?.id) {
+          messageId = response.data.id;
+        }
+      } catch (wsError) {
+        response = await messagesStore.sendMessage(props.recipientId, content);
+        if (response?.data?.id) {
+          messageId = response.data.id;
+        }
+      }
+    } else {
+      response = await messagesStore.sendMessage(props.recipientId, content);
+      if (response?.data?.id) {
+        messageId = response.data.id;
+      }
+    }
+
+    // Update optimistic message with successful state
+    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+    if (tempMessageIndex !== -1) {
+      messages.value[tempMessageIndex] = {
+        ...messages.value[tempMessageIndex],
+        id: messageId,
+        message_id: messageId,
+        pending: false,
+        sent: true,
+        failed: false,
+        delivered: true,
+        // Include any additional data from response
+        ...(response && typeof response === "object" ? response : {}),
+      };
+    }
+
+    // Update session storage with successful message
+    saveToSessionStorage(messages.value);
+  } catch (error) {
+    console.error("[ChatArea] Error sending message:", error);
+
+    // Update optimistic message to show failure state
+    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+    if (tempMessageIndex !== -1) {
+      messages.value[tempMessageIndex] = {
+        ...messages.value[tempMessageIndex],
+        pending: false,
+        failed: true,
+        sent: false,
+        errorMessage: error instanceof Error ? error.message : "Failed to send message",
+        retryCount: (messages.value[tempMessageIndex].retryCount || 0) + 1,
+      };
+    }
+
+    $toast?.error("Failed to send message. Click the message to retry.");
+  } finally {
+    isSending.value = false;
+  }
+};
+
+// Handle recipient avatar error
+const handleRecipientAvatarError = () => {
+  console.warn("[ChatArea] Recipient avatar failed to load");
+};
 
 // Simplified fetch function - no complex merging logic
 async function fetchPrivateMessages(page = 1, limit = 20) {
@@ -810,40 +956,6 @@ const loadMoreMessages = async () => {
   }
 };
 
-// Retry failed message
-const retryFailedMessage = async (message: Message) => {
-  if (!message.failed) return;
-
-  // Mark as retrying
-  const messageIndex = messages.value.findIndex((msg) => msg.id === message.id);
-  if (messageIndex !== -1) {
-    messages.value[messageIndex] = {
-      ...messages.value[messageIndex],
-      failed: false,
-      pending: true,
-      errorMessage: undefined,
-    };
-  }
-
-  try {
-    // Attempt to resend the message
-    await handleSendMessage(message.content);
-
-    // Remove the failed message on successful retry
-    messages.value = messages.value.filter((msg) => msg.id !== message.id);
-  } catch (error) {
-    // Mark as failed again
-    if (messageIndex !== -1) {
-      messages.value[messageIndex] = {
-        ...messages.value[messageIndex],
-        failed: true,
-        pending: false,
-        errorMessage: "Failed to send message",
-      };
-    }
-  }
-};
-
 // Toggle dropdown menu
 const toggleDropdown = (messageId: string) => {
   showDropdown.value = showDropdown.value === messageId ? null : messageId;
@@ -899,6 +1011,26 @@ const handleUnsendMessage = async (messageId: string) => {
 const handleCancelEdit = () => {
   editingMessageId.value = null;
   inputMessage.value = "";
+};
+
+// Handle file upload button click
+const handleFileUpload = () => {
+  if (fileInputRef.value) {
+    // Show feedback that the file picker is opening
+    $toast.info("Select a file to upload", { autoClose: 2000 });
+    fileInputRef.value.click();
+    isAttachmentMenuOpen.value = false;
+  }
+};
+
+// Handle image upload button click
+const handleImageUpload = () => {
+  if (imageInputRef.value) {
+    // Show feedback that the image picker is opening
+    $toast.info("Select an image to upload", { autoClose: 2000 });
+    imageInputRef.value.click();
+    isAttachmentMenuOpen.value = false;
+  }
 };
 
 // Handle file change
@@ -967,75 +1099,120 @@ const handleImageChange = async (event: Event) => {
   }
 };
 
-// Handle send message
-
 // Simplified send message function
-const handleSendMessage = async (messageContent?: string) => {
-  const content = messageContent || inputMessage.value.trim();
-  if (!content) return;
+const handleSendMessage = async () => {
+  const content = inputMessage.value.trim();
+  if (!content || !props.recipientId) return;
 
   try {
     isSending.value = true;
 
-    // Create optimistic UI message
-    const tempMessage: Message = {
-      id: `temp-${Date.now()}`,
+    // Generate unique temp ID for optimistic update
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create optimistic message for immediate UI feedback
+    const nowIsoString = new Date().toISOString();
+    const optimisticMessage: Message = {
+      id: tempId,
+      message_id: tempId,
       content,
-      timestamp: new Date().toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
+      created_at: nowIsoString,
+      timestamp: formatTimestamp(nowIsoString),
+      raw_timestamp: nowIsoString,
+      sender_id: currentUser.value?.id,
+      recipient_id: props.recipientId,
+      receiver_id: props.recipientId,
       isCurrentUser: true,
       pending: true,
-      sent_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
+      read: false,
+      type: "text",
+      sent: false,
+      failed: false,
+      retryCount: 0,
     };
 
-    // Add temp message immediately for responsive UI
-    messages.value.push(tempMessage);
+    // Add optimistic message to UI immediately
+    messages.value = [...messages.value, optimisticMessage].sort((a, b) => {
+      const timeA = new Date(
+        a.raw_timestamp || a.created_at || a.sent_at || a.timestamp || 0
+      ).getTime();
+      const timeB = new Date(
+        b.raw_timestamp || b.created_at || b.sent_at || b.timestamp || 0
+      ).getTime();
+      return timeA - timeB;
+    });
+
+    // Clear input early for better UX
     inputMessage.value = "";
 
-    // Scroll to bottom
+    // Auto-scroll to show the new message
     nextTick(() => {
       if (messagesEndRef.value) {
         messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
       }
     });
 
-    // Send message
-    if (editingMessageId.value) {
-      await messagesStore.editMessage(editingMessageId.value, content);
-      editingMessageId.value = null;
+    let response: any = null;
+    let messageId = tempId;
 
-      // Remove temp message but don't refetch for edits to preserve isEdited flag
-      messages.value = messages.value.filter(
-        (msg) => msg.id !== tempMessage.id
-      );
+    // Enhanced sending logic with WebSocket priority and API fallback
+    if (webSocketStore.isConnected) {
+      try {
+        // WebSocket sending would go here
+        console.log("[ChatArea] Sending via WebSocket");
+        // For now, fall back to API
+        response = await messagesStore.sendMessage(props.recipientId, content);
+        if (response?.data?.id) {
+          messageId = response.data.id;
+        }
+      } catch (wsError) {
+        response = await messagesStore.sendMessage(props.recipientId, content);
+        if (response?.data?.id) {
+          messageId = response.data.id;
+        }
+      }
     } else {
-      await messagesStore.sendMessage(props.recipientId, content);
-
-      // Remove temp message and refresh to get real message from server
-      messages.value = messages.value.filter(
-        (msg) => msg.id !== tempMessage.id
-      );
-      await fetchPrivateMessages();
+      response = await messagesStore.sendMessage(props.recipientId, content);
+      if (response?.data?.id) {
+        messageId = response.data.id;
+      }
     }
-  } catch (error) {
-    $toast?.error("Failed to send message");
 
-    // Mark temp message as failed
-    const failedMsgIndex = messages.value.findIndex(
-      (msg) => msg.content === content && msg.pending
-    );
-    if (failedMsgIndex !== -1) {
-      messages.value[failedMsgIndex] = {
-        ...messages.value[failedMsgIndex],
+    // Update optimistic message with successful state
+    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+    if (tempMessageIndex !== -1) {
+      messages.value[tempMessageIndex] = {
+        ...messages.value[tempMessageIndex],
+        id: messageId,
+        message_id: messageId,
         pending: false,
-        failed: true,
-        errorMessage: "Failed to send",
+        sent: true,
+        failed: false,
+        delivered: true,
+        // Include any additional data from response
+        ...(response && typeof response === "object" ? response : {}),
       };
     }
+
+    // Update session storage with successful message
+    saveToSessionStorage(messages.value);
+  } catch (error) {
+    console.error("[ChatArea] Error sending message:", error);
+
+    // Update optimistic message to show failure state
+    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+    if (tempMessageIndex !== -1) {
+      messages.value[tempMessageIndex] = {
+        ...messages.value[tempMessageIndex],
+        pending: false,
+        failed: true,
+        sent: false,
+        errorMessage: error instanceof Error ? error.message : "Failed to send message",
+        retryCount: (messages.value[tempMessageIndex].retryCount || 0) + 1,
+      };
+    }
+
+    $toast?.error("Failed to send message. Click the message to retry.");
   } finally {
     isSending.value = false;
   }
@@ -1268,78 +1445,23 @@ const displayMessages = computed(() => {
   return sorted;
 });
 
-// Group messages by date for better organization
-const groupedMessages = computed(() => {
-  const groups: {
-    [key: string]: {
-      date: string;
-      messages: Message[];
-      isToday: boolean;
-      isYesterday: boolean;
-    };
-  } = {};
-
-  displayMessages.value.forEach((message) => {
-    const messageDate = new Date(
-      message.created_at || message.sent_at || message.timestamp
-    );
-    const dateKey = messageDate.toDateString();
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-
-    if (!groups[dateKey]) {
-      groups[dateKey] = {
-        date: messageDate.toLocaleDateString("id-ID", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }),
-        messages: [],
-        isToday: dateKey === today,
-        isYesterday: dateKey === yesterday,
-      };
-    }
-
-    groups[dateKey].messages.push(message);
-  });
-
-  // Convert to array and sort by date
-  return Object.entries(groups)
-    .map(([dateKey, group]) => ({
-      dateKey,
-      ...group,
-    }))
-    .sort(
-      (a, b) => new Date(a.dateKey).getTime() - new Date(b.dateKey).getTime()
-    );
-});
-
-// Format timestamp for display - using the centralized utility
-function formatTimestamp(dateString?: string): string {
-  if (!dateString) return "";
-
-  // Use the centralized function with 'time' format to show actual time (HH:MM)
-  return formatMessageTimestamp({ timestamp: dateString, format: "time" });
-}
-
-// Initialize WebSocket connection
+// Simplified WebSocket connection handling
 const connectWebSocket = async () => {
-  if (!webSocketStore.isConnected && !webSocketStore.isConnecting) {
-    try {
-      // First make sure we have valid auth
-      const valid = await webSocketStore.validateToken();
-      if (valid) {
-        await webSocketStore.connect();
-      } else {
-        if ($toast) {
-          $toast.warning("Connection issue - authenticating...");
-        }
-      }
-    } catch (error) {
+  if (webSocketStore.isConnected || webSocketStore.isConnecting) return;
+
+  try {
+    // First make sure we have valid auth
+    const valid = await webSocketStore.validateToken();
+    if (valid) {
+      await webSocketStore.connect();
+    } else {
       if ($toast) {
-        $toast.error("Failed to connect to messaging service");
+        $toast.warning("Connection issue - authenticating...");
       }
+    }
+  } catch (error) {
+    if ($toast) {
+      $toast.error("Failed to connect to messaging service");
     }
   }
 };

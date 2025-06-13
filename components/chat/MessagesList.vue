@@ -2,15 +2,22 @@
   <div class="h-full flex flex-col p-6 bg-white">
     <!-- Header with title and action buttons -->
     <div class="mb-6 flex justify-between items-center">
-      <h1 class="text-xl font-bold text-gray-800">Messages</h1>
-      <div class="flex items-center space-x-2">
+      <div class="flex items-center">
+        <h1 class="text-xl font-bold text-gray-800">Messages</h1>
         <button
           @click="refreshData"
-          class="p-2.5 text-gray-500 hover:text-gray-700 rounded-full transition-all"
+          :disabled="isRefreshing"
+          class="ml-2 p-1.5 text-gray-400 hover:text-blue-500 rounded-full focus:outline-none transition-colors"
           title="Refresh Messages"
         >
-          <Icon name="lucide:refresh-cw" class="h-4 w-4" />
+          <Icon 
+            name="lucide:refresh-cw" 
+            class="h-4 w-4"
+            :class="{ 'animate-spin': isRefreshing }"
+          />
         </button>
+      </div>
+      <div class="flex items-center space-x-2">
         <NotificationDropdown />
         <button
           @click="showNewChatPopup = true"
@@ -96,62 +103,48 @@
     </div>
 
     <!-- Message list -->
-    <div class="flex-1 overflow-auto">
+    <div v-else class="flex-1 overflow-auto">
+      <!-- Empty state -->
       <div
         v-if="filteredMessages.length === 0"
         class="h-full flex flex-col items-center justify-center text-center p-6"
       >
         <Icon name="fa:envelope" class="h-12 w-12 text-gray-300 mb-3" />
-        <p class="text-gray-500 font-medium">No messages yet</p>
+        <p class="text-gray-500 font-medium">No conversations yet</p>
         <p class="text-sm text-gray-400 mt-2">
-          Start a conversation with friends or groups
+          Start chatting with friends or groups to see them here
         </p>
       </div>
       <div v-else class="space-y-3">
         <NuxtLink
           v-for="message in sortedMessages"
           :key="message.id"
-          :to="`/chat/messages/${message.id}${
-            message.type === 'group' ? '?type=group' : ''
-          }`"
+          :to="buildMessageUrl(message)"
         >
           <div
             :class="`flex items-start p-4 rounded-lg transition-colors ${
-              (message.type === 'friend' &&
-                $route.path === `/chat/messages/${message.id}`) ||
-              (message.type === 'group' &&
-                $route.path === `/chat/messages/${message.id}` &&
-                $route.query.type === 'group')
+              isCurrentlyActive(message)
                 ? 'bg-blue-50 border border-blue-100'
                 : 'hover:bg-gray-50'
             }`"
           >
             <!-- Avatar with status -->
             <div class="relative">
-              <div
-                class="h-10 w-10 rounded-full overflow-hidden bg-gray-200 mr-3 flex-shrink-0 flex items-center justify-center"
-              >
-                <img
-                  v-if="message.sender?.avatar"
-                  :src="message.sender.avatar"
-                  :alt="message.sender?.first_name || 'User'"
-                  class="h-full w-full object-cover"
-                />
-                <Icon
-                  v-else-if="message.type === 'friend'"
-                  name="fa:user"
-                  class="h-5 w-5 text-gray-500"
-                />
-                <Icon v-else name="fa:users" class="h-5 w-5 text-gray-500" />
-              </div>
+              <OptimizedAvatar
+                :src="message.sender?.avatar || message.sender?.profile_picture_url"
+                :alt="message.sender?.name || 'User'"
+                size="md"
+                class="mr-3 flex-shrink-0"
+                :fallback-icon="message.type === 'friend' ? 'fa:user' : 'fa:users'"
+              />
+              <!-- Status indicator (only for friends) -->
               <div
                 v-if="message.type === 'friend'"
                 :class="`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                  friendStatus[message.id] === 'online'
+                  getUserStatus(message.id) === 'online'
                     ? 'bg-green-500'
                     : 'bg-gray-400'
                 }`"
-                @click="handleStatusClick(message.id, $event)"
               ></div>
             </div>
 
@@ -159,63 +152,43 @@
             <div class="flex-1 min-w-0">
               <div class="flex justify-between items-start">
                 <h3 class="font-medium text-gray-900 truncate text-sm">
-                  <!-- Display name based on message type -->
-                  <template v-if="message.type === 'group'">
-                    {{ message.sender?.name }}
-                  </template>
-                  <template v-else>
-                    {{ message.sender?.first_name }}
-                    {{ message.sender?.last_name }}
-                  </template>
+                  {{ message.sender?.name }}
                 </h3>
                 <span class="text-xs text-gray-500 ml-1 whitespace-nowrap">
-                  {{
-                    message.timestamp === "Never" && message.type === "friend"
-                      ? friendStatus[message.id] === "online"
-                        ? "Online"
-                        : "Offline"
-                      : message.timestamp
-                  }}
+                  {{ message.timestamp }}
                 </span>
               </div>
 
               <div class="flex justify-between items-start mt-1">
-                <div class="flex-1">
-                  <!-- For groups: show member count if no message content -->
-                  <p
-                    v-if="message.type === 'group'"
-                    class="text-xs text-gray-600 truncate"
+                <div class="flex-1 relative">
+                  <!-- Show typing indicator when active -->
+                  <p 
+                    v-if="message.isTyping"
+                    class="text-xs text-blue-500 truncate flex items-center"
                   >
-                    <span
-                      v-if="
-                        message.content && message.content !== 'Group created'
-                      "
-                    >
-                      {{ message.content }}
+                    <span class="mr-1">Typing</span>
+                    <span class="flex">
+                      <Icon 
+                        name="fa:circle" 
+                        class="animate-pulse h-1 w-1 mx-0.5"
+                      />
+                      <Icon 
+                        name="fa:circle" 
+                        class="animate-pulse h-1 w-1 mx-0.5"
+                        style="animation-delay: 100ms"
+                      />
+                      <Icon 
+                        name="fa:circle" 
+                        class="animate-pulse h-1 w-1 mx-0.5"
+                        style="animation-delay: 200ms"
+                      />
                     </span>
-                    <span v-else> {{ message.memberCount || 0 }} members </span>
                   </p>
-
-                  <!-- For friends: show @username or email -->
                   <p v-else class="text-xs text-gray-600 truncate">
-                    <span
-                      v-if="
-                        message.content && message.content !== 'No messages yet'
-                      "
-                    >
-                      {{ message.content }}
-                    </span>
-                    <span v-else>
-                      @{{
-                        message.sender?.username ||
-                        (message.sender?.email
-                          ? message.sender.email.split("@")[0]
-                          : "user")
-                      }}
-                    </span>
+                    {{ formatMessageContent(message) }}
                   </p>
-
-                  <!-- Unread count below message content -->
+                  
+                  <!-- Unread count badge -->
                   <div
                     v-if="message.unreadCount && message.unreadCount > 0"
                     class="mt-1"
@@ -574,6 +547,7 @@ const groupDescription = ref("");
 const unsubscribeConnectionWatch = ref<WatchStopHandle | null>(null);
 const friendStatusMap = ref<Record<string, string>>({});
 const friendSelections = ref<Record<string, boolean>>({});
+const isRefreshing = ref(false);
 
 // Computed properties
 const friendStatus = computed(() => friendStatusMap.value);
@@ -1388,6 +1362,50 @@ const messageStats = computed(() => {
 
   return stats;
 });
+
+// Helper function to get user status
+const getUserStatus = (userId: string): 'online' | 'offline' => {
+  return presence.getStatus(userId) === 'online' ? 'online' : 'offline';
+};
+
+// Helper function to check if message is currently active
+const isCurrentlyActive = (message: Message): boolean => {
+  const route = useRoute();
+  const isGroupMessage = message.type === 'group';
+  const currentPath = route.path;
+  const expectedPath = `/chat/messages/${message.id}`;
+  
+  if (isGroupMessage) {
+    return currentPath === expectedPath && route.query.type === 'group';
+  } else {
+    return currentPath === expectedPath && route.query.type !== 'group';
+  }
+};
+
+// Helper function to build message URL
+const buildMessageUrl = (message: Message): string => {
+  const baseUrl = `/chat/messages/${message.id}`;
+  
+  if (message.type === 'group') {
+    return `${baseUrl}?type=group&name=${encodeURIComponent(message.sender.name)}`;
+  } else {
+    return `${baseUrl}?name=${encodeURIComponent(message.sender.name)}`;
+  }
+};
+
+// Helper function to format message content for display
+const formatMessageContent = (message: Message): string => {
+  if (!message.content || message.content.trim() === '') {
+    return message.type === 'friend' ? 'No messages yet' : 'No messages in this group';
+  }
+  
+  // For groups, the content might already include sender name
+  if (message.type === 'group' && message.content.includes(':')) {
+    return message.content;
+  }
+  
+  return message.content;
+};
 </script>
 
 <style scoped>

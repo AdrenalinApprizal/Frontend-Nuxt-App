@@ -1,56 +1,66 @@
 /**
  * Centralized timestamp utilities for consistent formatting across the application
+ * Based on Vue.js reference implementation for consistency
  */
 
 export interface TimestampOptions {
   timestamp?: string;
   raw_timestamp?: string | number;
-  format?: 'full' | 'time' | 'date' | 'relative';
+  created_at?: string;
+  sent_at?: string;
+  format?: "full" | "time" | "date" | "relative";
 }
 
 /**
  * Format a message timestamp for display in chat messages
+ * Matches Vue.js reference implementation
  */
 export function formatMessageTimestamp(options: TimestampOptions): string {
-  const { timestamp, raw_timestamp, format = 'relative' } = options;
-  
+  const {
+    timestamp,
+    raw_timestamp,
+    created_at,
+    sent_at,
+    format = "time",
+  } = options;
+
   try {
-    // Use raw_timestamp if available, otherwise use timestamp
-    const timestampToUse = raw_timestamp || timestamp;
+    // Use priority order: raw_timestamp > timestamp > created_at > sent_at
+    const timestampToUse = raw_timestamp || timestamp || created_at || sent_at;
     if (!timestampToUse) {
-      return 'Unknown time';
+      return "";
     }
 
     const date = extractValidDate(timestampToUse);
     if (!date) {
-      return String(timestampToUse); // Return original if parsing fails
+      return ""; // Return empty string instead of original for consistency
     }
 
-    const now = new Date();
-    const messageDate = new Date(date);
-    const diffInMs = now.getTime() - messageDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
     switch (format) {
-      case 'full':
-        return messageDate.toLocaleString();
-      
-      case 'time':
-        return messageDate.toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+      case "full":
+        return date.toLocaleString("id-ID");
+
+      case "time":
+        // Match Vue.js implementation exactly
+        return date.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
         });
-      
-      case 'date':
-        return messageDate.toLocaleDateString();
-      
-      case 'relative':
-      default:
+
+      case "date":
+        return date.toLocaleDateString("id-ID");
+
+      case "relative":
         // Return relative time for recent messages
+        const now = new Date();
+        const diffInMs = now.getTime() - date.getTime();
+        const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+        const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+        const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
         if (diffInMinutes < 1) {
-          return 'Just now';
+          return "Just now";
         } else if (diffInMinutes < 60) {
           return `${diffInMinutes}m ago`;
         } else if (diffInHours < 24) {
@@ -58,46 +68,63 @@ export function formatMessageTimestamp(options: TimestampOptions): string {
         } else if (diffInDays < 7) {
           return `${diffInDays}d ago`;
         } else {
-          return messageDate.toLocaleDateString();
+          return date.toLocaleDateString("id-ID");
         }
+
+      default:
+        // Default to time format like Vue.js
+        return date.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
     }
   } catch (error) {
-    console.warn('Error formatting timestamp:', error);
-    return String(raw_timestamp || timestamp || 'Unknown time'); // Return original if formatting fails
+    console.warn("Error formatting timestamp:", error);
+    return ""; // Return empty string for consistency
   }
 }
 
 /**
  * Format a time string from a timestamp
+ * Matches Vue.js implementation for consistency
  */
 export function formatTimeString(timestamp: string | number | Date): string {
   try {
     const date = extractValidDate(timestamp);
     if (!date) {
-      return 'Unknown time';
+      return "";
     }
 
-    return date.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    // Use Indonesian locale and 24-hour format like Vue.js
+    return date.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     });
   } catch (error) {
-    console.warn('Error formatting time string:', error);
-    return 'Unknown time';
+    console.warn("Error formatting time string:", error);
+    return "";
   }
 }
 
 /**
  * Extract a valid Date object from various timestamp formats
  */
-export function extractValidDate(timestamp: string | number | Date | { raw_timestamp?: string | number }): Date | null {
+export function extractValidDate(
+  timestamp: string | number | Date | { raw_timestamp?: string | number }
+): Date | null {
   try {
     if (!timestamp) {
       return null;
     }
 
     // Handle objects with raw_timestamp property
-    if (typeof timestamp === 'object' && timestamp !== null && !(timestamp instanceof Date)) {
+    if (
+      typeof timestamp === "object" &&
+      timestamp !== null &&
+      !(timestamp instanceof Date)
+    ) {
       const objTimestamp = timestamp as { raw_timestamp?: string | number };
       if (objTimestamp.raw_timestamp) {
         return extractValidDate(objTimestamp.raw_timestamp);
@@ -110,21 +137,44 @@ export function extractValidDate(timestamp: string | number | Date | { raw_times
       return isNaN(timestamp.getTime()) ? null : timestamp;
     }
 
-    if (typeof timestamp === 'number') {
+    if (typeof timestamp === "number") {
       // Handle both seconds and milliseconds timestamps
-      const date = timestamp > 1e10 ? new Date(timestamp) : new Date(timestamp * 1000);
+      const date =
+        timestamp > 1e10 ? new Date(timestamp) : new Date(timestamp * 1000);
       return isNaN(date.getTime()) ? null : date;
     }
 
-    if (typeof timestamp === 'string') {
+    if (typeof timestamp === "string") {
+      // Check for invalid string values
+      const trimmedTimestamp = timestamp.trim();
+      if (
+        !trimmedTimestamp ||
+        trimmedTimestamp === "undefined" ||
+        trimmedTimestamp === "null" ||
+        trimmedTimestamp === "Invalid Date" ||
+        trimmedTimestamp === ""
+      ) {
+        console.warn("Invalid timestamp string detected:", timestamp);
+        return null;
+      }
+
       // Try parsing as ISO string or other common formats
-      const date = new Date(timestamp);
-      return isNaN(date.getTime()) ? null : date;
+      const date = new Date(trimmedTimestamp);
+      if (isNaN(date.getTime())) {
+        console.warn("Could not parse timestamp string:", timestamp);
+        return null;
+      }
+      return date;
     }
 
     return null;
   } catch (error) {
-    console.warn('Error extracting date from timestamp:', error);
+    console.warn(
+      "Error extracting date from timestamp:",
+      error,
+      "Input:",
+      timestamp
+    );
     return null;
   }
 }
@@ -132,41 +182,56 @@ export function extractValidDate(timestamp: string | number | Date | { raw_times
 /**
  * Format a date for use in message separators (e.g., "Today", "Yesterday", "March 15")
  */
-export function formatDateForSeparator(timestamp: string | number | Date): string {
+export function formatDateForSeparator(
+  timestamp: string | number | Date
+): string {
   try {
     const date = extractValidDate(timestamp);
     if (!date) {
-      return 'Unknown Date';
+      console.warn(
+        "formatDateForSeparator received invalid timestamp:",
+        timestamp
+      );
+      return "Unknown Date";
     }
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+    const messageDate = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
     const diffInMs = today.getTime() - messageDate.getTime();
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
     if (diffInDays === 0) {
-      return 'Today';
+      return "Today";
     } else if (diffInDays === 1) {
-      return 'Yesterday';
+      return "Yesterday";
     } else if (diffInDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'long' });
+      return date.toLocaleDateString("en-US", { weekday: "long" });
     } else if (diffInDays < 365) {
-      return date.toLocaleDateString([], { 
-        month: 'long', 
-        day: 'numeric' 
+      return date.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
       });
     } else {
-      return date.toLocaleDateString([], { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
     }
   } catch (error) {
-    console.warn('Error formatting date for separator:', error);
-    return 'Unknown Date';
+    console.warn(
+      "Error formatting date for separator:",
+      error,
+      "Input:",
+      timestamp
+    );
+    return "Unknown Date";
   }
 }
 
@@ -200,12 +265,15 @@ export function getTimeDifference(timestamp: string | number | Date): string {
   try {
     const date = extractValidDate(timestamp);
     if (!date) {
-      return 'Unknown time';
+      return "Unknown time";
     }
 
-    return formatMessageTimestamp({ timestamp: date.toISOString(), format: 'relative' });
+    return formatMessageTimestamp({
+      timestamp: date.toISOString(),
+      format: "relative",
+    });
   } catch (error) {
-    console.warn('Error getting time difference:', error);
-    return 'Unknown time';
+    console.warn("Error getting time difference:", error);
+    return "Unknown time";
   }
 }

@@ -302,15 +302,14 @@
 import { useFriendsStore } from "~/composables/useFriends";
 import { usePresence } from "~/composables/usePresence";
 import { useRuntimeConfig } from "#app";
+import { useAuthStore } from "~/composables/useAuth";
+import FriendRequest from "~/components/chat/FriendRequest.vue";
 
 const route = useRoute();
 const { $toast } = useNuxtApp();
 const friendsStore = useFriendsStore();
 const presence = usePresence(); // Add presence composable
 const config = useRuntimeConfig();
-
-// Import auth store to get current user info
-import { useAuthStore } from "~/composables/useAuth";
 const authStore = useAuthStore();
 
 const searchQuery = ref("");
@@ -551,9 +550,10 @@ const filteredFriends = computed(() => {
   }
 
   // Otherwise, return the filtered results
-  return friends.value.filter((friend) =>
-    friend.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+  return friends.value.filter((friend) => {
+    const friendName = getFriendDisplayName(friend);
+    return friendName.toLowerCase().includes(searchQuery.value.toLowerCase());
+  });
 });
 
 // Add debounced search function for friends
@@ -657,21 +657,53 @@ const sortedFriends = computed(() => {
 
 // Filter only incoming friend requests
 const incomingRequests = computed(() => {
-  return friendsStore.pendingRequests?.filter((request) => {
-    if (!request) return false;
+  console.log("[FriendsList] Computing incoming requests...");
+  console.log("[FriendsList] Raw pending requests:", friendsStore.pendingRequests);
+  
+  const currentUserId = authStore.user?.id;
+  console.log("[FriendsList] Current user ID:", currentUserId);
+  
+  const filtered = friendsStore.pendingRequests?.filter((request) => {
+    console.log("[FriendsList] Processing request:", request);
+    
+    if (!request) {
+      console.log("[FriendsList] Request is null/undefined, skipping");
+      return false;
+    }
 
-    // Check if it's an incoming request based on different API response formats
-    if (request.direction === "incoming") return true;
-    if (request.type === "received") return true;
-    if (
-      request.status === "pending" &&
-      request.recipient_id !== request.requestor_id
-    )
+    // Primary check: direction field (this should match your API response)
+    if (request.direction === "incoming") {
+      console.log("[FriendsList] ✅ Request marked as incoming via direction field");
       return true;
+    }
+    
+    // Secondary check: type field for compatibility
+    if (request.type === "received") {
+      console.log("[FriendsList] ✅ Request marked as incoming via type field");
+      return true;
+    }
+    
+    // Tertiary check: recipient_id match (if available)
+    if (currentUserId && request.recipient_id === currentUserId) {
+      console.log("[FriendsList] ✅ Request is incoming - current user is recipient");
+      return true;
+    }
+    
+    // Final fallback: if no direction/type specified but status is pending
+    // This handles cases where API doesn't provide direction/type explicitly
+    if (!request.direction && !request.type && request.status === "pending") {
+      console.log("[FriendsList] ⚠️ Request has no direction/type, assuming incoming based on pending status");
+      return true;
+    }
 
-    // Default case - assume it's incoming if we can't determine
-    return true;
+    console.log("[FriendsList] ❌ Request doesn't match incoming criteria, excluding");
+    return false;
   }) || [];
+  
+  console.log("[FriendsList] Filtered incoming requests:", filtered);
+  console.log("[FriendsList] Incoming requests count:", filtered.length);
+  
+  return filtered;
 });
 
 // Count online friends

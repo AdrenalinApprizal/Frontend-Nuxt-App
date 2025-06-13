@@ -88,8 +88,8 @@ const optimizedSrc = computed(() => {
   });
 
   if (!props.src) {
-    console.log("[OptimizedAvatar] No src provided, returning null");
-    return null;
+    console.log("[OptimizedAvatar] No src provided, returning undefined");
+    return undefined;
   }
 
   // Check if it's a data URL
@@ -104,7 +104,7 @@ const optimizedSrc = computed(() => {
         "[OptimizedAvatar] Invalid data URL format:",
         props.src.substring(0, 100)
       );
-      return null;
+      return undefined;
     }
 
     console.log("[OptimizedAvatar] Data URL format is valid");
@@ -119,17 +119,17 @@ const optimizedSrc = computed(() => {
         maxSize
       );
 
-      // Try to compress or return null
+      // Try to compress or return undefined
       try {
         // For very large images, we could implement client-side compression here
         // For now, we'll just reject them
-        return null;
+        return undefined;
       } catch (error) {
         console.error(
           "[OptimizedAvatar] Error processing large image:",
           error
         );
-        return null;
+        return undefined;
       }
     }
 
@@ -142,7 +142,7 @@ const optimizedSrc = computed(() => {
         "[OptimizedAvatar] Base64 data too short or missing, length:",
         base64Data?.length || 0
       );
-      return null;
+      return undefined;
     }
 
     console.log(
@@ -156,7 +156,7 @@ const optimizedSrc = computed(() => {
       console.log("[OptimizedAvatar] Base64 validation passed");
     } catch (error) {
       console.warn("[OptimizedAvatar] Invalid base64 data:", error);
-      return null;
+      return undefined;
     }
 
     console.log(

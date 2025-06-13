@@ -211,16 +211,44 @@
       class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
     >
       <div
-        class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
+        class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-md mx-4"
       >
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">New Chat</h2>
+          <h3 class="text-lg font-semibold text-gray-900">Start New Chat</h3>
           <button
             @click="showNewChatPopup = false"
-            class="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            class="text-gray-500 hover:text-gray-700"
           >
-            <Icon name="fa:times" class="h-4 w-4" />
+            <Icon name="fa:times" class="h-5 w-5" />
           </button>
+        </div>
+
+        <!-- Chat type selection -->
+        <div class="mb-4">
+          <div class="flex space-x-4">
+            <button
+              @click="newChatType = 'friend'"
+              :class="`flex-1 py-2 px-4 rounded-lg border transition-colors ${
+                newChatType === 'friend'
+                  ? 'bg-blue-500 text-white border-blue-500'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`"
+            >
+              <Icon name="fa:user" class="h-4 w-4 mr-2" />
+              Friend Chat
+            </button>
+            <button
+              @click="newChatType = 'group'"
+              :class="`flex-1 py-2 px-4 rounded-lg border transition-colors ${
+                newChatType === 'group'
+                  ? 'bg-blue-500 text-white border-blue-500'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`"
+            >
+              <Icon name="fa:users" class="h-4 w-4 mr-2" />
+              Group Chat
+            </button>
+          </div>
         </div>
 
         <div class="space-y-3">
@@ -453,6 +481,7 @@ interface Sender {
   id?: string;
   name: string;
   avatar?: string;
+  profile_picture_url?: string; // Add this missing property
   first_name?: string;
   last_name?: string;
   username?: string;
@@ -480,6 +509,7 @@ interface Message {
   unreadCount?: number;
   type: MessageType;
   isCurrentUser?: boolean;
+  isTyping?: boolean; // Add this missing property
   // New fields for enhanced display
   memberCount?: number; // For groups
   username?: string; // For friends
@@ -540,6 +570,7 @@ const searchQuery = ref("");
 const showNewChatPopup = ref(false);
 const showAddFriendPopup = ref(false);
 const showCreateGroupPopup = ref(false);
+const newChatType = ref<NewChatType>("friend"); // Add this missing reactive variable
 const friendUsername = ref("");
 const isAddingFriend = ref(false);
 const groupName = ref("");

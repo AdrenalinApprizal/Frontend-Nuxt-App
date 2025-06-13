@@ -805,6 +805,7 @@ interface GroupDetails {
   description?: string;
   memberCount: number;
   avatar?: string;
+  avatar_url?: string;
   members: Member[];
 }
 
@@ -856,8 +857,6 @@ const {
   getGroupFiles,
   downloadFile: downloadFileAction,
   shareFile,
-  getFileUrl,
-  getThumbnailUrl,
   formatFileSize,
 } = useFiles();
 
@@ -904,7 +903,7 @@ const filesPagination = ref<PaginationResponse>({
 
 // Computed properties
 const groupName = computed(() => props.groupDetails.name);
-const isLoading = computed(() => groupsStore.loading);
+const isLoading = computed(() => groupsStore.isLoading);
 
 // Make sure the refs are properly typed
 const filesPaginationRef = computed(() => filesPagination.value);
@@ -938,18 +937,6 @@ const currentMediaIndex = computed(() => {
 
 const hasPreviousMedia = computed(() => currentMediaIndex.value > 0);
 const hasNextMedia = computed(() => currentMediaIndex.value < groupMedia.value.length - 1);
-
-// Enhanced file size formatting
-const formatFileSize = (sizeInBytes?: number | string): string => {
-  if (!sizeInBytes) return "Unknown size";
-  
-  const size = typeof sizeInBytes === 'string' ? parseInt(sizeInBytes) : sizeInBytes;
-  
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-};
 
 // Enhanced thumbnail and file URL functions
 const getThumbnailUrl = (fileId: string): string => {
@@ -1107,19 +1094,20 @@ const blockedUsers = computed(() => groupsStore.blockedUsers || []);
 const membersWithBlockingStatus = computed(() => {
   return props.groupDetails.members.map((member) => {
     const userId = member.id || member.user_id || "";
-    const blockedUser = blockedUsers.value.find((blockedUser: BlockedUser) => {
-      return blockedUser.user_id === userId || 
-             blockedUser.user_id === member.id || 
-             blockedUser.user_id === member.user_id;
+    const blockedUser = blockedUsers.value.find((user: any) => {
+      return user.user_id === userId || 
+             user.user_id === member.id || 
+             user.user_id === member.user_id;
     });
 
     const isBlocked = !!blockedUser;
+    const presenceStatus = presence.getStatus(member.user_id || member.id) as "online" | "offline" | "busy" | "away";
     
     return {
       ...member,
       isBlocked,
-      blockedAt: blockedUser?.blocked_at,
-      presenceStatus: presence.getStatus(member.user_id || member.id),
+      blockedAt: blockedUser ? (blockedUser as any).blocked_at || (blockedUser as any).created_at || undefined : undefined,
+      presenceStatus,
       lastActive: formatLastActive(
         presence.getLastActive(member.user_id || member.id)
       ),
@@ -1192,10 +1180,7 @@ async function loadGroupMedia(): Promise<void> {
   
   isLoadingMedia.value = true;
   try {
-    const response = await getGroupMedia(props.groupDetails.id, {
-      page: currentMediaPage.value,
-      limit: 20,
-    });
+    const response = await getGroupMedia(props.groupDetails.id, "all", currentMediaPage.value, 20);
     
     if (response) {
       groupMedia.value = response.data || [];
@@ -1213,10 +1198,7 @@ async function loadGroupFiles(): Promise<void> {
   
   isLoadingFiles.value = true;
   try {
-    const response = await getGroupFiles(props.groupDetails.id, {
-      page: currentFilesPage.value,
-      limit: 20,
-    });
+    const response = await getGroupFiles(props.groupDetails.id, currentFilesPage.value, 20);
     
     if (response) {
       groupFiles.value = response.data || [];
@@ -1235,10 +1217,7 @@ async function loadMoreMedia(): Promise<void> {
   isLoadingMoreMedia.value = true;
   try {
     currentMediaPage.value += 1;
-    const response = await getGroupMedia(props.groupDetails.id, {
-      page: currentMediaPage.value,
-      limit: 20,
-    });
+    const response = await getGroupMedia(props.groupDetails.id, "all", currentMediaPage.value, 20);
     
     if (response?.data) {
       groupMedia.value.push(...response.data);
@@ -1257,10 +1236,7 @@ async function loadMoreFiles(): Promise<void> {
   isLoadingMoreFiles.value = true;
   try {
     currentFilesPage.value += 1;
-    const response = await getGroupFiles(props.groupDetails.id, {
-      page: currentFilesPage.value,
-      limit: 20,
-    });
+    const response = await getGroupFiles(props.groupDetails.id, currentFilesPage.value, 20);
     
     if (response?.data) {
       groupFiles.value.push(...response.data);
@@ -1302,6 +1278,13 @@ function handleError(error: any, defaultMessage: string): void {
   const message = error?.message || defaultMessage;
   if ($toast) {
     $toast.error(message);
+  }
+}
+
+// Handle clicks outside dropdown to close it
+function handleClickOutside(event: MouseEvent): void {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+    activeDropdown.value = null;
   }
 }
 

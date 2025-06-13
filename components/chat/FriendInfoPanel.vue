@@ -639,6 +639,9 @@ watch(
   (newFriends) => {
     friendsList.value = newFriends.map((friend) => ({
       ...friend,
+      name: friend.name || friend.display_name || friend.full_name || 
+             (friend.first_name && friend.last_name ? `${friend.first_name} ${friend.last_name}` : friend.first_name) ||
+             friend.username || 'Unknown User',
       shareSelected: false,
     }));
   },

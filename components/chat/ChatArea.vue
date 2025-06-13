@@ -134,8 +134,16 @@
           <ChatAreaItem
             v-for="message in group.messages"
             :key="message.id"
-            :message="message"
-            :recipient="recipient"
+            :message="{
+              ...message,
+              created_at: message.created_at || message.timestamp || new Date().toISOString()
+            }"
+            :recipient="{
+              id: recipient.id,
+              name: recipient.name || recipient.first_name + ' ' + recipient.last_name || 'Unknown User',
+              avatar: recipient.avatar,
+              profile_picture_url: recipient.profile_picture_url || recipient.avatar
+            }"
             @retry-click="retryFailedMessage"
             @edit-click="handleEditMessage"
             @delete-click="handleUnsendMessage"
@@ -325,7 +333,70 @@ import { useFiles } from "~/composables/useFiles";
 import { useFriendsStore } from "~/composables/useFriends";
 import { formatMessageTimestamp, formatDateForSeparator } from "~/utils/timestampHelper";
 
-// ...existing interfaces and props...
+// Services and stores
+const { $toast } = useNuxtApp();
+const messagesStore = useMessagesStore();
+const authStore = useAuthStore();
+const friendsStore = useFriendsStore();
+const webSocketStore = useWebSocket();
+const wsListener = useWebSocketListener();
+const presence = usePresence();
+
+// Current user
+const currentUser = computed(() => authStore.user);
+
+// Props definition
+interface Props {
+  recipientId: string;
+  recipientName?: string;
+  chatMessages?: Message[];
+}
+
+const props = defineProps<Props>();
+
+// Define Message interface
+interface Message {
+  id: string;
+  content: string;
+  sender_id: string;
+  recipient_id?: string;
+  timestamp: string;
+  raw_timestamp?: string;
+  sent_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  isCurrentUser: boolean;
+  isEdited?: boolean;
+  isDeleted?: boolean;
+  attachment?: any;
+  pending?: boolean;
+  failed?: boolean;
+  sent?: boolean;
+  read?: boolean;
+  retrying?: boolean;
+  errorMessage?: string;
+  retryCount?: number;
+  type?: string;
+  receivedViaWebSocket?: boolean;
+}
+
+// Helper function for timestamp formatting
+const formatTimestamp = (timestamp: string | null | undefined): string => {
+  if (!timestamp) return "";
+  
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "";
+    
+    return date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  } catch (error) {
+    return "";
+  }
+};
 
 // Main state
 const inputMessage = ref("");
@@ -611,51 +682,35 @@ const handleSubmitEdit = async () => {
   }
 };
 
-// Enhanced message sending with optimistic updates and retry mechanisms - React style
+// Main send message function
 const handleSendMessage = async () => {
   const content = inputMessage.value.trim();
   if (!content || !props.recipientId) return;
 
+  // Generate unique temp ID for optimistic update
+  const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
   try {
     isSending.value = true;
-
-    // Generate unique temp ID for optimistic update
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Create optimistic message for immediate UI feedback
     const nowIsoString = new Date().toISOString();
     const optimisticMessage: Message = {
       id: tempId,
-      message_id: tempId,
+      sender_id: currentUser.value?.id || "",
+      recipient_id: props.recipientId,
       content,
-      created_at: nowIsoString,
       timestamp: formatTimestamp(nowIsoString),
       raw_timestamp: nowIsoString,
-      sender_id: currentUser.value?.id,
-      recipient_id: props.recipientId,
-      receiver_id: props.recipientId,
+      created_at: nowIsoString,
+      updated_at: nowIsoString,
       isCurrentUser: true,
       pending: true,
-      read: false,
-      type: "text",
       sent: false,
-      failed: false,
-      retryCount: 0,
     };
 
-    // Add optimistic message to UI immediately
-    messages.value = [...messages.value, optimisticMessage].sort((a, b) => {
-      const timeA = new Date(
-        a.raw_timestamp || a.created_at || a.sent_at || a.timestamp || 0
-      ).getTime();
-      const timeB = new Date(
-        b.raw_timestamp || b.created_at || b.sent_at || b.timestamp || 0
-      ).getTime();
-      return timeA - timeB;
-    });
-
-    // Clear input early for better UX
-    inputMessage.value = "";
+    // Add optimistic message immediately
+    messages.value.push(optimisticMessage);
 
     // Auto-scroll to show the new message
     nextTick(() => {
@@ -691,40 +746,37 @@ const handleSendMessage = async () => {
     }
 
     // Update optimistic message with successful state
-    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
-    if (tempMessageIndex !== -1) {
-      messages.value[tempMessageIndex] = {
-        ...messages.value[tempMessageIndex],
+    const messageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...optimisticMessage,
         id: messageId,
-        message_id: messageId,
         pending: false,
         sent: true,
         failed: false,
-        delivered: true,
         // Include any additional data from response
         ...(response && typeof response === "object" ? response : {}),
       };
     }
 
-    // Update session storage with successful message
+    // Clear input and save to session storage
+    inputMessage.value = "";
     saveToSessionStorage(messages.value);
   } catch (error) {
     console.error("[ChatArea] Error sending message:", error);
 
-    // Update optimistic message to show failure state
-    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
-    if (tempMessageIndex !== -1) {
-      messages.value[tempMessageIndex] = {
-        ...messages.value[tempMessageIndex],
+    // Update the optimistic message to show error state
+    const messageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
         pending: false,
         failed: true,
-        sent: false,
-        errorMessage: error instanceof Error ? error.message : "Failed to send message",
-        retryCount: (messages.value[tempMessageIndex].retryCount || 0) + 1,
+        errorMessage: error instanceof Error ? error.message : "Send failed",
       };
     }
 
-    $toast?.error("Failed to send message. Click the message to retry.");
+    $toast?.error("Failed to send message");
   } finally {
     isSending.value = false;
   }
@@ -1096,125 +1148,6 @@ const handleImageChange = async (event: Event) => {
   } finally {
     isSending.value = false;
     target.value = ""; // Reset file input
-  }
-};
-
-// Simplified send message function
-const handleSendMessage = async () => {
-  const content = inputMessage.value.trim();
-  if (!content || !props.recipientId) return;
-
-  try {
-    isSending.value = true;
-
-    // Generate unique temp ID for optimistic update
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Create optimistic message for immediate UI feedback
-    const nowIsoString = new Date().toISOString();
-    const optimisticMessage: Message = {
-      id: tempId,
-      message_id: tempId,
-      content,
-      created_at: nowIsoString,
-      timestamp: formatTimestamp(nowIsoString),
-      raw_timestamp: nowIsoString,
-      sender_id: currentUser.value?.id,
-      recipient_id: props.recipientId,
-      receiver_id: props.recipientId,
-      isCurrentUser: true,
-      pending: true,
-      read: false,
-      type: "text",
-      sent: false,
-      failed: false,
-      retryCount: 0,
-    };
-
-    // Add optimistic message to UI immediately
-    messages.value = [...messages.value, optimisticMessage].sort((a, b) => {
-      const timeA = new Date(
-        a.raw_timestamp || a.created_at || a.sent_at || a.timestamp || 0
-      ).getTime();
-      const timeB = new Date(
-        b.raw_timestamp || b.created_at || b.sent_at || b.timestamp || 0
-      ).getTime();
-      return timeA - timeB;
-    });
-
-    // Clear input early for better UX
-    inputMessage.value = "";
-
-    // Auto-scroll to show the new message
-    nextTick(() => {
-      if (messagesEndRef.value) {
-        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-      }
-    });
-
-    let response: any = null;
-    let messageId = tempId;
-
-    // Enhanced sending logic with WebSocket priority and API fallback
-    if (webSocketStore.isConnected) {
-      try {
-        // WebSocket sending would go here
-        console.log("[ChatArea] Sending via WebSocket");
-        // For now, fall back to API
-        response = await messagesStore.sendMessage(props.recipientId, content);
-        if (response?.data?.id) {
-          messageId = response.data.id;
-        }
-      } catch (wsError) {
-        response = await messagesStore.sendMessage(props.recipientId, content);
-        if (response?.data?.id) {
-          messageId = response.data.id;
-        }
-      }
-    } else {
-      response = await messagesStore.sendMessage(props.recipientId, content);
-      if (response?.data?.id) {
-        messageId = response.data.id;
-      }
-    }
-
-    // Update optimistic message with successful state
-    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
-    if (tempMessageIndex !== -1) {
-      messages.value[tempMessageIndex] = {
-        ...messages.value[tempMessageIndex],
-        id: messageId,
-        message_id: messageId,
-        pending: false,
-        sent: true,
-        failed: false,
-        delivered: true,
-        // Include any additional data from response
-        ...(response && typeof response === "object" ? response : {}),
-      };
-    }
-
-    // Update session storage with successful message
-    saveToSessionStorage(messages.value);
-  } catch (error) {
-    console.error("[ChatArea] Error sending message:", error);
-
-    // Update optimistic message to show failure state
-    const tempMessageIndex = messages.value.findIndex((msg) => msg.id === tempId);
-    if (tempMessageIndex !== -1) {
-      messages.value[tempMessageIndex] = {
-        ...messages.value[tempMessageIndex],
-        pending: false,
-        failed: true,
-        sent: false,
-        errorMessage: error instanceof Error ? error.message : "Failed to send message",
-        retryCount: (messages.value[tempMessageIndex].retryCount || 0) + 1,
-      };
-    }
-
-    $toast?.error("Failed to send message. Click the message to retry.");
-  } finally {
-    isSending.value = false;
   }
 };
 

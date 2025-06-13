@@ -123,10 +123,19 @@
           class="message"
         >
           <GroupMessageItem
-            :message="message"
+            :message="{
+              ...message,
+              sender: message.sender || {
+                id: message.sender_id || 'unknown',
+                name: 'Unknown User',
+                avatar: undefined
+              },
+              timestamp: message.timestamp || '',
+              isCurrentUser: message.isCurrentUser ?? false
+            }"
             @edit-click="handleEditMessage"
             @delete-click="handleUnsendMessage"
-            @retry-click="retryMessage"
+            @retry-click="(messageId) => retryMessage(messageId, message.content)"
           />
         </div>
         <!-- End of messages indicator for auto-scroll -->
@@ -1131,7 +1140,7 @@ async function fetchGroupMessages(page = 1, limit = 20) {
           // Add consistent timestamp fields
           sent_at: sentAt,
           created_at: createdAt,
-          // Add raw_timestamp for consistent sorting
+          // Add raw_timestamp for consistent sorting and date parsing
           raw_timestamp: sentAt || createdAt,
           // Add properly formatted timestamp for display
           timestamp: formattedTimestamp,

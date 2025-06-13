@@ -51,7 +51,7 @@
         >
           <button
             @click="toggleActions"
-            class="text-white hover:text-blue-200 p-1 rounded-full focus:outline-none opacity-70 hover:opacity-100 transition-opacity"
+            class="text-gray-600 hover:text-gray-800 p-1 rounded-full focus:outline-none opacity-70 hover:opacity-100 transition-opacity"
           >
             <Icon name="fa:ellipsis-v" class="h-3 w-3" />
           </button>
@@ -59,7 +59,7 @@
           <!-- Dropdown menu -->
           <div
             v-if="showActions"
-            class="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg z-50"
+            class="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg z-50 border border-gray-200"
           >
             <div class="py-1">
               <button

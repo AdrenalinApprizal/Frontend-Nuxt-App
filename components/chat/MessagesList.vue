@@ -10,14 +10,44 @@
           class="ml-2 p-1.5 text-gray-400 hover:text-blue-500 rounded-full focus:outline-none transition-colors"
           title="Refresh Messages"
         >
-          <Icon 
-            name="lucide:refresh-cw" 
+          <Icon
+            name="lucide:refresh-cw"
             class="h-4 w-4"
             :class="{ 'animate-spin': isRefreshing }"
           />
         </button>
+        <!-- Auto-refresh indicator -->
+        <div
+          v-if="autoRefreshEnabled"
+          class="ml-2 flex items-center text-xs text-green-600"
+          :title="`Auto-refresh enabled. Last refresh: ${lastRefreshTime}`"
+        >
+          <div
+            class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"
+          ></div>
+          <span class="hidden sm:inline">Auto</span>
+        </div>
       </div>
       <div class="flex items-center space-x-2">
+        <!-- Auto-refresh toggle button -->
+        <button
+          @click="toggleAutoRefresh"
+          :class="`p-1.5 rounded-full focus:outline-none transition-colors ${
+            autoRefreshEnabled
+              ? 'text-green-500 hover:text-green-600'
+              : 'text-gray-400 hover:text-gray-500'
+          }`"
+          :title="
+            autoRefreshEnabled ? 'Disable Auto-refresh' : 'Enable Auto-refresh'
+          "
+        >
+          <Icon
+            :name="
+              autoRefreshEnabled ? 'lucide:refresh-cw' : 'lucide:pause-circle'
+            "
+            class="h-4 w-4"
+          />
+        </button>
         <NotificationDropdown />
         <button
           @click="showNewChatPopup = true"
@@ -115,6 +145,8 @@
           Start chatting with friends or groups to see them here
         </p>
       </div>
+
+      <!-- Messages list -->
       <div v-else class="space-y-3">
         <NuxtLink
           v-for="message in sortedMessages"
@@ -131,11 +163,13 @@
             <!-- Avatar with status -->
             <div class="relative">
               <OptimizedAvatar
-                :src="message.sender?.avatar || message.sender?.profile_picture_url"
+                :src="message.sender?.profile_picture_url"
                 :alt="message.sender?.name || 'User'"
                 size="md"
                 class="mr-3 flex-shrink-0"
-                :fallback-icon="message.type === 'friend' ? 'fa:user' : 'fa:users'"
+                :fallback-icon="
+                  message.type === 'friend' ? 'fa:user' : 'fa:users'
+                "
               />
               <!-- Status indicator (only for friends) -->
               <div
@@ -162,23 +196,23 @@
               <div class="flex justify-between items-start mt-1">
                 <div class="flex-1 relative">
                   <!-- Show typing indicator when active -->
-                  <p 
+                  <p
                     v-if="message.isTyping"
                     class="text-xs text-blue-500 truncate flex items-center"
                   >
                     <span class="mr-1">Typing</span>
                     <span class="flex">
-                      <Icon 
-                        name="fa:circle" 
+                      <Icon
+                        name="fa:circle"
                         class="animate-pulse h-1 w-1 mx-0.5"
                       />
-                      <Icon 
-                        name="fa:circle" 
+                      <Icon
+                        name="fa:circle"
                         class="animate-pulse h-1 w-1 mx-0.5"
                         style="animation-delay: 100ms"
                       />
-                      <Icon 
-                        name="fa:circle" 
+                      <Icon
+                        name="fa:circle"
                         class="animate-pulse h-1 w-1 mx-0.5"
                         style="animation-delay: 200ms"
                       />
@@ -187,16 +221,14 @@
                   <p v-else class="text-xs text-gray-600 truncate">
                     {{ formatMessageContent(message) }}
                   </p>
-                  
-                  <!-- Unread count badge -->
-                  <div
-                    v-if="message.unreadCount && message.unreadCount > 0"
-                    class="mt-1"
-                  >
-                    <span class="text-xs text-blue-600 font-medium">
-                      • {{ message.unreadCount }} unread
-                    </span>
-                  </div>
+                </div>
+
+                <!-- Unread count badge -->
+                <div
+                  v-if="message.unreadCount && message.unreadCount > 0"
+                  class="ml-2 h-5 w-5 min-w-5 bg-blue-500 rounded-full text-white text-xs flex items-center justify-center flex-shrink-0"
+                >
+                  {{ message.unreadCount }}
                 </div>
               </div>
             </div>
@@ -210,9 +242,7 @@
       v-if="showNewChatPopup"
       class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
     >
-      <div
-        class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-md mx-4"
-      >
+      <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-md mx-4">
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-lg font-semibold text-gray-900">Start New Chat</h3>
           <button
@@ -221,34 +251,6 @@
           >
             <Icon name="fa:times" class="h-5 w-5" />
           </button>
-        </div>
-
-        <!-- Chat type selection -->
-        <div class="mb-4">
-          <div class="flex space-x-4">
-            <button
-              @click="newChatType = 'friend'"
-              :class="`flex-1 py-2 px-4 rounded-lg border transition-colors ${
-                newChatType === 'friend'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`"
-            >
-              <Icon name="fa:user" class="h-4 w-4 mr-2" />
-              Friend Chat
-            </button>
-            <button
-              @click="newChatType = 'group'"
-              :class="`flex-1 py-2 px-4 rounded-lg border transition-colors ${
-                newChatType === 'group'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`"
-            >
-              <Icon name="fa:users" class="h-4 w-4 mr-2" />
-              Group Chat
-            </button>
-          </div>
         </div>
 
         <div class="space-y-3">
@@ -302,41 +304,36 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Username
-          </label>
-          <div class="flex space-x-2">
-            <input
-              type="text"
-              v-model="friendUsername"
-              placeholder="Enter username"
-              class="flex-1 p-3 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            />
-            <button
-              @click="handleAddFriend"
-              :disabled="!friendUsername.trim()"
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div v-if="isAddingFriend" class="flex items-center">
-                <div
-                  class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
-                ></div>
-                Adding...
-              </div>
-              <span v-else>Add</span>
-            </button>
-          </div>
-          <p class="text-xs text-gray-500 mt-2">
-            Enter your friend's username to send them a friend request
-          </p>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Username</label
+          >
+          <input
+            type="text"
+            v-model="friendUsername"
+            placeholder="Enter username"
+            class="w-full p-2 text-black border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
         </div>
 
         <div class="flex justify-end">
           <button
             @click="showAddFriendPopup = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+            class="px-4 py-2 mr-2 text-gray-700 hover:bg-gray-100 rounded transition-colors"
           >
-            Close
+            Cancel
+          </button>
+          <button
+            @click="handleAddFriend"
+            :disabled="!friendUsername.trim() || isAddingFriend"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300 transition-colors"
+          >
+            <div v-if="isAddingFriend" class="flex items-center">
+              <div
+                class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
+              ></div>
+              Adding...
+            </div>
+            <span v-else>Add Friend</span>
           </button>
         </div>
       </div>
@@ -361,9 +358,9 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Group Name
-          </label>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Group Name</label
+          >
           <input
             type="text"
             v-model="groupName"
@@ -373,9 +370,9 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Description
-          </label>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Description</label
+          >
           <textarea
             v-model="groupDescription"
             placeholder="Enter group description"
@@ -385,9 +382,9 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Select Friends
-          </label>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Select Friends</label
+          >
           <div
             class="max-h-40 text-black overflow-y-auto border border-gray-200 rounded-lg"
           >
@@ -399,20 +396,16 @@
               }`"
               @click="toggleFriendSelection(friend.id)"
             >
-              <div
-                class="h-8 w-8 rounded-full overflow-hidden bg-gray-200 mr-2 flex-shrink-0 flex items-center justify-center"
-              >
-                <img
-                  v-if="friend.profile_picture_url"
-                  :src="friend.profile_picture_url"
-                  :alt="friend.name"
-                  class="h-full w-full object-cover"
-                />
-                <Icon v-else name="fa:user" class="h-4 w-4 text-gray-500" />
-              </div>
+              <OptimizedAvatar
+                :src="friend.profile_picture_url"
+                :alt="friend.name"
+                size="sm"
+                class="mr-2 flex-shrink-0"
+                fallback-icon="fa:user"
+              />
               <div class="flex-1">
                 <p class="font-medium text-sm text-black">{{ friend.name }}</p>
-                <p class="text-gray-700 text-xs">{{ friend.email }}</p>
+                <p class="text-gray-700 text-xs">@{{ friend.username }}</p>
               </div>
               <input
                 type="checkbox"
@@ -433,12 +426,8 @@
           </button>
           <button
             @click="handleCreateGroup"
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            :class="{
-              'opacity-50 cursor-not-allowed':
-                !groupName.trim() || !selectedFriendsCount,
-            }"
             :disabled="!groupName.trim() || !selectedFriendsCount"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300 transition-colors"
           >
             Create Group
           </button>
@@ -450,45 +439,44 @@
 
 <script setup lang="ts">
 // Type imports and initial setup
-import { ref, computed, onMounted, onUnmounted, watch, defineProps } from "vue";
-import { formatDistanceToNow } from "date-fns";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import { useGroupsStore } from "~/composables/useGroups";
 import { useFriendsStore } from "~/composables/useFriends";
 import { useMessagesStore } from "~/composables/useMessages";
 import { usePresence } from "~/composables/usePresence";
+import { useWebSocket } from "~/composables/useWebSocket";
 import { eventBus } from "~/composables/useEventBus";
 import type { WatchStopHandle } from "vue";
 import { useAuthStore } from "~/composables/useAuth";
-
-// Define props
-const props = defineProps({
-  messages: {
-    type: Array,
-    default: () => [],
-  },
-});
+import { formatMessageTimestamp } from "~/utils/timestampHelper";
 
 // Get current user from auth store
 const authStore = useAuthStore();
 const currentUser = computed(() => authStore.user);
+const route = useRoute();
+const { $toast } = useNuxtApp();
 
 // Types
 type TabType = "all" | "friends" | "groups";
 type MessageType = "friend" | "group";
 type NewChatType = "friend" | "group";
+type UserStatus = "online" | "offline";
+type ReadStatus = "read" | "delivered" | "sent" | "unread";
 
 interface Sender {
   id?: string;
   name: string;
   avatar?: string;
-  profile_picture_url?: string; // Add this missing property
+  profile_picture_url?: string;
   first_name?: string;
   last_name?: string;
   username?: string;
   email?: string;
+  status?: UserStatus;
 }
 
-// Define local Message interface that extends the one from useMessages
+// Enhanced Message interface matching React implementation
 interface Message {
   id: string;
   sender: Sender;
@@ -497,45 +485,38 @@ interface Message {
     name: string;
     profile_picture_url?: string;
   };
-  sender_id?: string;
-  recipient_id?: string;
-  sender_name?: string;
-  recipient_name?: string;
   content: string;
   timestamp: string;
-  created_at?: string;
-  updated_at?: string;
-  status?: string;
+  formattedTime?: string;
+  readStatus?: ReadStatus;
   unreadCount?: number;
   type: MessageType;
-  isCurrentUser?: boolean;
-  isTyping?: boolean; // Add this missing property
-  // New fields for enhanced display
+  lastActivity?: string;
+  isTyping?: boolean;
+  hasMessages?: boolean;
   memberCount?: number; // For groups
-  username?: string; // For friends
-  email?: string; // For friends
 }
 
-// Extended interface for User/Friend with additional properties we need
+// Enhanced Friend interface
 interface Friend {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  email?: string;
   profile_picture_url?: string;
   avatar?: string;
-  status?: "online" | "offline";
-  phone?: string;
-
-  // Extended properties
+  status?: UserStatus;
   first_name?: string;
   last_name?: string;
-  username?: string;
   last_message?: any;
   unread_count?: number;
   selected?: boolean;
+  last_active?: string;
+  full_name?: string;
+  display_name?: string;
 }
 
-// Extended interface for Group
+// Enhanced Group interface
 interface Group {
   id: string;
   name: string;
@@ -548,21 +529,16 @@ interface Group {
   unread_count?: number;
 }
 
-interface CreateGroupData {
-  name: string;
-  description?: string;
-  members: string[]; // Array of user IDs
-}
-
-// Initialize stores
+// Initialize stores and composables
 const groupsStore = useGroupsStore();
 const friendsStore = useFriendsStore();
 const messagesStore = useMessagesStore();
 const presence = usePresence();
-const { $toast } = useNuxtApp();
+const webSocket = useWebSocket();
 
 // State refs
 const messages = ref<Message[]>([]);
+const friends = ref<Friend[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const activeTab = ref<TabType>("all");
@@ -570,19 +546,24 @@ const searchQuery = ref("");
 const showNewChatPopup = ref(false);
 const showAddFriendPopup = ref(false);
 const showCreateGroupPopup = ref(false);
-const newChatType = ref<NewChatType>("friend"); // Add this missing reactive variable
 const friendUsername = ref("");
 const isAddingFriend = ref(false);
 const groupName = ref("");
 const groupDescription = ref("");
-const unsubscribeConnectionWatch = ref<WatchStopHandle | null>(null);
-const friendStatusMap = ref<Record<string, string>>({});
-const friendSelections = ref<Record<string, boolean>>({});
 const isRefreshing = ref(false);
+const isTyping = ref<Record<string, boolean>>({});
+const friendSelections = ref<Record<string, boolean>>({});
+const unsubscribeConnectionWatch = ref<WatchStopHandle | null>(null);
+
+// Auto-refresh state
+const autoRefreshEnabled = ref(false);
+const lastRefreshTime = ref("");
+const autoRefreshInterval = ref<NodeJS.Timeout | null>(null);
+const refreshAttempts = ref(0);
+const maxRefreshAttempts = ref(50);
+const isTabVisible = ref(true);
 
 // Computed properties
-const friendStatus = computed(() => friendStatusMap.value);
-
 const filteredMessages = computed(() => {
   let filtered = messages.value;
 
@@ -596,42 +577,45 @@ const filteredMessages = computed(() => {
 
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter((message) =>
-      message.sender.name.toLowerCase().includes(query)
-    );
+    filtered = filtered.filter((message) => {
+      const nameMatch = message.sender.name.toLowerCase().includes(query);
+      const contentMatch = message.content.toLowerCase().includes(query);
+      return nameMatch || contentMatch;
+    });
   }
 
   return filtered;
 });
 
-// Sort messages by most recent
+// Sort messages with React-like logic - prioritize by messages with content, then by activity
 const sortedMessages = computed(() => {
   return [...filteredMessages.value].sort((a, b) => {
     // First, prioritize messages with unread counts
     if (a.unreadCount && !b.unreadCount) return -1;
     if (!a.unreadCount && b.unreadCount) return 1;
 
-    // For timestamp comparison, convert strings to dates where possible
-    const dateA =
-      a.timestamp === "Never" ? 0 : getDateFromTimestamp(a.timestamp);
-    const dateB =
-      b.timestamp === "Never" ? 0 : getDateFromTimestamp(b.timestamp);
+    // Then prioritize by whether they have messages
+    const aHasMessages = a.hasMessages ? 1 : 0;
+    const bHasMessages = b.hasMessages ? 1 : 0;
 
-    // Sort in descending order (newest first)
-    return dateB - dateA;
+    if (aHasMessages !== bHasMessages) {
+      return bHasMessages - aHasMessages; // Those with messages first
+    }
+
+    // Finally sort by last activity time (most recent first)
+    const aTime = new Date(a.lastActivity || a.timestamp || "").getTime();
+    const bTime = new Date(b.lastActivity || b.timestamp || "").getTime();
+    return bTime - aTime;
   });
 });
 
 // Computed property for available friends for group creation
 const availableFriendsForGroup = computed(() => {
   return friendsStore.friends.map((friend) => {
-    // Cast to our Friend interface
     const typedFriend = friend as unknown as Friend;
     return {
       ...friend,
-      name:
-        typedFriend.name ||
-        `${typedFriend.first_name || ""} ${typedFriend.last_name || ""}`.trim(),
+      name: buildFriendName(typedFriend),
       selected: !!friendSelections.value[friend.id],
     };
   });
@@ -642,57 +626,243 @@ const selectedFriendsCount = computed(() => {
   return Object.values(friendSelections.value).filter(Boolean).length;
 });
 
-// Helper function to extract date from formatted timestamp
-function getDateFromTimestamp(timestamp: string): number {
-  try {
-    // First try direct conversion if it's an ISO string
-    if (/\d{4}-\d{2}-\d{2}T/.test(timestamp)) {
-      return new Date(timestamp).getTime();
-    }
-
-    // For relative timestamps like "2 days ago", use current time minus approximate duration
-    const now = new Date().getTime();
-
-    // Process various relative time formats
-    if (timestamp.includes("seconds ago")) return now - 1000;
-    if (timestamp.includes("minute ago")) return now - 60 * 1000;
-    if (timestamp.includes("minutes ago")) {
-      const minutes = parseInt(timestamp) || 5;
-      return now - minutes * 60 * 1000;
-    }
-    if (timestamp.includes("hour ago")) return now - 3600 * 1000;
-    if (timestamp.includes("hours ago")) {
-      const hours = parseInt(timestamp) || 5;
-      return now - hours * 3600 * 1000;
-    }
-    if (timestamp.includes("day ago")) return now - 24 * 3600 * 1000;
-    if (timestamp.includes("days ago")) {
-      const days = parseInt(timestamp) || 3;
-      return now - days * 24 * 3600 * 1000;
-    }
-    if (timestamp.includes("week ago")) return now - 7 * 24 * 3600 * 1000;
-    if (timestamp.includes("weeks ago")) {
-      const weeks = parseInt(timestamp) || 2;
-      return now - weeks * 7 * 24 * 3600 * 1000;
-    }
-    if (timestamp.includes("month ago")) return now - 30 * 24 * 3600 * 1000;
-    if (timestamp.includes("months ago")) {
-      const months = parseInt(timestamp) || 3;
-      return now - months * 30 * 24 * 3600 * 1000;
-    }
-
-    // Default to 0 (oldest) if we can't parse
-    return 0;
-  } catch (error) {
-    // Silent fail and return default
-    return 0;
+// Helper function to build friend display name
+const buildFriendName = (friend: Friend): string => {
+  if (friend.first_name && friend.last_name) {
+    return `${friend.first_name} ${friend.last_name}`;
+  } else if (friend.full_name) {
+    return friend.full_name;
+  } else if (friend.display_name) {
+    return friend.display_name;
+  } else if (friend.name) {
+    return friend.name;
+  } else if (friend.username) {
+    return friend.username;
+  } else {
+    return "User";
   }
-}
+};
 
-// Watch for changes in messages or presence
-watch([messages, () => presence.userStatuses], () => {
-  updateFriendStatus();
-});
+// Helper function to format timestamps using centralized helper
+const formatTimestamp = (timestamp: string | undefined): string => {
+  if (!timestamp) return "Never";
+  return formatMessageTimestamp({ timestamp, format: "relative" });
+};
+
+// Function to get last message for a conversation (matching React implementation)
+const getLastMessageForConversation = async (
+  conversationId: string,
+  type: "friend" | "group"
+) => {
+  try {
+    if (type === "group") {
+      const response = await groupsStore.getGroupMessages(conversationId, 1, 1);
+      if (response && response.data && response.data.length > 0) {
+        return response.data[0];
+      }
+    } else {
+      const response = await messagesStore.getMessages({
+        target_id: conversationId,
+        type: "private",
+        limit: 1,
+        page: 1,
+      });
+      if (response && response.data && response.data.length > 0) {
+        return response.data[0];
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error(
+      `[MessagesList] Failed to get last message for ${type} ${conversationId}:`,
+      error
+    );
+    return null;
+  }
+};
+
+// Enhanced data transformation functions matching React implementation
+const transformGroupsToMessages = async (groups: any[]): Promise<Message[]> => {
+  const validGroups = await Promise.all(
+    groups
+      .filter((group) => group && group.id)
+      .map(async (group) => {
+        let lastMessage = group.last_message || {};
+
+        console.log(
+          `[MessagesList] Group ${group.name || group.id} last_message:`,
+          lastMessage
+        );
+
+        // If no last_message from group data, try to fetch from messages API
+        if (!lastMessage || !Object.keys(lastMessage).length) {
+          lastMessage = await getLastMessageForConversation(group.id, "group");
+        }
+
+        let messageContent = "";
+        let hasMessage = false;
+
+        if (lastMessage && typeof lastMessage === "object") {
+          messageContent =
+            lastMessage.content ||
+            lastMessage.message_content ||
+            lastMessage.text ||
+            lastMessage.message ||
+            "";
+
+          hasMessage = !!(messageContent && messageContent.trim() !== "");
+        }
+
+        const lastActivity =
+          lastMessage?.sent_at ||
+          lastMessage?.created_at ||
+          group.updated_at ||
+          group.created_at ||
+          new Date().toISOString();
+
+        let content;
+        if (hasMessage) {
+          content = lastMessage.sender_name
+            ? `${lastMessage.sender_name}: ${messageContent}`
+            : messageContent;
+        } else {
+          content = "No messages yet";
+        }
+
+        return {
+          id: group.id,
+          sender: {
+            name: group.name || "Unnamed Group",
+            profile_picture_url:
+              group.avatar_url || group.profile_picture_url || null,
+            id: group.id,
+          },
+          content: content,
+          timestamp: hasMessage
+            ? formatTimestamp(lastMessage.sent_at || lastMessage.created_at)
+            : "",
+          formattedTime: formatTimestamp(lastActivity),
+          readStatus:
+            group.unread_count && group.unread_count > 0
+              ? ("unread" as ReadStatus)
+              : ("read" as ReadStatus),
+          unreadCount:
+            group.unread_count && group.unread_count > 0
+              ? group.unread_count
+              : undefined,
+          type: "group" as MessageType,
+          lastActivity,
+          isTyping: false,
+          hasMessages: hasMessage,
+          memberCount: group.member_count,
+        } as Message;
+      })
+  );
+
+  return validGroups.sort((a, b) => {
+    const aHasMessages = a.hasMessages ? 1 : 0;
+    const bHasMessages = b.hasMessages ? 1 : 0;
+
+    if (aHasMessages !== bHasMessages) {
+      return bHasMessages - aHasMessages;
+    }
+
+    const aTime = new Date(a.lastActivity || "").getTime();
+    const bTime = new Date(b.lastActivity || "").getTime();
+    return bTime - aTime;
+  });
+};
+
+const transformFriendsToMessages = async (
+  friends: any[]
+): Promise<Message[]> => {
+  const friendMessages = await Promise.all(
+    friends.map(async (friend) => {
+      const userId = friend.id;
+      const friendStatus = presence.getStatus(userId);
+      let lastMessage = friend.last_message;
+
+      console.log(
+        `[MessagesList] Friend ${
+          friend.username || friend.name || friend.id
+        } last_message:`,
+        lastMessage
+      );
+
+      if (!lastMessage || !Object.keys(lastMessage).length) {
+        lastMessage = await getLastMessageForConversation(friend.id, "friend");
+      }
+
+      let messageContent = "";
+      let hasMessage = false;
+
+      if (lastMessage && typeof lastMessage === "object") {
+        messageContent =
+          lastMessage.content ||
+          lastMessage.message_content ||
+          lastMessage.text ||
+          lastMessage.message ||
+          "";
+
+        hasMessage = !!(messageContent && messageContent.trim() !== "");
+      }
+
+      const lastActivity =
+        friend.last_active ||
+        lastMessage?.sent_at ||
+        lastMessage?.created_at ||
+        friend.created_at ||
+        new Date().toISOString();
+
+      const displayName = buildFriendName(friend);
+
+      return {
+        id: friend.id,
+        sender: {
+          name: displayName,
+          profile_picture_url: friend.profile_picture_url || null,
+          id: friend.id,
+          status:
+            friendStatus === "online"
+              ? ("online" as UserStatus)
+              : ("offline" as UserStatus),
+        },
+        content: hasMessage ? messageContent : "No messages yet",
+        timestamp: hasMessage
+          ? formatTimestamp(lastMessage.sent_at || lastMessage.created_at)
+          : friendStatus === "online"
+          ? "Online"
+          : "Offline",
+        formattedTime: formatTimestamp(lastActivity),
+        readStatus:
+          friend.unread_count && friend.unread_count > 0
+            ? ("unread" as ReadStatus)
+            : ("read" as ReadStatus),
+        unreadCount:
+          friend.unread_count && friend.unread_count > 0
+            ? friend.unread_count
+            : undefined,
+        type: "friend" as MessageType,
+        lastActivity,
+        isTyping: isTyping.value[userId] || false,
+        hasMessages: hasMessage,
+      };
+    })
+  );
+
+  return friendMessages.sort((a, b) => {
+    const aHasMessages = a.hasMessages ? 1 : 0;
+    const bHasMessages = b.hasMessages ? 1 : 0;
+
+    if (aHasMessages !== bHasMessages) {
+      return bHasMessages - aHasMessages;
+    }
+
+    const aTime = new Date(a.lastActivity).getTime();
+    const bTime = new Date(b.lastActivity).getTime();
+    return bTime - aTime;
+  });
+};
 
 // Event handlers
 const toggleFriendSelection = (id: string): void => {
@@ -712,19 +882,21 @@ const handleOption = (option: NewChatType): void => {
     showNewChatPopup.value = false;
     groupName.value = "";
     groupDescription.value = "";
-    // Clear all selections
     friendSelections.value = {};
   }
 };
 
 // Add friend handler
-async function handleAddFriend() {
-  if (!friendUsername.value.trim()) return;
-  isAddingFriend.value = true;
+const handleAddFriend = async () => {
+  if (!friendUsername.value.trim()) {
+    $toast.error("Please enter a username");
+    return;
+  }
 
+  isAddingFriend.value = true;
   try {
     await friendsStore.sendFriendRequest(friendUsername.value.trim());
-    $toast.success("Friend request sent successfully!");
+    $toast.success(`Friend request sent to ${friendUsername.value}`);
     showAddFriendPopup.value = false;
     friendUsername.value = "";
   } catch (err: any) {
@@ -732,392 +904,244 @@ async function handleAddFriend() {
   } finally {
     isAddingFriend.value = false;
   }
-}
+};
 
 // Create group handler
-async function handleCreateGroup() {
-  if (!groupName.value.trim() || selectedFriendsCount.value === 0) return;
+const handleCreateGroup = async () => {
+  if (!groupName.value.trim()) {
+    $toast.error("Please enter a group name");
+    return;
+  }
+
+  const selectedFriendIds = Object.entries(friendSelections.value)
+    .filter(([_, selected]) => selected)
+    .map(([id]) => id);
+
+  if (selectedFriendIds.length === 0) {
+    $toast.error("Please select at least one friend");
+    return;
+  }
 
   try {
-    const selectedFriendIds = Object.entries(friendSelections.value)
-      .filter(([_, selected]) => selected)
-      .map(([id]) => id);
-
     await groupsStore.createGroup({
       name: groupName.value.trim(),
       description: groupDescription.value.trim(),
       members: selectedFriendIds,
     });
 
-    $toast.success("Group created successfully!");
+    $toast.success(`Group "${groupName.value}" created successfully!`);
     showCreateGroupPopup.value = false;
-    refreshData(); // Refresh to show the new group
 
     // Reset form
     groupName.value = "";
     groupDescription.value = "";
     friendSelections.value = {};
+
+    // Refresh data to show the new group
+    await refreshData();
   } catch (err: any) {
     $toast.error(err.message || "Failed to create group");
   }
-}
+};
 
-// Data fetching functions
+// Auto-refresh functionality
+const toggleAutoRefresh = () => {
+  autoRefreshEnabled.value = !autoRefreshEnabled.value;
+
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh();
+    $toast.success("Auto-refresh enabled");
+  } else {
+    stopAutoRefresh();
+    $toast.info("Auto-refresh disabled");
+  }
+};
+
+const startAutoRefresh = () => {
+  if (autoRefreshInterval.value) {
+    clearInterval(autoRefreshInterval.value);
+  }
+
+  const intervalTime =
+    refreshAttempts.value >= maxRefreshAttempts.value ? 60000 : 30000; // 30s or 60s
+
+  autoRefreshInterval.value = setInterval(() => {
+    if (isTabVisible.value && autoRefreshEnabled.value) {
+      performAutoRefresh();
+    }
+  }, intervalTime);
+};
+
+const stopAutoRefresh = () => {
+  if (autoRefreshInterval.value) {
+    clearInterval(autoRefreshInterval.value);
+    autoRefreshInterval.value = null;
+  }
+};
+
+const performAutoRefresh = async () => {
+  if (isRefreshing.value) return;
+
+  try {
+    refreshAttempts.value++;
+    await refreshData();
+    lastRefreshTime.value = new Date().toLocaleTimeString();
+
+    // Restart interval if we hit max attempts (switch to slower interval)
+    if (
+      refreshAttempts.value >= maxRefreshAttempts.value &&
+      autoRefreshEnabled.value
+    ) {
+      startAutoRefresh();
+    }
+  } catch (error) {
+    console.error("[MessagesList] Auto-refresh failed:", error);
+
+    // Stop auto-refresh on repeated failures
+    if (refreshAttempts.value >= maxRefreshAttempts.value * 2) {
+      stopAutoRefresh();
+      autoRefreshEnabled.value = false;
+      $toast.error("Auto-refresh stopped due to repeated failures");
+    }
+  }
+};
+
+const handleVisibilityChange = () => {
+  isTabVisible.value = !document.hidden;
+
+  if (isTabVisible.value && autoRefreshEnabled.value) {
+    // Refresh immediately when tab becomes visible
+    performAutoRefresh();
+  }
+};
+
+// Initialize auto-refresh on fresh login
+const initializeAutoRefreshOnLogin = () => {
+  try {
+    const freshLogin = sessionStorage.getItem("freshLogin");
+    if (freshLogin === "true") {
+      // Clear the flag
+      sessionStorage.removeItem("freshLogin");
+
+      // Enable auto-refresh
+      autoRefreshEnabled.value = true;
+      startAutoRefresh();
+      lastRefreshTime.value = new Date().toLocaleTimeString();
+
+      $toast.success("Auto-refresh enabled after login");
+    }
+  } catch (error) {
+    console.error("[MessagesList] Failed to initialize auto-refresh:", error);
+  }
+};
+
+// Enhanced refresh data function
 const refreshData = async () => {
-  isLoading.value = true;
+  const isInitialLoad = !messages.value.length;
+
+  if (isInitialLoad) {
+    isLoading.value = true;
+  } else {
+    isRefreshing.value = true;
+  }
+
   error.value = null;
 
   try {
-    // First, fetch friends and groups in parallel
-    await Promise.allSettled([
-      friendsStore.getFriends(),
-      groupsStore.getGroups(),
-      fetchUnreadCounts(),
-    ]);
-
-    // Fetch message previews for both friends and groups
-    await Promise.allSettled([
-      friendsStore.friends?.length > 0
-        ? fetchFriendMessagePreviews()
-        : Promise.resolve(),
-      groupsStore.groups?.length > 0
-        ? fetchGroupMessagePreviews()
-        : Promise.resolve(),
-    ]);
+    // Fetch friends and groups in parallel
+    await Promise.all([friendsStore.getFriends(), groupsStore.getGroups()]);
 
     // Transform and combine the data
-    const friendMessages = transformFriendsToMessages(
+    const friendMessages = await transformFriendsToMessages(
       friendsStore.friends || []
     );
-    const groupMessages = transformGroupsToMessages(groupsStore.groups || []);
+    const groupMessages = await transformGroupsToMessages(
+      groupsStore.groups || []
+    );
 
     messages.value = [...friendMessages, ...groupMessages];
 
-    // Sort messages by last message timestamp
-    sortMessagesByLatest();
+    console.log("[MessagesList] Data refresh completed", {
+      friendMessages: friendMessages.length,
+      groupMessages: groupMessages.length,
+      total: messages.value.length,
+    });
   } catch (err: any) {
-    error.value = err.message || "Failed to load messages";
+    error.value = err.message || "Failed to load conversations";
+    console.error("Error loading conversations data:", err);
   } finally {
     isLoading.value = false;
+    isRefreshing.value = false;
   }
 };
 
-// New function to fetch message previews for each friend
-async function fetchFriendMessagePreviews() {
-  try {
-    if (!friendsStore.friends || friendsStore.friends.length === 0) {
-      console.log(`⚠️ [FetchFriendPreviews] No friends to fetch previews for`);
-      return; // No friends to fetch previews for
-    }
+// Helper function to get user status
+const getUserStatus = (userId: string): UserStatus => {
+  return presence.getStatus(userId) === "online" ? "online" : "offline";
+};
 
-    console.log(
-      `🚀 [FetchFriendPreviews] Starting fetch for ${friendsStore.friends.length} friends`
-    );
+// Helper function to check if message is currently active
+const isCurrentlyActive = (message: Message): boolean => {
+  const currentPath = route.path;
+  const expectedPath = `/chat/messages/${message.id}`;
 
-    // Get message previews for each friend (last message)
-    // To avoid overwhelming the server, we'll fetch previews for 5 friends at a time
-    const batchSize = 5;
-    const batches = [];
-
-    // Split friends into batches
-    for (let i = 0; i < friendsStore.friends.length; i += batchSize) {
-      batches.push(friendsStore.friends.slice(i, i + batchSize));
-    }
-
-    // Process each batch sequentially
-    let messagePreviewsFound = 0;
-
-    for (const batch of batches) {
-      const batchPromises = batch.map(async (friend) => {
-        try {
-          // Cast to our Friend interface
-          const typedFriend = friend as Friend;
-
-          console.log(
-            `📡 [FetchFriendPreviews] Fetching messages for friend ${
-              typedFriend.name || typedFriend.id
-            }`
-          );
-
-          // Fetch the last message for this friend (limit 1)
-          const response = await messagesStore.getMessages({
-            target_id: typedFriend.id,
-            type: "private",
-            page: 1,
-            limit: 1,
-          });
-
-          console.log(
-            `📨 [FetchFriendPreviews] Response for friend ${typedFriend.id}:`,
-            {
-              hasData: !!response?.data,
-              dataLength: response?.data?.length || 0,
-              firstMessage: response?.data?.[0],
-            }
-          );
-
-          if (response?.data && response.data.length > 0) {
-            // Update the friend object with last message data
-            typedFriend.last_message = response.data[0];
-            messagePreviewsFound++;
-
-            console.log(
-              `✅ [FetchFriendPreviews] Updated friend ${typedFriend.id} with message:`,
-              response.data[0].content
-            );
-          } else {
-            console.log(
-              `❌ [FetchFriendPreviews] No messages found for friend ${typedFriend.id}`
-            );
-          }
-
-          return typedFriend;
-        } catch (error) {
-          // Silent fail and return the friend even if preview fetch fails
-          console.warn(
-            `Failed to fetch message preview for friend ${friend.id}:`,
-            error
-          );
-          return friend;
-        }
-      });
-
-      // Wait for the current batch to complete before processing the next batch
-      await Promise.all(batchPromises);
-    }
-
-    console.log(
-      `✅ [MessagesList] Fetched ${messagePreviewsFound} friend message previews`
-    );
-  } catch (err) {
-    // Continue without message previews if they fail
-    console.warn("Failed to fetch friend message previews:", err);
-  }
-}
-
-// New function to fetch message previews for each group
-async function fetchGroupMessagePreviews() {
-  try {
-    if (!groupsStore.groups || groupsStore.groups.length === 0) {
-      console.log(`⚠️ [FetchGroupPreviews] No groups to fetch previews for`);
-      return; // No groups to fetch previews for
-    }
-
-    console.log(
-      `🚀 [FetchGroupPreviews] Starting fetch for ${groupsStore.groups.length} groups`
-    );
-
-    // Get message previews for each group (last message)
-    // To avoid overwhelming the server, we'll fetch previews for 5 groups at a time
-    const batchSize = 5;
-    const batches = [];
-
-    // Split groups into batches
-    for (let i = 0; i < groupsStore.groups.length; i += batchSize) {
-      batches.push(groupsStore.groups.slice(i, i + batchSize));
-    }
-
-    // Process each batch sequentially
-    let messagePreviewsFound = 0;
-
-    for (const batch of batches) {
-      const batchPromises = batch.map(async (group) => {
-        try {
-          // Cast to our Group interface
-          const typedGroup = group as Group;
-
-          console.log(
-            `📡 [FetchGroupPreviews] Fetching messages for group ${
-              typedGroup.name || typedGroup.id
-            }`
-          );
-
-          // Fetch the last message for this group (limit 1)
-          const response = await groupsStore.getGroupMessages(
-            typedGroup.id,
-            1,
-            1
-          );
-
-          console.log(
-            `📨 [FetchGroupPreviews] Response for group ${typedGroup.id}:`,
-            {
-              hasData: !!response?.data,
-              dataLength: response?.data?.length || 0,
-              firstMessage: response?.data?.[0],
-            }
-          );
-
-          if (response?.data && response.data.length > 0) {
-            // Update the group object with last message data
-            typedGroup.last_message = response.data[0];
-            messagePreviewsFound++;
-
-            console.log(
-              `✅ [FetchGroupPreviews] Updated group ${typedGroup.id} with message:`,
-              response.data[0].content
-            );
-          } else {
-            console.log(
-              `❌ [FetchGroupPreviews] No messages found for group ${typedGroup.id}`
-            );
-          }
-
-          return typedGroup;
-        } catch (error) {
-          // Silent fail and return the group even if preview fetch fails
-          console.warn(
-            `Failed to fetch message preview for group ${group.id}:`,
-            error
-          );
-          return group;
-        }
-      });
-
-      // Wait for the current batch to complete before processing the next batch
-      await Promise.all(batchPromises);
-    }
-
-    console.log(
-      `✅ [MessagesList] Fetched ${messagePreviewsFound} group message previews`
-    );
-  } catch (err) {
-    // Continue without message previews if they fail
-    console.warn("Failed to fetch group message previews:", err);
-  }
-}
-
-// Sort messages by most recent
-function sortMessagesByLatest() {
-  messages.value.sort((a, b) => {
-    // Get timestamps or use a default old date
-    const timestampA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    const timestampB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-
-    // Sort in descending order (newest first)
-    return timestampB - timestampA;
-  });
-}
-
-// New function to fetch unread message counts
-async function fetchUnreadCounts() {
-  try {
-    const response = await messagesStore.getUnreadCount();
-
-    // Process unread counts data if available
-    if (response && response.data) {
-      // Update local messages with unread counts if present
-      if (response.data.friend_counts) {
-        Object.entries(response.data.friend_counts).forEach(
-          ([friendId, count]) => {
-            const friendIndex = friendsStore.friends.findIndex(
-              (friend) => friend.id === friendId
-            );
-            if (friendIndex >= 0) {
-              // Cast to our Friend interface to allow setting unread_count
-              const typedFriend = friendsStore.friends[
-                friendIndex
-              ] as unknown as Friend;
-              typedFriend.unread_count = Number(count);
-            }
-          }
-        );
-      }
-
-      // Update group unread counts if present
-      if (response.data.group_counts) {
-        Object.entries(response.data.group_counts).forEach(
-          ([groupId, count]) => {
-            const groupIndex = groupsStore.groups.findIndex(
-              (group) => group.id === groupId
-            );
-            if (groupIndex >= 0) {
-              // Cast to our Group interface to allow setting unread_count
-              const typedGroup = groupsStore.groups[
-                groupIndex
-              ] as unknown as Group;
-              typedGroup.unread_count = Number(count);
-            }
-          }
-        );
-      }
-    }
-
-    return response;
-  } catch (err: any) {
-    // Silent fail and continue
-    return null;
-  }
-}
-
-// Fetch friend statuses
-const fetchFriendStatuses = async () => {
-  // Get all friend IDs from the messages list
-  const friendIds = messages.value
-    .filter((message) => message.type === "friend")
-    .map((message) => message.id);
-
-  if (friendIds.length > 0) {
-    try {
-      // Fetch all user statuses from the presence service
-      await presence.getUsersStatus(friendIds);
-
-      // Update the statuses in our local map
-      updateFriendStatus();
-    } catch (error) {
-      // Silent fail
-    }
+  if (message.type === "group") {
+    return currentPath === expectedPath && route.query.type === "group";
+  } else {
+    return currentPath === expectedPath && route.query.type !== "group";
   }
 };
 
-// Handle WebSocket updates
-const handleUnreadCountsUpdated = (
-  unreadCounts: { id: string; count: number; type: MessageType }[]
-) => {
-  messages.value = messages.value.map((message) => {
-    const update = unreadCounts.find(
-      (count) => count.id === message.id && count.type === message.type
-    );
-    if (update) {
-      return { ...message, unreadCount: update.count };
-    }
-    return message;
-  });
+// Helper function to build message URL
+const buildMessageUrl = (message: Message): string => {
+  const baseUrl = `/chat/messages/${message.id}`;
+
+  if (message.type === "group") {
+    return `${baseUrl}?type=group&name=${encodeURIComponent(
+      message.sender.name
+    )}`;
+  } else {
+    return `${baseUrl}?name=${encodeURIComponent(message.sender.name)}`;
+  }
 };
 
-// Update friend status when presence changes
-const updateFriendStatus = () => {
-  const newStatusMap: Record<string, string> = {};
-  messages.value.forEach((message) => {
-    if (message.type === "friend") {
-      // Get status from presence service
-      const status = presence.getStatus(message.id);
+// Helper function to format message content for display
+const formatMessageContent = (message: Message): string => {
+  if (!message.content || message.content.trim() === "") {
+    return message.type === "friend"
+      ? "No messages yet"
+      : "No messages in this group";
+  }
 
-      // Simplify to just online/offline
-      newStatusMap[message.id] = status === "online" ? "online" : "offline";
-    }
-  });
-  friendStatusMap.value = newStatusMap;
+  return message.content;
 };
 
-// Lifecycle hooks
-onMounted(async () => {
-  try {
-    await refreshData();
-    await fetchFriendStatuses();
-
-    // Watch for websocket connection changes
-    unsubscribeConnectionWatch.value = watch(
-      () => presence.isWsConnected,
-      async (newValue) => {
-        if (newValue) {
-          await refreshData();
-          await fetchFriendStatuses();
-        }
+// WebSocket handling for real-time updates (matching React implementation)
+const handleWebSocketUpdates = () => {
+  if (webSocket.isConnected) {
+    // Handle presence updates
+    watch(
+      () => presence.userStatuses,
+      () => {
+        // Update typing indicators and statuses
+        messages.value = messages.value.map((message) => {
+          if (message.type === "friend") {
+            const status = getUserStatus(message.id);
+            return {
+              ...message,
+              sender: {
+                ...message.sender,
+                status,
+              },
+              isTyping: isTyping.value[message.id] || false,
+            };
+          }
+          return message;
+        });
       }
     );
 
-    // Set up event listeners
+    // Subscribe to new message events
     eventBus.on("private-message", () => {
       refreshData();
     });
@@ -1129,14 +1153,31 @@ onMounted(async () => {
     eventBus.on("refresh-messages", () => {
       refreshData();
     });
+  }
+};
 
-    eventBus.on("unread-counts-updated", (data) => {
-      handleUnreadCountsUpdated(data);
-    });
+// Lifecycle hooks
+onMounted(async () => {
+  try {
+    await refreshData();
+    handleWebSocketUpdates();
 
-    eventBus.on("friend-added", () => {
-      refreshData();
-    });
+    // Initialize auto-refresh on fresh login
+    initializeAutoRefreshOnLogin();
+
+    // Add visibility change listener
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Watch for websocket connection changes
+    unsubscribeConnectionWatch.value = watch(
+      () => webSocket.isConnected,
+      async (newValue) => {
+        if (newValue) {
+          await refreshData();
+          handleWebSocketUpdates();
+        }
+      }
+    );
   } catch (err) {
     error.value = "Failed to initialize messages. Please try refreshing.";
   }
@@ -1147,305 +1188,53 @@ onUnmounted(() => {
   eventBus.off("private-message");
   eventBus.off("group-message");
   eventBus.off("refresh-messages");
-  eventBus.off("unread-counts-updated");
-  eventBus.off("friend-added");
+
+  // Clean up auto-refresh
+  stopAutoRefresh();
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
 
   if (unsubscribeConnectionWatch.value) {
     unsubscribeConnectionWatch.value();
   }
 });
 
-// Import centralized timestamp utilities
-import { formatMessageTimestamp } from "~/utils/timestampHelper";
-
-// Utility functions
-function formatTimestamp(dateString: string): string {
-  try {
-    // Use centralized utility for consistent timestamp formatting
-    // For messages list, we want to show time for recent messages, relative time for older ones
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
-
-    if (diffInHours < 24) {
-      // For messages from today, show time in HH.MM format
-      return formatMessageTimestamp({ timestamp: dateString, format: "time" });
-    } else {
-      // For older messages, show relative time
-      return formatMessageTimestamp({
-        timestamp: dateString,
-        format: "relative",
-      });
+// Watch for friend and group store updates (React-like effect)
+watch(
+  () => friendsStore.friends,
+  async (newFriends) => {
+    if (newFriends && Array.isArray(newFriends)) {
+      const friendMessages = await transformFriendsToMessages(newFriends);
+      messages.value = [
+        ...messages.value.filter((msg) => msg.type !== "friend"),
+        ...friendMessages,
+      ];
     }
-  } catch (error) {
-    return dateString;
-  }
-}
+  },
+  { immediate: true }
+);
 
-// Transform functions
-function transformGroupsToMessages(groups: any[]): Message[] {
-  return groups.map((group) => {
-    // Cast to our Group interface
-    const typedGroup = group as Group;
-    const lastMessage = typedGroup.last_message;
-
-    let content = "";
-    let timestamp = "Never";
-
-    console.log(`🔍 [TransformGroups] Group ${typedGroup.name}:`, {
-      hasLastMessage: !!lastMessage,
-      lastMessageContent: lastMessage?.content,
-      lastMessageSender: lastMessage?.sender_name || lastMessage?.sender?.name,
-      groupId: typedGroup.id,
-    });
-
-    if (lastMessage && lastMessage.content) {
-      // Format the message content with sender name
-      const senderName =
-        lastMessage.sender_name || lastMessage.sender?.name || "Someone";
-
-      // Truncate long messages for preview
-      const messageContent =
-        lastMessage.content.length > 50
-          ? lastMessage.content.substring(0, 50) + "..."
-          : lastMessage.content;
-
-      content = `${senderName}: ${messageContent}`;
-
-      // Try different timestamp fields that might be in the API response
-      const messageTimestamp =
-        lastMessage.sent_at || lastMessage.created_at || lastMessage.timestamp;
-
-      if (messageTimestamp) {
-        timestamp = formatTimestamp(messageTimestamp);
-      }
-    } else if (typedGroup.created_at) {
-      // Fallback to group creation time if no messages
-      timestamp = formatTimestamp(typedGroup.created_at);
+watch(
+  () => groupsStore.groups,
+  async (newGroups) => {
+    if (newGroups && Array.isArray(newGroups)) {
+      const groupMessages = await transformGroupsToMessages(newGroups);
+      messages.value = [
+        ...messages.value.filter((msg) => msg.type !== "group"),
+        ...groupMessages,
+      ];
     }
-
-    return {
-      id: typedGroup.id,
-      sender: {
-        name: typedGroup.name,
-        avatar: typedGroup.avatar_url,
-      },
-      content: content,
-      timestamp: timestamp,
-      unreadCount: typedGroup.unread_count || 0,
-      memberCount: typedGroup.member_count || 0,
-      type: "group",
-    };
-  });
-}
-
-function transformFriendsToMessages(friends: any[]): Message[] {
-  return friends.map((friend) => {
-    // Cast to our Friend interface
-    const typedFriend = friend as Friend;
-
-    // Get the full name, handling potential missing first/last name
-    const firstName = typedFriend.first_name || "";
-    const lastName = typedFriend.last_name || "";
-    const fullName =
-      `${firstName} ${lastName}`.trim() || typedFriend.name || "User";
-
-    // Determine the message content and timestamp
-    const lastMessage = typedFriend.last_message;
-    const hasMessage = !!lastMessage;
-
-    let content = "";
-    let timestamp = "Never";
-
-    console.log(`🔍 [TransformFriends] Friend ${fullName}:`, {
-      hasLastMessage: hasMessage,
-      lastMessageContent: lastMessage?.content,
-      friendId: typedFriend.id,
-    });
-
-    if (hasMessage && lastMessage.content) {
-      // Truncate long messages for preview
-      const messageContent =
-        lastMessage.content.length > 60
-          ? lastMessage.content.substring(0, 60) + "..."
-          : lastMessage.content;
-
-      content = messageContent;
-
-      // Try different timestamp fields that might be in the API response
-      const messageTimestamp =
-        lastMessage.sent_at || lastMessage.created_at || lastMessage.timestamp;
-
-      if (messageTimestamp) {
-        timestamp = formatTimestamp(messageTimestamp);
-      }
-    }
-
-    return {
-      id: typedFriend.id,
-      sender: {
-        name: fullName,
-        avatar: typedFriend.profile_picture_url || typedFriend.avatar,
-        first_name: firstName,
-        last_name: lastName,
-        username: typedFriend.username,
-        email: typedFriend.email,
-      },
-      content: content,
-      timestamp: timestamp,
-      unreadCount: typedFriend.unread_count || 0,
-      type: "friend",
-    };
-  });
-}
-
-// Message formatting and display logic
-const formatMessage = (message: Message) => {
-  if (!message) {
-    return null;
-  }
-
-  try {
-    // Format message for display
-    return {
-      id: message.id,
-      content: message.content?.trim() || "",
-      sender: {
-        id: message.sender_id || message.sender?.id || "",
-        name: message.sender_name || message.sender?.name || "Unknown",
-      },
-      recipientInfo: {
-        id:
-          message.recipient_id ||
-          (message.recipient ? message.recipient.id : ""),
-        name:
-          message.recipient_name ||
-          (message.recipient ? message.recipient.name : "Unknown"),
-      },
-      timestamp: message.created_at || message.timestamp,
-      status: message.status || "sent",
-      position: determineBubblePosition(message),
-    };
-  } catch (error) {
-    return null;
-  }
-};
-
-const determineBubblePosition = (message: Message) => {
-  const currentUserId = currentUser.value?.id;
-
-  // Get sender ID from either sender_id or sender.id
-  const senderId = message.sender_id || message.sender?.id;
-
-  // Ensure we have valid IDs
-  if (!senderId || !currentUserId) {
-    return "left"; // Default to left if we can't determine
-  }
-
-  return senderId === currentUserId ? "right" : "left";
-};
-
-// Update the template section
-const messageClasses = (message: Message) => {
-  const position = determineBubblePosition(message);
-  return {
-    "message-bubble": true,
-    "message-right": position === "right",
-    "message-left": position === "left",
-    "message-pending": message.status === "pending",
-    "message-error": message.status === "error",
-  };
-};
-
-// Handle status click (adding missing function)
-const handleStatusClick = (id: string, event: MouseEvent) => {
-  event.preventDefault();
-  event.stopPropagation();
-};
-
-// Message statistics computed property
-const messageStats = computed(() => {
-  if (!props.messages) return null;
-
-  const stats = {
-    total: props.messages.length,
-    valid: 0,
-    invalid: 0,
-    right: 0,
-    left: 0,
-  };
-
-  // Cast the messages array to the correct type
-  const typedMessages = props.messages as Message[];
-
-  typedMessages.forEach((msg) => {
-    const formatted = formatMessage(msg);
-    if (formatted) {
-      stats.valid++;
-      if (determineBubblePosition(msg) === "right") stats.right++;
-      else stats.left++;
-    } else {
-      stats.invalid++;
-    }
-  });
-
-  return stats;
-});
-
-// Helper function to get user status
-const getUserStatus = (userId: string): 'online' | 'offline' => {
-  return presence.getStatus(userId) === 'online' ? 'online' : 'offline';
-};
-
-// Helper function to check if message is currently active
-const isCurrentlyActive = (message: Message): boolean => {
-  const route = useRoute();
-  const isGroupMessage = message.type === 'group';
-  const currentPath = route.path;
-  const expectedPath = `/chat/messages/${message.id}`;
-  
-  if (isGroupMessage) {
-    return currentPath === expectedPath && route.query.type === 'group';
-  } else {
-    return currentPath === expectedPath && route.query.type !== 'group';
-  }
-};
-
-// Helper function to build message URL
-const buildMessageUrl = (message: Message): string => {
-  const baseUrl = `/chat/messages/${message.id}`;
-  
-  if (message.type === 'group') {
-    return `${baseUrl}?type=group&name=${encodeURIComponent(message.sender.name)}`;
-  } else {
-    return `${baseUrl}?name=${encodeURIComponent(message.sender.name)}`;
-  }
-};
-
-// Helper function to format message content for display
-const formatMessageContent = (message: Message): string => {
-  if (!message.content || message.content.trim() === '') {
-    return message.type === 'friend' ? 'No messages yet' : 'No messages in this group';
-  }
-  
-  // For groups, the content might already include sender name
-  if (message.type === 'group' && message.content.includes(':')) {
-    return message.content;
-  }
-  
-  return message.content;
-};
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
 /* Add any component-specific styles here */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.animate-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animate-delay-200 {
+  animation-delay: 200ms;
 }
 </style>

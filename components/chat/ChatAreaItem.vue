@@ -2,7 +2,7 @@
   <div
     :class="`flex ${
       message.isCurrentUser ? 'justify-end' : 'justify-start'
-    } mb-4`"
+    } mb-3 sm:mb-4`"
     :data-message-id="message.id"
     :data-sender-id="message.sender_id"
     :data-recipient-id="message.recipient_id || message.receiver_id"
@@ -11,186 +11,182 @@
   >
     <!-- Avatar for other users -->
     <div v-if="!message.isCurrentUser" class="mr-2">
-      <div
-        class="h-10 w-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
-      >
-        <img
-          v-if="validatedAvatar"
-          :src="validatedAvatar"
-          :alt="senderName"
-          class="h-full w-full object-cover"
-          @error="handleAvatarError"
-        />
-        <Icon v-else name="fa:user" class="h-5 w-5 text-gray-500" />
-      </div>
+      <OptimizedAvatar
+        :src="validatedAvatar"
+        :alt="senderName"
+        size="md"
+        class="flex-shrink-0"
+      />
     </div>
 
-    <div class="flex flex-col max-w-[70%]">
-      <!-- Sender name -->
+    <!-- Message bubble wrapper -->
+    <div
+      :class="bubbleClasses"
+      @click="message.failed ? handleRetryClick() : undefined"
+      :title="
+        message.failed ? 'Click to retry sending this message' : undefined
+      "
+    >
+      <!-- Message actions dropdown for current user's messages -->
       <div
-        :class="`text-xs text-gray-600 mb-1 ${
-          message.isCurrentUser ? 'self-end' : 'ml-1'
-        }`"
+        v-if="showActionsButton"
+        class="absolute top-2 right-2"
+        ref="dropdownRef"
       >
-        {{ senderName }}
+        <button
+          @click="toggleActions"
+          class="text-white hover:text-blue-200 p-1.5 rounded-full focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-20 hover:bg-opacity-40"
+        >
+          <Icon name="fa:ellipsis-v" class="h-3 w-3" />
+        </button>
+
+        <!-- Dropdown menu -->
+        <div
+          v-if="showActions"
+          class="absolute right-0 top-8 w-32 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+        >
+          <div class="py-1">
+            <button
+              @click="handleEditClick"
+              class="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 flex items-center transition-colors"
+            >
+              <Icon name="lucide:edit-2" class="mr-2 text-xs" /> Edit
+            </button>
+            <button
+              @click="handleDeleteClick"
+              class="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 flex items-center transition-colors"
+            >
+              <Icon name="lucide:trash" class="mr-2 text-xs" /> Unsend
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Message bubble -->
-      <div
-        :class="`rounded-lg px-4 py-2 relative group ${getBubbleClasses()}`"
-        @click="message.failed ? handleRetryClick() : undefined"
-        :title="
-          message.failed ? 'Click to retry sending this message' : undefined
-        "
-      >
-        <!-- Message actions dropdown for current user's messages -->
+      <!-- Status indicators -->
+      <div v-if="message.pending" class="absolute top-0 right-0 -mt-1 -mr-1">
         <div
-          v-if="showActionsButton"
-          class="absolute top-0 right-0 -mt-1 -mr-1"
-          ref="dropdownRef"
-        >
-          <button
-            @click="toggleActions"
-            class="text-gray-600 hover:text-gray-800 p-1 rounded-full focus:outline-none opacity-70 hover:opacity-100 transition-opacity"
-          >
-            <Icon name="fa:ellipsis-v" class="h-3 w-3" />
-          </button>
+          class="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"
+        ></div>
+      </div>
 
-          <!-- Dropdown menu -->
-          <div
-            v-if="showActions"
-            class="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg z-50 border border-gray-200"
-          >
-            <div class="py-1">
-              <button
-                @click="handleEditClick"
-                class="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 flex items-center"
-              >
-                <Icon name="lucide:edit-2" class="mr-2" /> Edit
-              </button>
-              <button
-                @click="handleDeleteClick"
-                class="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100 flex items-center"
-              >
-                <Icon name="lucide:trash" class="mr-2" /> Delete
-              </button>
-            </div>
-          </div>
-        </div>
+      <div v-if="message.retrying" class="absolute top-0 right-0 -mt-1 -mr-1">
+        <div class="animate-pulse rounded-full h-3 w-3 bg-yellow-500"></div>
+      </div>
 
-        <!-- Status indicators -->
-        <div
-          v-if="message.pending"
-          class="absolute top-0 right-0 -mt-1 -mr-1"
+      <!-- Attachment display -->
+      <div v-if="message.attachment" class="mb-1">
+        <img
+          v-if="message.attachment.type === 'image'"
+          :src="message.attachment.url"
+          :alt="message.attachment.name"
+          class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity max-h-48"
+          @click="openImagePreview"
+          @error="handleImageError"
+        />
+        <button
+          v-else
+          @click="
+            handleDownloadFile(
+              $event,
+              message.attachment.url,
+              message.attachment.name
+            )
+          "
+          :disabled="isDownloading"
+          class="text-blue-500 hover:underline flex items-center space-x-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+          :title="`Download ${message.attachment.name}`"
         >
           <div
+            v-if="isDownloading"
             class="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"
-          ></div>
-        </div>
-
-        <div
-          v-if="message.retrying"
-          class="absolute top-0 right-0 -mt-1 -mr-1"
-        >
-          <div class="animate-pulse rounded-full h-3 w-3 bg-yellow-500"></div>
-        </div>
-
-        <!-- Attachment display -->
-        <div v-if="message.attachment" class="mb-2">
-          <img
-            v-if="message.attachment.type === 'image'"
-            :src="message.attachment.url"
-            :alt="message.attachment.name"
-            class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
-            @click="openImagePreview"
-            @error="handleImageError"
           />
-          <a
-            v-else
-            :href="message.attachment.url"
-            :download="message.attachment.name"
-            class="text-blue-500 hover:underline flex items-center space-x-2 transition-colors"
-            @click.stop
-          >
-            <Icon name="fa:file" class="text-gray-600" />
-            <span class="text-sm ml-1">
-              {{ message.attachment.name }}
-              <span v-if="message.attachment.size">
-                ({{ message.attachment.size }})
-              </span>
-            </span>
-          </a>
-        </div>
-
-        <!-- Message content -->
-        <div>
-          <p class="text-sm break-words whitespace-pre-wrap">
-            {{
-              message.isDeleted
-                ? "This message was deleted"
-                : message.content || "(No message content)"
-            }}
-          </p>
-
-          <!-- Error message for failed messages -->
-          <p
-            v-if="message.failed && message.errorMessage"
-            class="text-xs text-red-300 mt-1 italic"
-          >
-            {{ message.errorMessage }}
-          </p>
-        </div>
-
-        <!-- Timestamp and status indicators -->
-        <div class="flex items-center justify-end space-x-1 mt-1">
-          <span
-            v-if="message.isEdited && !message.isDeleted"
-            class="text-xs opacity-75"
-          >
-            (edited)
+          <Icon v-else name="fa:file" class="text-gray-500 h-3 w-3" />
+          <span class="text-xs truncate max-w-32">
+            {{ message.attachment.name }}
           </span>
+          <Icon
+            v-if="!isDownloading"
+            name="fa:download"
+            class="h-2.5 w-2.5 text-gray-400"
+          />
+        </button>
+      </div>
 
-          <span
-            v-if="message.failed"
-            class="text-xs text-red-600 font-medium"
-          >
-            Failed
-            <span v-if="message.retryCount && message.retryCount > 0">
-              ({{ message.retryCount }})
-            </span>
+      <!-- Message content -->
+      <div>
+        <p class="text-sm break-words whitespace-pre-wrap">
+          {{
+            message.isDeleted
+              ? "This message was deleted"
+              : message.content || "(No message content)"
+          }}
+        </p>
+
+        <!-- Error message for failed messages -->
+        <p
+          v-if="message.failed && message.errorMessage"
+          class="text-xs text-red-300 mt-1 italic"
+        >
+          {{ message.errorMessage }}
+        </p>
+      </div>
+
+      <!-- Timestamp and status indicators -->
+      <div class="flex items-center justify-end space-x-1 mt-1">
+        <span
+          v-if="message.isEdited && !message.isDeleted"
+          class="text-xs opacity-75"
+        >
+          (edited)
+        </span>
+
+        <span v-if="message.failed" class="text-xs text-red-600 font-medium">
+          Failed
+          <span v-if="message.retryCount && message.retryCount > 0">
+            ({{ message.retryCount }})
           </span>
+        </span>
 
-          <span class="text-xs opacity-75">
-            {{ formattedTimestamp }}
-          </span>
+        <span class="text-xs opacity-75">
+          {{ formattedTimestamp }}
+        </span>
 
-          <!-- Status icons for current user messages -->
-          <div v-if="message.isCurrentUser" class="ml-1">
-            <Icon
-              v-if="message.pending"
-              name="fa:clock"
-              class="h-3 w-3 opacity-75"
-            />
-            <div
-              v-else-if="message.retrying"
-              class="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent opacity-75"
-            ></div>
-            <Icon
-              v-else-if="message.failed"
-              name="lucide:alert-triangle"
-              class="h-3 w-3 text-red-300"
-            />
-            <Icon
-              v-else-if="!message.pending && !message.failed && !message.retrying && message.delivered"
-              name="fa:check"
-              class="h-3 w-3 opacity-75"
-            />
-            <Icon
-              v-else-if="!message.pending && !message.failed && !message.retrying && message.read"
-              name="fa:check"
-              class="h-3 w-3 opacity-75 text-blue-300"
-            />
-          </div>
+        <!-- Status icons for current user messages -->
+        <div v-if="message.isCurrentUser" class="ml-1">
+          <Icon
+            v-if="message.pending"
+            name="fa:clock"
+            class="h-3 w-3 opacity-75"
+          />
+          <div
+            v-else-if="message.retrying"
+            class="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent opacity-75"
+          ></div>
+          <Icon
+            v-else-if="message.failed"
+            name="lucide:alert-triangle"
+            class="h-3 w-3 text-red-300"
+          />
+          <Icon
+            v-else-if="
+              !message.pending &&
+              !message.failed &&
+              !message.retrying &&
+              message.delivered
+            "
+            name="fa:check"
+            class="h-3 w-3 opacity-75"
+          />
+          <Icon
+            v-else-if="
+              !message.pending &&
+              !message.failed &&
+              !message.retrying &&
+              message.read
+            "
+            name="fa:check"
+            class="h-3 w-3 opacity-75 text-blue-300"
+          />
         </div>
       </div>
     </div>
@@ -200,6 +196,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { formatMessageTimestamp } from "~/utils/timestampHelper";
+import { useFiles } from "~/composables/useFiles";
 
 // Define props interface
 interface ChatAreaItemProps {
@@ -267,9 +264,23 @@ const emit = defineEmits<{
   deleteClick: [messageId: string];
 }>();
 
-// Local state for dropdown
+// Composables
+const { downloadFile } = useFiles();
+const { $toast } = useNuxtApp();
+
+// Local state for dropdown and downloading
 const showActions = ref(false);
+const isDownloading = ref(false);
 const dropdownRef = ref<HTMLDivElement | null>(null);
+
+// Debug logging for message positioning
+console.log("[ChatAreaItem] Rendering message:", {
+  messageId: props.message.id,
+  content: props.message.content?.substring(0, 20),
+  isCurrentUser: props.message.isCurrentUser,
+  sender_id: props.message.sender_id,
+  positioning: props.message.isCurrentUser ? "right" : "left",
+});
 
 // Computed properties
 const senderName = computed(() => {
@@ -307,7 +318,8 @@ const validatedAvatar = computed(() => {
     }
 
     // Validate data URL format
-    const dataUrlRegex = /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
+    const dataUrlRegex =
+      /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
     if (!dataUrlRegex.test(avatarUrl)) {
       console.warn(
         "[ChatAreaItem] Invalid data URL format:",
@@ -319,6 +331,32 @@ const validatedAvatar = computed(() => {
 
   return avatarUrl;
 });
+
+// Debug logging for avatar
+if (!props.message.isCurrentUser) {
+  console.log("[ChatAreaItem] Avatar debug for message:", {
+    messageId: props.message.id,
+    senderName: senderName.value,
+    senderAvatar: validatedAvatar.value
+      ? validatedAvatar.value.substring(0, 50) + "..."
+      : null,
+    avatarLength: validatedAvatar.value?.length || 0,
+    isDataUrl: validatedAvatar.value?.startsWith("data:") || false,
+    isBase64: validatedAvatar.value?.includes("base64") || false,
+    messageData: {
+      sender: props.message.sender,
+      senderAvatarUrl: props.message.sender?.avatar_url,
+    },
+    recipientData: {
+      profile_picture_url: props.recipient.profile_picture_url
+        ? props.recipient.profile_picture_url.substring(0, 50) + "..."
+        : null,
+      avatar: props.recipient.avatar
+        ? props.recipient.avatar.substring(0, 50) + "..."
+        : null,
+    },
+  });
+}
 
 const showActionsButton = computed(() => {
   return (
@@ -342,20 +380,26 @@ const formattedTimestamp = computed(() => {
   );
 });
 
+const bubbleClasses = computed(() => {
+  const baseClasses =
+    "rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-3 relative group shadow-sm transition-all duration-200";
+  const hoverClass = props.message.isCurrentUser ? "" : "hover:shadow-md";
+
+  return `${baseClasses} ${getBubbleClasses()} ${hoverClass}`;
+});
+
 // Methods
 const getBubbleClasses = () => {
-  const baseClasses = "min-w-[80px]";
-  
   if (props.message.isCurrentUser) {
     if (props.message.isDeleted) {
-      return `${baseClasses} bg-gray-200 text-gray-500 italic`;
+      return "bg-gray-200 text-gray-500 italic";
     } else if (props.message.failed) {
-      return `${baseClasses} bg-red-100 text-red-800 border border-red-300 cursor-pointer hover:bg-red-200`;
+      return "bg-red-100 text-red-800 border border-red-300 cursor-pointer hover:bg-red-200";
     } else {
-      return `${baseClasses} bg-blue-500 text-white`;
+      return "bg-blue-500 text-white";
     }
   } else {
-    return `${baseClasses} bg-white border border-gray-200 text-gray-800`;
+    return "bg-white border border-gray-200 text-gray-800";
   }
 };
 
@@ -378,16 +422,42 @@ const handleRetryClick = () => {
   emit("retryClick", props.message);
 };
 
+// Handle file download
+const handleDownloadFile = async (
+  e: Event,
+  fileUrl: string,
+  fileName: string
+) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  // Extract file ID from URL
+  let fileId = "";
+  if (fileUrl.includes("/api/proxy/files/")) {
+    const urlParts = fileUrl.split("/");
+    fileId = urlParts[urlParts.length - 1];
+  } else {
+    $toast.error("Invalid file URL");
+    return;
+  }
+
+  try {
+    isDownloading.value = true;
+    await downloadFile(fileId);
+    $toast.success(`Downloading ${fileName}...`);
+  } catch (error) {
+    console.error("Download failed:", error);
+    $toast.error("Failed to download file");
+  } finally {
+    isDownloading.value = false;
+  }
+};
+
 const openImagePreview = (e: Event) => {
   e.stopPropagation();
   if (props.message.attachment?.url) {
     window.open(props.message.attachment.url, "_blank");
   }
-};
-
-const handleAvatarError = (e: Event) => {
-  console.warn("[ChatAreaItem] Avatar failed to load");
-  // The v-else will handle showing the fallback icon
 };
 
 const handleImageError = (e: Event) => {
@@ -397,10 +467,7 @@ const handleImageError = (e: Event) => {
 
 // Close dropdown when clicking outside
 const handleClickOutside = (event: MouseEvent) => {
-  if (
-    dropdownRef.value &&
-    !dropdownRef.value.contains(event.target as Node)
-  ) {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
     showActions.value = false;
   }
 };

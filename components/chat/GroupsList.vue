@@ -323,12 +323,16 @@
                   <Icon v-else name="fa:user" class="h-4 w-4 text-gray-500" />
                 </div>
                 <div class="flex-1">
-                  <p class="font-medium text-sm">{{ friend.name }}</p>
+                  <p class="font-medium text-sm">
+                    {{ friend.name || "Unknown" }}
+                  </p>
                   <p class="text-xs text-gray-500">
                     @{{
                       friend.email
                         ? friend.email.split("@")[0]
-                        : friend.name.toLowerCase().replace(/\s+/g, "_")
+                        : (friend.name || "user")
+                            .toLowerCase()
+                            .replace(/\s+/g, "_")
                     }}
                   </p>
                 </div>
@@ -451,7 +455,7 @@ const filteredFriends = computed(() => {
   const query = friendSearch.value.toLowerCase();
   return friendsStore.friends.filter(
     (friend) =>
-      friend.name.toLowerCase().includes(query) ||
+      (friend.name && friend.name.toLowerCase().includes(query)) ||
       (friend.email && friend.email.toLowerCase().includes(query))
   );
 });
@@ -571,10 +575,8 @@ onMounted(async () => {
 });
 
 // Toggle friend selection for the group
-const toggleFriendSelection = (friend: Friend | string) => {
-  // Handle both friend objects and friend IDs
-  const friendId = typeof friend === "string" ? friend : friend.id;
-
+const toggleFriendSelection = (friend: any) => {
+  const friendId = friend.id;
   const index = selectedFriendIds.value.indexOf(friendId);
   if (index === -1) {
     selectedFriendIds.value.push(friendId);

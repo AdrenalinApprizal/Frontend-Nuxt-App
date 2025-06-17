@@ -5,8 +5,8 @@ import { useNuxtApp } from "#app";
 // Define media type
 type MediaType = "image" | "video" | "audio" | "document" | "all";
 
-// Define file metadata interface
-interface FileMetadata {
+// Define file metadata interface (enhanced to match React)
+export interface FileMetadata {
   id: string;
   name: string;
   type: string;
@@ -21,8 +21,22 @@ interface FileMetadata {
   message_id?: string;
 }
 
+// Original FileItem interface (matching React)
+export interface FileItem {
+  id: string;
+  name: string;
+  size: number;
+  content_type: string;
+  url: string;
+  uploader_id: string;
+  uploaded_at: string;
+  access_type: "public" | "private";
+  type: "attachment" | "profile" | "avatar";
+  related_to?: string;
+}
+
 // Define pagination interface
-interface Pagination {
+export interface Pagination {
   current_page: number;
   total_pages: number;
   total_items: number;
@@ -30,18 +44,33 @@ interface Pagination {
   has_more_pages: boolean;
 }
 
+// Original FilesResponse interface (matching React)
+export interface FilesResponse {
+  files: FileItem[];
+  current_page: number;
+  page_size: number;
+  total: number;
+}
+
 // Define API response interface
-interface ApiResponse {
+export interface ApiResponse {
   message?: string;
   data?: any;
   pagination?: Pagination;
 }
 
-// Use proper path format for the proxy - direct to files and media endpoints
+// Share request interface (matching React)
+export interface ShareRequest {
+  permission: string; // read, write, etc.
+  target_id: string; // user ID or group ID
+  target_type: string; // "user" or "group"
+}
+
+// Use proper path format for the proxy - no /api/proxy prefix needed since $api adds it
 const FILE_SERVICE_PATH = "";
 
 export const useFilesStore = defineStore("files", () => {
-  // State
+  // State (enhanced to match React implementation)
   const files = ref<FileMetadata[]>([]);
   const userMedia = ref<FileMetadata[]>([]);
   const groupMedia = ref<FileMetadata[]>([]);
@@ -56,6 +85,7 @@ export const useFilesStore = defineStore("files", () => {
     items_per_page: 20,
     has_more_pages: false,
   });
+  const filesResponse = ref<FilesResponse | null>(null);
 
   // Get nuxt app to access the API plugin
   const nuxtApp = useNuxtApp();
@@ -63,6 +93,62 @@ export const useFilesStore = defineStore("files", () => {
 
   // Check if we're in browser environment
   const isClient = process.client;
+
+  // Helper function for API calls (matching React implementation)
+  const callApi = async (endpoint: string, method: string, body?: any) => {
+    try {
+      const options: Record<string, any> = {
+        method,
+      };
+
+      if (body && method !== "GET") {
+        if (body instanceof FormData) {
+          // For FormData, let the browser set the content-type
+          options.body = body;
+        } else {
+          options.headers = {
+            "Content-Type": "application/json",
+          };
+          options.body = JSON.stringify(body);
+        }
+      }
+
+      // Use $api which already handles /api/proxy prefix
+      if (method === "GET") {
+        return await $api.get(endpoint);
+      } else if (method === "POST") {
+        if (body instanceof FormData) {
+          return await $api.raw.post(endpoint, body);
+        }
+        return await $api.post(endpoint, body);
+      } else if (method === "DELETE") {
+        return await $api.delete(endpoint);
+      } else if (method === "PUT") {
+        return await $api.put(endpoint, body);
+      }
+
+      throw new Error(`Unsupported method: ${method}`);
+    } catch (error: any) {
+      throw new Error(error.message || "API request failed");
+    }
+  };
+
+  /**
+   * Check if file service is healthy (matching React implementation)
+   */
+  const checkHealth = async (): Promise<{ status: string }> => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await callApi(`${FILE_SERVICE_PATH}/health`, "GET");
+      return response;
+    } catch (err: any) {
+      error.value = `Failed to check file service health: ${err.message}`;
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  };
 
   /**
    * Get media from a specific user's conversations
@@ -79,9 +165,9 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `media/user/${userId}?type=${type}&page=${page}&limit=${limit}`;
+      const endpoint = `${FILE_SERVICE_PATH}/media/user/${userId}?type=${type}&page=${page}&limit=${limit}`;
 
-      const response = await $api.get(endpoint);
+      const response = await callApi(endpoint, "GET");
 
       // Check if the response is valid
       if (!response) {
@@ -144,9 +230,9 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `media/group/${groupId}?type=${type}&page=${page}&limit=${limit}`;
+      const endpoint = `${FILE_SERVICE_PATH}/media/group/${groupId}?type=${type}&page=${page}&limit=${limit}`;
 
-      const response = await $api.get(endpoint);
+      const response = await callApi(endpoint, "GET");
 
       // Check if the response is valid
       if (!response || !response.data) {
@@ -248,7 +334,7 @@ export const useFilesStore = defineStore("files", () => {
   }
 
   /**
-   * Get list of all user files
+   * Get list of all user files (enhanced to match React)
    */
   async function getAllFiles(page = 1, limit = 20): Promise<ApiResponse> {
     isLoading.value = true;
@@ -256,9 +342,9 @@ export const useFilesStore = defineStore("files", () => {
 
     try {
       // Construct the endpoint URL with query parameters
-      const endpoint = `files?page=${page}&limit=${limit}`;
+      const endpoint = `${FILE_SERVICE_PATH}/files?page=${page}&limit=${limit}`;
 
-      const response = await $api.get(endpoint);
+      const response = await callApi(endpoint, "GET");
 
       // Update state
       files.value = response.data || [];
@@ -279,8 +365,7 @@ export const useFilesStore = defineStore("files", () => {
   }
 
   /**
-   * Upload a file to the files service (port 8084) using /api/files/upload endpoint
-   * This is for general file storage, not specifically for message attachments
+   * Upload a file to the files service (enhanced to match React implementation)
    * @param file - The file to upload
    * @param type - File type (attachment, profile, avatar)
    * @param relatedTo - UUID of related entity (optional)
@@ -319,26 +404,21 @@ export const useFilesStore = defineStore("files", () => {
       }
 
       console.log(
-        `[useFiles] Uploading file to files service via /api/files/upload`
+        `[useFiles] Uploading file to files service via /files/upload`
       );
 
-      // Use the files/upload endpoint on the files service (port 8084)
-      const endpoint = `api/files/upload`;
+      // Use the files/upload endpoint
+      const endpoint = `${FILE_SERVICE_PATH}/files/upload`;
 
-      // Use raw fetch for FormData
-      const response = await $api.raw.post(endpoint, formData);
+      const response = await callApi(endpoint, "POST", formData);
 
-      if (!response.ok) {
+      // Handle response from raw fetch
+      let data;
+      if (response.ok) {
+        data = await response.json();
+      } else {
         const errorText = await response.text();
         throw new Error(`Upload failed: ${errorText}`);
-      }
-
-      // Safely parse JSON response
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error("Failed to parse server response");
       }
 
       // Refresh the files list after a successful upload
@@ -600,22 +680,17 @@ export const useFilesStore = defineStore("files", () => {
       formData.append("content", messageText);
       formData.append("type", getFileTypeCategory(file.type));
 
-      const endpoint = `media/chat/messages`;
+      const endpoint = `${FILE_SERVICE_PATH}/chat/messages/media`;
 
-      // Use raw fetch for FormData
-      const response = await $api.raw.post(endpoint, formData);
+      const response = await callApi(endpoint, "POST", formData);
 
-      if (!response.ok) {
+      // Handle response from raw fetch
+      let data;
+      if (response.ok) {
+        data = await response.json();
+      } else {
         const errorText = await response.text();
         throw new Error(`Upload failed: ${errorText}`);
-      }
-
-      // Safely parse JSON response
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error("Failed to parse server response");
       }
 
       // Update user media list with the new file to keep UI in sync
@@ -654,22 +729,17 @@ export const useFilesStore = defineStore("files", () => {
       formData.append("content", messageText);
       formData.append("type", getFileTypeCategory(file.type));
 
-      const endpoint = `media/group/messages`;
+      const endpoint = `${FILE_SERVICE_PATH}/groups/${groupId}/messages`;
 
-      // Use raw fetch for FormData
-      const response = await $api.raw.post(endpoint, formData);
+      const response = await callApi(endpoint, "POST", formData);
 
-      if (!response.ok) {
+      // Handle response from raw fetch
+      let data;
+      if (response.ok) {
+        data = await response.json();
+      } else {
         const errorText = await response.text();
         throw new Error(`Upload failed: ${errorText}`);
-      }
-
-      // Safely parse JSON response
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error("Failed to parse server response");
       }
 
       // Update group media list with the new file to keep UI in sync
@@ -711,21 +781,56 @@ export const useFilesStore = defineStore("files", () => {
   }
 
   /**
-   * Get file URL (helper function)
+   * Get file URL (helper function) - Enhanced to match React implementation
    */
-  function getFileUrl(fileId: string): string {
+  function getFileUrl(fileId: string, groupId?: string): string {
     if (!fileId) return "";
-    // Use relative URL with proxy path to ensure proper functioning with the proxy
+    // Construct proper proxy URL without duplicating paths
+    if (groupId) {
+      return `/api/proxy/files/group/${groupId}/${fileId}`;
+    }
     return `/api/proxy/files/${fileId}`;
+  }
+
+  /**
+   * Get file download URL (new from React implementation)
+   */
+  function getDownloadUrl(fileId: string, groupId?: string): string {
+    if (!fileId) return "";
+    if (groupId) {
+      return `/api/proxy/files/group/${groupId}/${fileId}/download`;
+    }
+    return `/api/proxy/files/${fileId}/download`;
   }
 
   /**
    * Get thumbnail URL for image files (helper function)
    */
-  function getThumbnailUrl(fileId: string): string {
+  function getThumbnailUrl(fileId: string, groupId?: string): string {
     if (!fileId) return "";
     // Add a thumbnail parameter to the URL for the backend to generate a thumbnail
+    if (groupId) {
+      return `/api/proxy/files/group/${groupId}/${fileId}?thumbnail=true`;
+    }
     return `/api/proxy/files/${fileId}?thumbnail=true`;
+  }
+
+  /**
+   * Get file preview URL (new from React implementation)
+   */
+  function getPreviewUrl(fileId: string, groupId?: string): string {
+    if (!fileId) return "";
+    if (groupId) {
+      return `/api/proxy/files/group/${groupId}/${fileId}/preview`;
+    }
+    return `/api/proxy/files/${fileId}/preview`;
+  }
+
+  /**
+   * Get file details (new from React implementation)
+   */
+  async function getFileDetails(fileId: string): Promise<ApiResponse> {
+    return await callApi(`${FILE_SERVICE_PATH}/files/${fileId}`, "GET");
   }
 
   /**
@@ -742,32 +847,57 @@ export const useFilesStore = defineStore("files", () => {
   }
 
   return {
-    // State
+    // State (enhanced to match React implementation)
     files,
     userMedia,
     groupMedia,
     userFiles,
     groupFiles,
+    loading: isLoading, // Alias for React compatibility
     isLoading,
     error,
     pagination,
+    filesResponse,
 
-    // Methods
-    getUserMedia,
-    getGroupMedia,
+    // Core methods (matching React implementation)
+    checkHealth,
+    getFiles: getAllFiles, // Alias for React compatibility
+    getAllFiles,
     getUserFiles,
     getGroupFiles,
-    getAllFiles,
+    getGroupMedia,
+    getUserMedia,
+    getFileDetails,
     uploadFile,
-    attachMediaToMessage,
     downloadFile,
     deleteFile,
     shareFile,
+
+    // URL helpers (enhanced to match React implementation)
+    getPreviewUrl,
+    getDownloadUrl,
     getFileUrl,
     getThumbnailUrl,
-    formatFileSize,
+
+    // Message integration methods
     sendChatFileMessage,
     sendGroupFileMessage,
+    attachMediaToMessage,
+
+    // Utility methods
+    formatFileSize,
+    getFileTypeCategory,
+
+    // New method from React implementation for message attachments
+    uploadMessageAttachment: (file: File, chatId: string, isGroup: boolean) => {
+      const additionalData: Record<string, string> = {
+        type: "attachment",
+        related_to: chatId,
+        related_type: isGroup ? "group" : "user",
+        for_message: "true",
+      };
+      return uploadFile(file, "attachment", chatId, additionalData);
+    },
   };
 });
 

@@ -4,7 +4,9 @@
     <div class="mb-6 flex justify-between items-center">
       <h1 class="text-xl font-bold text-gray-800">Friends</h1>
       <div class="flex items-center space-x-2">
-        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+        <div
+          class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+        >
           <NotificationDropdown />
         </div>
         <button
@@ -88,7 +90,9 @@
           </h2>
           <button class="text-blue-700 hover:text-blue-900 p-1">
             <Icon
-              :name="requestsHidden ? 'lucide:chevron-down' : 'lucide:chevron-up'"
+              :name="
+                requestsHidden ? 'lucide:chevron-down' : 'lucide:chevron-up'
+              "
               class="h-4 w-4"
             />
           </button>
@@ -97,7 +101,9 @@
         <div v-if="!requestsHidden" class="p-3 space-y-2 bg-blue-50">
           <FriendRequest
             v-for="request in incomingRequests"
-            :key="request.friendship_id || request.id || `request-${Math.random()}`"
+            :key="
+              request.friendship_id || request.id || `request-${Math.random()}`
+            "
             :request="request"
             @accept="handleAcceptRequest"
             @reject="handleRejectRequest"
@@ -107,7 +113,9 @@
 
       <!-- Friends List Section -->
       <div class="flex-1 overflow-auto">
-        <h2 class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-3">
+        <h2
+          class="font-medium text-gray-500 text-xs uppercase tracking-wider mb-3"
+        >
           {{ onlineFriendsCount > 0 ? "Online" : "All" }} Friends
           <span v-if="sortedFriends.length > 0" class="ml-2 text-gray-400">
             ({{ sortedFriends.length }})
@@ -121,9 +129,7 @@
           <Icon name="fa:user" class="h-12 w-12 text-gray-300 mb-3" />
           <p class="text-gray-500 font-medium">
             {{
-              searchQuery
-                ? `No results for "${searchQuery}"`
-                : "No friends yet"
+              searchQuery ? `No results for "${searchQuery}"` : "No friends yet"
             }}
           </p>
           <p class="text-sm text-gray-400 mt-2">
@@ -256,12 +262,10 @@
                 type="text"
                 v-model="addByUsername"
                 placeholder="Enter friend's username"
-                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-10"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pl-10 text-gray-900 placeholder-gray-500"
                 :disabled="isAddingByUsername"
               />
-              <div
-                class="absolute left-3 top-1/2 transform -translate-y-1/2"
-              >
+              <div class="absolute left-3 top-1/2 transform -translate-y-1/2">
                 <Icon name="fa:user" class="h-4 w-4 text-gray-400" />
               </div>
             </div>
@@ -284,11 +288,7 @@
                 v-if="isAddingByUsername"
                 class="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"
               ></div>
-              <Icon
-                v-else
-                name="lucide:user-plus"
-                class="mr-2 h-4 w-4"
-              />
+              <Icon v-else name="lucide:user-plus" class="mr-2 h-4 w-4" />
               {{ isAddingByUsername ? "Sending..." : "Send Request" }}
             </button>
           </div>
@@ -658,51 +658,65 @@ const sortedFriends = computed(() => {
 // Filter only incoming friend requests
 const incomingRequests = computed(() => {
   console.log("[FriendsList] Computing incoming requests...");
-  console.log("[FriendsList] Raw pending requests:", friendsStore.pendingRequests);
-  
+  console.log(
+    "[FriendsList] Raw pending requests:",
+    friendsStore.pendingRequests
+  );
+
   const currentUserId = authStore.user?.id;
   console.log("[FriendsList] Current user ID:", currentUserId);
-  
-  const filtered = friendsStore.pendingRequests?.filter((request) => {
-    console.log("[FriendsList] Processing request:", request);
-    
-    if (!request) {
-      console.log("[FriendsList] Request is null/undefined, skipping");
+
+  const filtered =
+    friendsStore.pendingRequests?.filter((request) => {
+      console.log("[FriendsList] Processing request:", request);
+
+      if (!request) {
+        console.log("[FriendsList] Request is null/undefined, skipping");
+        return false;
+      }
+
+      // Primary check: direction field (this should match your API response)
+      if (request.direction === "incoming") {
+        console.log(
+          "[FriendsList] ✅ Request marked as incoming via direction field"
+        );
+        return true;
+      }
+
+      // Secondary check: type field for compatibility
+      if (request.type === "received") {
+        console.log(
+          "[FriendsList] ✅ Request marked as incoming via type field"
+        );
+        return true;
+      }
+
+      // Tertiary check: recipient_id match (if available)
+      if (currentUserId && request.recipient_id === currentUserId) {
+        console.log(
+          "[FriendsList] ✅ Request is incoming - current user is recipient"
+        );
+        return true;
+      }
+
+      // Final fallback: if no direction/type specified but status is pending
+      // This handles cases where API doesn't provide direction/type explicitly
+      if (!request.direction && !request.type && request.status === "pending") {
+        console.log(
+          "[FriendsList] ⚠️ Request has no direction/type, assuming incoming based on pending status"
+        );
+        return true;
+      }
+
+      console.log(
+        "[FriendsList] ❌ Request doesn't match incoming criteria, excluding"
+      );
       return false;
-    }
+    }) || [];
 
-    // Primary check: direction field (this should match your API response)
-    if (request.direction === "incoming") {
-      console.log("[FriendsList] ✅ Request marked as incoming via direction field");
-      return true;
-    }
-    
-    // Secondary check: type field for compatibility
-    if (request.type === "received") {
-      console.log("[FriendsList] ✅ Request marked as incoming via type field");
-      return true;
-    }
-    
-    // Tertiary check: recipient_id match (if available)
-    if (currentUserId && request.recipient_id === currentUserId) {
-      console.log("[FriendsList] ✅ Request is incoming - current user is recipient");
-      return true;
-    }
-    
-    // Final fallback: if no direction/type specified but status is pending
-    // This handles cases where API doesn't provide direction/type explicitly
-    if (!request.direction && !request.type && request.status === "pending") {
-      console.log("[FriendsList] ⚠️ Request has no direction/type, assuming incoming based on pending status");
-      return true;
-    }
-
-    console.log("[FriendsList] ❌ Request doesn't match incoming criteria, excluding");
-    return false;
-  }) || [];
-  
   console.log("[FriendsList] Filtered incoming requests:", filtered);
   console.log("[FriendsList] Incoming requests count:", filtered.length);
-  
+
   return filtered;
 });
 
@@ -738,7 +752,7 @@ const handleFriendSelect = async (friendId: string) => {
       friendName ? `?name=${encodeURIComponent(friendName)}` : ""
     }`;
     console.log("🚀 [FriendsList] Navigating to URL:", url);
-    
+
     await navigateTo(url);
   } catch (err) {
     console.error("[FriendsList] Error navigating to friend chat:", err);

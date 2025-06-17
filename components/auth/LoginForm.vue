@@ -240,6 +240,9 @@ const handleSubmit = async () => {
     // Display success message
     $toast.success("Login successful!");
 
+    // Set fresh login flag for auto-refresh
+    sessionStorage.setItem("freshLogin", "true");
+
     // Make sure user data is loaded before navigation
     await authStore.getUserInfo().catch((error) => {
       console.warn("Error fetching user info:", error);
@@ -262,8 +265,8 @@ const handleSubmit = async () => {
     // Add a slightly longer delay before navigation to ensure state is fully propagated
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Navigate to protected area
-    router.push("/chat/messages");
+    // Navigate to protected area with fresh login indicator
+    router.push("/chat/messages?fromLogin=true");
   } catch (error: any) {
     // Handle login errors
     console.error("Login error:", error);

@@ -136,13 +136,20 @@
             :key="message.id"
             :message="{
               ...message,
-              created_at: message.created_at || message.timestamp || new Date().toISOString()
+              created_at:
+                message.created_at ||
+                message.timestamp ||
+                new Date().toISOString(),
             }"
             :recipient="{
               id: recipient.id,
-              name: recipient.name || recipient.first_name + ' ' + recipient.last_name || 'Unknown User',
+              name:
+                recipient.name ||
+                recipient.first_name + ' ' + recipient.last_name ||
+                'Unknown User',
               avatar: recipient.avatar,
-              profile_picture_url: recipient.profile_picture_url || recipient.avatar
+              profile_picture_url:
+                recipient.profile_picture_url || recipient.avatar,
             }"
             @retry-click="retryFailedMessage"
             @edit-click="handleEditMessage"
@@ -156,6 +163,42 @@
 
       <!-- Message input area -->
       <div class="p-4 bg-white border-t border-gray-200">
+        <!-- Upload progress indicator -->
+        <div v-if="isUploading && uploadProgress.length > 0" class="mb-3">
+          <div class="text-sm text-gray-600 mb-2">
+            Uploading {{ uploadProgress.length }} file(s)...
+          </div>
+          <div class="space-y-2">
+            <div
+              v-for="progress in uploadProgress"
+              :key="progress.id"
+              class="flex items-center space-x-3"
+            >
+              <div class="flex-1">
+                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>{{ progress.file.name }}</span>
+                  <span>{{ progress.progress }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    class="h-2 rounded-full transition-all duration-300"
+                    :class="{
+                      'bg-blue-500': progress.status === 'uploading',
+                      'bg-green-500': progress.status === 'success',
+                      'bg-red-500': progress.status === 'error',
+                      'bg-gray-300': progress.status === 'pending',
+                    }"
+                    :style="{ width: `${progress.progress}%` }"
+                  ></div>
+                </div>
+                <div v-if="progress.error" class="text-xs text-red-500 mt-1">
+                  {{ progress.error }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div
           v-if="editingMessageId"
           class="flex items-center mb-2 bg-blue-50 p-2 rounded"
@@ -178,9 +221,14 @@
                 class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
                 :class="{ 'bg-blue-100 text-blue-600': isAttachmentMenuOpen }"
                 title="Attach file"
-                :disabled="isSending"
+                :disabled="isSending || isUploading"
               >
-                <Icon name="lucide:paperclip" class="h-5 w-5" />
+                <Icon
+                  v-if="isUploading"
+                  name="svg-spinners:270-ring"
+                  class="h-5 w-5"
+                />
+                <Icon v-else name="lucide:paperclip" class="h-5 w-5" />
               </button>
               <div
                 v-if="isAttachmentMenuOpen"
@@ -191,12 +239,12 @@
                   type="button"
                   @click="handleFileUpload"
                   class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 mb-2 w-full text-left px-4 py-2 rounded transition-all duration-200"
-                  :disabled="isSending"
+                  :disabled="isSending || isUploading"
                 >
                   <Icon name="fa:file" class="mr-2" />
                   <span>File</span>
                   <Icon
-                    v-if="isSending"
+                    v-if="isUploading"
                     name="svg-spinners:270-ring"
                     class="ml-auto h-4 w-4 text-blue-500"
                   />
@@ -205,12 +253,12 @@
                   type="button"
                   @click="handleImageUpload"
                   class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 w-full text-left px-4 py-2 rounded transition-all duration-200"
-                  :disabled="isSending"
+                  :disabled="isSending || isUploading"
                 >
                   <Icon name="fa:image" class="mr-2" />
                   <span>Image</span>
                   <Icon
-                    v-if="isSending"
+                    v-if="isUploading"
                     name="svg-spinners:270-ring"
                     class="ml-auto h-4 w-4 text-blue-500"
                   />
@@ -221,16 +269,18 @@
               ref="fileInputRef"
               type="file"
               class="hidden"
+              multiple
               @change="handleFileChange"
-              :disabled="isSending"
+              :disabled="isSending || isUploading"
             />
             <input
               ref="imageInputRef"
               type="file"
               accept="image/*"
               class="hidden"
+              multiple
               @change="handleImageChange"
-              :disabled="isSending"
+              :disabled="isSending || isUploading"
             />
             <div
               v-if="isSending"
@@ -242,7 +292,9 @@
               v-model="inputMessage"
               type="text"
               :placeholder="
-                editingMessageId ? 'Edit your message...' : 'Type your message...'
+                editingMessageId
+                  ? 'Edit your message...'
+                  : 'Type your message...'
               "
               class="flex-1 py-2 px-4 rounded-full border border-gray-300 focus:outline-none focus:border-blue-400 text-gray-700"
               @input="handleTyping"
@@ -251,10 +303,14 @@
             <button
               type="submit"
               class="bg-blue-500 text-white p-3 rounded-full ml-2 hover:bg-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="(!inputMessage.trim() && !editingMessageId) || isSending"
+              :disabled="
+                (!inputMessage.trim() && !editingMessageId) ||
+                isSending ||
+                isUploading
+              "
             >
               <div
-                v-if="isSending"
+                v-if="isSending || isUploading"
                 class="animate-spin rounded-full h-4 w-4 border-t-2 border-white"
               ></div>
               <Icon v-else name="fa:paper-plane" class="h-4 w-4" />
@@ -320,7 +376,7 @@
 import { ref, computed, onMounted, nextTick, watch, onUnmounted } from "vue";
 import SearchOnFriend from "./SearchOnFriend.vue";
 import FriendInfoPanel from "./FriendInfoPanel.vue";
-import RecipientProfile from "./RecipientProfile.vue";
+// import RecipientProfile from "./RecipientProfile.vue";
 import ChatAreaItem from "./ChatAreaItem.vue"; // Import the new component
 import { useMessagesStore } from "~/composables/useMessages";
 import { useAuthStore } from "~/composables/useAuth";
@@ -331,7 +387,17 @@ import { eventBus } from "~/composables/useEventBus";
 import { useNuxtApp } from "#app";
 import { useFiles } from "~/composables/useFiles";
 import { useFriendsStore } from "~/composables/useFriends";
-import { formatMessageTimestamp, formatDateForSeparator } from "~/utils/timestampHelper";
+import {
+  formatMessageTimestamp,
+  formatDateForSeparator,
+} from "~/utils/timestampHelper";
+import {
+  uploadFileAndSendMessage,
+  validateFile,
+  getMediaType,
+  formatFileSize,
+  type FileUploadResult,
+} from "~/utils/fileUploadHelper";
 
 // Services and stores
 const { $toast } = useNuxtApp();
@@ -383,15 +449,15 @@ interface Message {
 // Helper function for timestamp formatting
 const formatTimestamp = (timestamp: string | null | undefined): string => {
   if (!timestamp) return "";
-  
+
   try {
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return "";
-    
-    return date.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
+
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
   } catch (error) {
     return "";
@@ -415,6 +481,19 @@ const typingTimeout = ref<NodeJS.Timeout | null>(null);
 const isSending = ref(false);
 const isLoading = ref(false);
 
+// Enhanced file upload state - React style
+interface FileProgress {
+  id: string;
+  file: File;
+  progress: number;
+  status: "pending" | "uploading" | "success" | "error";
+  error: string | null;
+}
+
+const uploadProgress = ref<FileProgress[]>([]);
+const isUploading = ref(false);
+const dragActive = ref(false);
+
 // Refs for DOM manipulation
 const dropdownRef = ref<HTMLElement | null>(null);
 const messagesEndRef = ref<HTMLElement | null>(null);
@@ -424,7 +503,8 @@ const imageInputRef = ref<HTMLInputElement | null>(null);
 
 // Validate recipient avatar - similar to React implementation
 const validatedRecipientAvatar = computed(() => {
-  const avatarUrl = recipient.value.profile_picture_url || recipient.value.avatar;
+  const avatarUrl =
+    recipient.value.profile_picture_url || recipient.value.avatar;
   if (!avatarUrl) return null;
 
   // Check if it's a data URL
@@ -442,7 +522,8 @@ const validatedRecipientAvatar = computed(() => {
     }
 
     // Validate data URL format
-    const dataUrlRegex = /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
+    const dataUrlRegex =
+      /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
     if (!dataUrlRegex.test(avatarUrl)) {
       console.warn(
         "[ChatArea] Invalid data URL format:",
@@ -457,7 +538,8 @@ const validatedRecipientAvatar = computed(() => {
 
 // Enhanced message grouping by date with better formatting - React style
 const groupedMessages = computed(() => {
-  if (!displayMessages.value || !Array.isArray(displayMessages.value)) return [];
+  if (!displayMessages.value || !Array.isArray(displayMessages.value))
+    return [];
 
   const messagesByDate: Record<
     string,
@@ -559,13 +641,19 @@ const retryFailedMessage = async (message: Message) => {
         // WebSocket retry would go here
       } catch (wsError) {
         console.warn("[ChatArea] WebSocket retry failed, using API:", wsError);
-        response = await messagesStore.sendMessage(props.recipientId, message.content);
+        response = await messagesStore.sendMessage(
+          props.recipientId,
+          message.content
+        );
         if (response?.data?.id) {
           messageId = response.data.id;
         }
       }
     } else {
-      response = await messagesStore.sendMessage(props.recipientId, message.content);
+      response = await messagesStore.sendMessage(
+        props.recipientId,
+        message.content
+      );
       if (response?.data?.id) {
         messageId = response.data.id;
       }
@@ -644,7 +732,10 @@ const handleSubmitEdit = async () => {
     }
 
     // Call edit API
-    const response = await messagesStore.editMessage(editingMessageId.value, messageContent);
+    const response = await messagesStore.editMessage(
+      editingMessageId.value,
+      messageContent
+    );
 
     // Update with successful edit
     if (messageIndex !== -1) {
@@ -682,18 +773,20 @@ const handleSubmitEdit = async () => {
   }
 };
 
-// Main send message function
+// Enhanced send message function with React-style optimistic updates
 const handleSendMessage = async () => {
   const content = inputMessage.value.trim();
   if (!content || !props.recipientId) return;
 
   // Generate unique temp ID for optimistic update
-  const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const tempId = `temp-${Date.now()}-${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
 
   try {
     isSending.value = true;
 
-    // Create optimistic message for immediate UI feedback
+    // Create optimistic message for immediate UI feedback - React style
     const nowIsoString = new Date().toISOString();
     const optimisticMessage: Message = {
       id: tempId,
@@ -707,10 +800,16 @@ const handleSendMessage = async () => {
       isCurrentUser: true,
       pending: true,
       sent: false,
+      // Add React-style message state
+      type: "text",
+      retryCount: 0,
     };
 
-    // Add optimistic message immediately
+    // Add optimistic message immediately for instant UI feedback
     messages.value.push(optimisticMessage);
+
+    // Clear input immediately for better UX
+    inputMessage.value = "";
 
     // Auto-scroll to show the new message
     nextTick(() => {
@@ -721,59 +820,92 @@ const handleSendMessage = async () => {
 
     let response: any = null;
     let messageId = tempId;
+    let sendSuccess = false;
 
-    // Enhanced sending logic with WebSocket priority and API fallback
+    // Enhanced sending logic with WebSocket priority and API fallback - React style
     if (webSocketStore.isConnected) {
       try {
-        // WebSocket sending would go here
-        console.log("[ChatArea] Sending via WebSocket");
-        // For now, fall back to API
-        response = await messagesStore.sendMessage(props.recipientId, content);
-        if (response?.data?.id) {
-          messageId = response.data.id;
-        }
+        console.log("[ChatArea] Attempting WebSocket send...");
+
+        // WebSocket message format
+        const wsMessage = {
+          type: WebSocketMessageType.MESSAGE,
+          data: {
+            content,
+            recipient_id: props.recipientId,
+            type: "private",
+            temp_id: tempId,
+          },
+        };
+
+        // Send via WebSocket first
+        await webSocketStore.send(wsMessage);
+
+        // For WebSocket, we'll wait for confirmation via the event system
+        // The temp message will be replaced when the server confirms
+        sendSuccess = true;
+        console.log("[ChatArea] WebSocket send initiated");
       } catch (wsError) {
+        console.warn(
+          "[ChatArea] WebSocket send failed, falling back to API:",
+          wsError
+        );
+
+        // Fallback to API
         response = await messagesStore.sendMessage(props.recipientId, content);
         if (response?.data?.id) {
           messageId = response.data.id;
+          sendSuccess = true;
         }
       }
     } else {
+      console.log("[ChatArea] WebSocket not connected, using API");
       response = await messagesStore.sendMessage(props.recipientId, content);
       if (response?.data?.id) {
         messageId = response.data.id;
+        sendSuccess = true;
       }
     }
 
-    // Update optimistic message with successful state
-    const messageIndex = messages.value.findIndex((msg) => msg.id === tempId);
-    if (messageIndex !== -1) {
-      messages.value[messageIndex] = {
-        ...optimisticMessage,
-        id: messageId,
-        pending: false,
-        sent: true,
-        failed: false,
-        // Include any additional data from response
-        ...(response && typeof response === "object" ? response : {}),
-      };
-    }
+    if (sendSuccess) {
+      // Update optimistic message with successful state
+      const messageIndex = messages.value.findIndex((msg) => msg.id === tempId);
+      if (messageIndex !== -1) {
+        messages.value[messageIndex] = {
+          ...optimisticMessage,
+          id: messageId,
+          pending: false,
+          sent: true,
+          failed: false,
+          // Include any additional data from response
+          ...(response?.data ? response.data : {}),
+        };
+      }
 
-    // Clear input and save to session storage
-    inputMessage.value = "";
-    saveToSessionStorage(messages.value);
+      // Save to session storage
+      saveToSessionStorage(messages.value);
+    } else {
+      throw new Error("Send failed - no response received");
+    }
   } catch (error) {
     console.error("[ChatArea] Error sending message:", error);
 
-    // Update the optimistic message to show error state
+    // Update the optimistic message to show error state - React style
     const messageIndex = messages.value.findIndex((msg) => msg.id === tempId);
     if (messageIndex !== -1) {
       messages.value[messageIndex] = {
         ...messages.value[messageIndex],
         pending: false,
         failed: true,
+        sent: false,
         errorMessage: error instanceof Error ? error.message : "Send failed",
+        retryCount: 0,
       };
+    }
+
+    // Restore input message on failure for retry
+    if (!inputMessage.value.trim()) {
+      inputMessage.value = content;
     }
 
     $toast?.error("Failed to send message");
@@ -1065,89 +1197,225 @@ const handleCancelEdit = () => {
   inputMessage.value = "";
 };
 
-// Handle file upload button click
+// Enhanced file upload handling with fileUploadHelper - React style
 const handleFileUpload = () => {
   if (fileInputRef.value) {
-    // Show feedback that the file picker is opening
-    $toast.info("Select a file to upload", { autoClose: 2000 });
+    $toast?.info("Select a file to upload", { autoClose: 2000 });
     fileInputRef.value.click();
     isAttachmentMenuOpen.value = false;
   }
 };
 
-// Handle image upload button click
 const handleImageUpload = () => {
   if (imageInputRef.value) {
-    // Show feedback that the image picker is opening
-    $toast.info("Select an image to upload", { autoClose: 2000 });
+    $toast?.info("Select an image to upload", { autoClose: 2000 });
     imageInputRef.value.click();
     isAttachmentMenuOpen.value = false;
   }
 };
 
-// Handle file change
+// Enhanced file change handler with validation and progress tracking
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
+  const files = Array.from(target.files || []);
 
-  if (!file) return;
-
-  let response: any; // Declare response outside try-catch block
+  if (!files.length) return;
 
   try {
-    isSending.value = true;
-    $toast?.info("Uploading file...", { autoClose: 2000 });
-
-    // Upload file and send message
-    response = await messagesStore.sendMessageWithMedia(
-      props.recipientId,
-      `📎 ${file.name}`,
-      "file",
-      file
-    );
-
-    if (response?.data) {
-      await fetchPrivateMessages(); // Refresh messages
-      $toast?.success("File sent successfully");
+    // Validate files using fileUploadHelper
+    const invalidFiles: string[] = [];
+    for (const file of files) {
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        invalidFiles.push(`${file.name}: ${validation.error}`);
+      }
     }
+
+    if (invalidFiles.length > 0) {
+      $toast?.error(invalidFiles.join(", "));
+      return;
+    }
+
+    isUploading.value = true;
+    uploadProgress.value = files.map((file, index) => ({
+      id: `file-${index}-${Date.now()}`,
+      file,
+      progress: 0,
+      status: "pending" as const,
+      error: null,
+    }));
+
+    // Process files sequentially with progress tracking
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const progressItem = uploadProgress.value[i];
+
+      try {
+        progressItem.status = "uploading";
+        progressItem.progress = 0;
+
+        // Enhanced upload with progress tracking
+        const result = await uploadFileAndSendMessage(
+          file,
+          props.recipientId,
+          `📎 ${file.name}`,
+          false, // isGroup = false for private chat
+          // Progress callback
+          (progress: number) => {
+            progressItem.progress = progress;
+          }
+        );
+
+        // Create optimistic message for successful upload
+        const tempId = `temp-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        const nowIsoString = new Date().toISOString();
+
+        const fileMessage: Message = {
+          id: result.messageId || tempId,
+          sender_id: currentUser.value?.id || "",
+          recipient_id: props.recipientId,
+          content: `📎 ${result.fileName}`,
+          timestamp: formatTimestamp(nowIsoString),
+          raw_timestamp: nowIsoString,
+          created_at: nowIsoString,
+          updated_at: nowIsoString,
+          isCurrentUser: true,
+          pending: false,
+          sent: true,
+          attachment: {
+            type: getMediaType(result.fileType) === "image" ? "image" : "file",
+            url: result.fileUrl,
+            name: result.fileName,
+            size: formatFileSize(result.fileSize),
+          },
+        };
+
+        messages.value.push(fileMessage);
+        progressItem.status = "success";
+        progressItem.progress = 100;
+        $toast?.success(`${result.fileName} uploaded successfully`);
+      } catch (error) {
+        progressItem.status = "error";
+        progressItem.error =
+          error instanceof Error ? error.message : "Upload failed";
+        $toast?.error(`Failed to upload ${file.name}: ${progressItem.error}`);
+      }
+    }
+
+    // Save to session storage and scroll to bottom
+    saveToSessionStorage(messages.value);
+    nextTick(() => {
+      if (messagesEndRef.value) {
+        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+      }
+    });
   } catch (error) {
-    $toast?.error("Failed to upload file");
+    console.error("[ChatArea] File upload error:", error);
+    $toast?.error("Failed to upload files");
   } finally {
-    isSending.value = false;
+    isUploading.value = false;
+    uploadProgress.value = [];
     target.value = ""; // Reset file input
   }
 };
 
-// Handle image change
+// Enhanced image change handler
 const handleImageChange = async (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
+  const files = Array.from(target.files || []);
 
-  if (!file) return;
+  if (!files.length) return;
 
-  let response: any; // Declare response outside try-catch block
+  // Filter for images only
+  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+  if (!imageFiles.length) {
+    $toast?.error("Please select valid image files");
+    return;
+  }
 
   try {
-    isSending.value = true;
-    $toast?.info("Uploading image...", { autoClose: 2000 });
+    // Use the same enhanced upload logic as files
+    isUploading.value = true;
+    uploadProgress.value = imageFiles.map((file, index) => ({
+      id: `image-${index}-${Date.now()}`,
+      file,
+      progress: 0,
+      status: "pending" as const,
+      error: null,
+    }));
 
-    // Upload image and send message
-    response = await messagesStore.sendMessageWithMedia(
-      props.recipientId,
-      `🖼️ ${file.name}`,
-      "image",
-      file
-    );
+    // Process images sequentially
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      const progressItem = uploadProgress.value[i];
 
-    if (response?.data) {
-      await fetchPrivateMessages(); // Refresh messages
-      $toast?.success("Image sent successfully");
+      try {
+        progressItem.status = "uploading";
+        progressItem.progress = 0;
+
+        const result = await uploadFileAndSendMessage(
+          file,
+          props.recipientId,
+          `🖼️ ${file.name}`,
+          false, // isGroup = false for private chat
+          // Progress callback
+          (progress: number) => {
+            progressItem.progress = progress;
+          }
+        );
+
+        const tempId = `temp-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        const nowIsoString = new Date().toISOString();
+
+        const imageMessage: Message = {
+          id: result.messageId || tempId,
+          sender_id: currentUser.value?.id || "",
+          recipient_id: props.recipientId,
+          content: `🖼️ ${result.fileName}`,
+          timestamp: formatTimestamp(nowIsoString),
+          raw_timestamp: nowIsoString,
+          created_at: nowIsoString,
+          updated_at: nowIsoString,
+          isCurrentUser: true,
+          pending: false,
+          sent: true,
+          attachment: {
+            type: "image",
+            url: result.fileUrl,
+            name: result.fileName,
+            size: formatFileSize(result.fileSize),
+          },
+        };
+
+        messages.value.push(imageMessage);
+        progressItem.status = "success";
+        progressItem.progress = 100;
+        $toast?.success(`${result.fileName} uploaded successfully`);
+      } catch (error) {
+        progressItem.status = "error";
+        progressItem.error =
+          error instanceof Error ? error.message : "Upload failed";
+        $toast?.error(`Failed to upload ${file.name}: ${progressItem.error}`);
+      }
     }
+
+    saveToSessionStorage(messages.value);
+    nextTick(() => {
+      if (messagesEndRef.value) {
+        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+      }
+    });
   } catch (error) {
-    $toast?.error("Failed to upload image");
+    console.error("[ChatArea] Image upload error:", error);
+    $toast?.error("Failed to upload images");
   } finally {
-    isSending.value = false;
-    target.value = ""; // Reset file input
+    isUploading.value = false;
+    uploadProgress.value = [];
+    target.value = "";
   }
 };
 
@@ -1207,16 +1475,33 @@ const recipient = computed(() => {
 
 // Function to adapt Recipient type to what FriendInfoPanel expects
 const adaptRecipientToFriendDetails = (recipient: any) => {
-  // FriendInfoPanel may have different status expectations than RecipientProfile
-  // Just ensure it's a valid string value with a fallback
-  const normalizedStatus = recipient.status || "offline";
+  // Ensure status is compatible with FriendInfoPanel's "online" | "offline" type
+  const normalizedStatus: "online" | "offline" =
+    recipient.status === "online" ? "online" : "offline";
 
   return {
-    ...recipient,
+    id: recipient.id || props.recipientId,
+    name:
+      recipient.name ||
+      `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() ||
+      "User",
+    first_name: recipient.first_name || "",
+    last_name: recipient.last_name || "",
+    email: recipient.email || "",
+    phone: recipient.phone || "",
     status: normalizedStatus,
-    phone: recipient.phone || "Not provided",
-    joinDate: recipient.joinDate || "Unknown",
-    location: recipient.location || "Not specified",
+    avatar: recipient.avatar || recipient.profile_picture_url,
+    profile_picture_url: recipient.profile_picture_url || recipient.avatar,
+    username: recipient.username || recipient.name,
+    avatar_url:
+      recipient.avatar_url || recipient.profile_picture_url || recipient.avatar,
+    display_name:
+      recipient.display_name ||
+      `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() ||
+      recipient.name,
+    full_name:
+      recipient.full_name ||
+      `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim(),
   };
 };
 

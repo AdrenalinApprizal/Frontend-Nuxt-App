@@ -25,7 +25,7 @@ import { computed, onMounted } from "vue";
 // Define interfaces based on those used in components
 interface Message {
   id: string;
-  sender_id?: string;
+  sender_id: string; // Required to match ChatArea interface
   recipient_id?: string;
   content: string;
   timestamp: string; // Required by ChatArea component

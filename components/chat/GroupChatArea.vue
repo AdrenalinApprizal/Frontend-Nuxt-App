@@ -2,14 +2,14 @@
   <div class="h-full flex bg-gray-50">
     <!-- Main chat area -->
     <div class="flex-1 flex flex-col h-full">
-      <!-- Header with group info -->
+      <!-- Enhanced header with group info -->
       <div
-        class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between"
+        class="px-4 sm:px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between"
       >
-        <div class="flex items-center">
-          <div class="relative mr-3">
+        <div class="flex items-center min-w-0 flex-1">
+          <div class="relative mr-3 flex-shrink-0">
             <div
-              class="h-12 w-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
+              class="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center ring-2 ring-white shadow-sm"
             >
               <img
                 v-if="currentGroup?.avatar_url"
@@ -17,37 +17,76 @@
                 :alt="currentGroup?.name"
                 class="h-full w-full object-cover"
               />
-              <Icon v-else name="fa:users" class="h-6 w-6 text-gray-500" />
+              <Icon
+                v-else
+                name="fa:users"
+                class="h-5 w-5 sm:h-6 sm:w-6 text-gray-500"
+              />
             </div>
+            <!-- Online indicator for group activity -->
+            <div
+              class="absolute bottom-0 right-0 h-3 w-3 bg-green-400 border-2 border-white rounded-full"
+              v-if="memberCount > 1"
+            ></div>
           </div>
-          <div>
-            <h2 class="font-semibold text-gray-800">
+          <div class="min-w-0 flex-1">
+            <h2 class="font-semibold text-gray-800 text-lg truncate">
               {{ currentGroup?.name || "Loading..." }}
             </h2>
-            <p class="text-xs text-gray-500">{{ memberCount }} members</p>
+            <p class="text-xs sm:text-sm text-gray-500 truncate">
+              {{ memberCount }} member{{ memberCount !== 1 ? "s" : "" }}
+              <span
+                v-if="
+                  groupMembers.filter(
+                    (m) => getMemberStatus(m.user_id) === 'online'
+                  ).length > 0
+                "
+                class="ml-1"
+              >
+                ·
+                {{
+                  groupMembers.filter(
+                    (m) => getMemberStatus(m.user_id) === "online"
+                  ).length
+                }}
+                online
+              </span>
+            </p>
           </div>
         </div>
 
-        <div class="flex items-center">
-          <div v-if="isLoading" class="mr-3">
+        <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+          <div v-if="isLoading" class="mr-2">
             <div
               class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"
             ></div>
           </div>
+
+          <!-- Search button -->
           <button
             @click="showSearch = true"
-            class="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
+            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200"
             title="Search in conversation"
           >
             <Icon name="fa:search" class="h-4 w-4" />
           </button>
+
+          <!-- Group info button -->
           <button
             @click="showInfo = !showInfo"
-            class="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
-            :class="{ 'text-blue-500': showInfo }"
+            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200"
+            :class="{ 'bg-blue-50 text-blue-500': showInfo }"
             title="Group info"
           >
             <Icon name="fa:info-circle" class="h-4 w-4" />
+          </button>
+
+          <!-- More options button -->
+          <button
+            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200"
+            title="More options"
+          >
+            <Icon name="fa:ellipsis-v" class="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -60,67 +99,94 @@
         @search="handleAdvancedSearch"
       />
 
-      <!-- Messages container -->
+      <!-- Enhanced messages container -->
       <div
-        class="flex-1 overflow-auto p-6 space-y-4 relative"
+        class="flex-1 overflow-auto px-4 sm:px-6 py-4 space-y-4 relative bg-gray-50"
         ref="messagesContainer"
       >
-        <!-- Loading state -->
+        <!-- Loading state with better UX -->
         <div
           v-if="groupsStore.isLoading"
-          class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 z-10"
+          class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-10 backdrop-blur-sm"
         >
-          <div class="flex flex-col items-center">
+          <div
+            class="flex flex-col items-center bg-white rounded-lg p-6 shadow-lg"
+          >
             <div
-              class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
+              class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"
             ></div>
-            <p class="mt-2 text-sm text-gray-500">Loading messages...</p>
+            <p class="text-sm font-medium text-gray-600">Loading messages...</p>
           </div>
         </div>
 
-        <!-- No messages placeholder -->
+        <!-- Enhanced no messages placeholder -->
         <div
           v-else-if="displayMessages.length === 0"
           class="absolute inset-0 flex items-center justify-center"
         >
-          <div v-if="isSearching" class="text-center text-gray-500">
-            <p class="mb-1">No matching messages found</p>
-            <button @click="clearSearch" class="text-blue-500 hover:underline">
+          <div v-if="isSearching" class="text-center">
+            <div class="mb-4">
+              <Icon
+                name="fa:search"
+                class="h-12 w-12 text-gray-300 mx-auto mb-3"
+              />
+              <p class="text-gray-500 font-medium mb-1">
+                No matching messages found
+              </p>
+              <p class="text-sm text-gray-400">
+                Try adjusting your search criteria
+              </p>
+            </div>
+            <button
+              @click="clearSearch"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+            >
               Clear search
             </button>
           </div>
-          <div v-else class="text-center text-gray-500">
-            <p class="mb-1">No messages yet</p>
-            <p class="text-sm">Start the conversation by sending a message</p>
+          <div v-else class="text-center">
+            <div class="mb-4">
+              <Icon
+                name="fa:comments"
+                class="h-12 w-12 text-gray-300 mx-auto mb-3"
+              />
+              <p class="text-gray-500 font-medium mb-1">No messages yet</p>
+              <p class="text-sm text-gray-400">
+                Start the conversation by sending a message
+              </p>
+            </div>
           </div>
         </div>
 
-        <!-- Load more messages button -->
+        <!-- Enhanced load more messages button -->
         <div
           v-if="canLoadMoreMessages && displayMessages.length > 0"
-          class="text-center mb-4"
+          class="text-center mb-6"
         >
           <button
             @click="loadMoreMessages"
-            class="px-4 py-2 text-sm bg-gray-100 text-blue-600 rounded-lg hover:bg-gray-200 transition-colors"
+            class="inline-flex items-center px-4 py-2 text-sm bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-gray-200 shadow-sm"
             :class="{ 'opacity-50 cursor-not-allowed': isLoadingMore }"
             :disabled="isLoadingMore"
           >
-            <div v-if="isLoadingMore" class="flex items-center justify-center">
+            <div v-if="isLoadingMore" class="flex items-center">
               <div
                 class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"
               ></div>
               Loading...
             </div>
-            <span v-else>Load earlier messages</span>
+            <span v-else class="flex items-center">
+              <Icon name="fa:chevron-up" class="h-4 w-4 mr-2" />
+              Load earlier messages
+            </span>
           </button>
         </div>
 
-        <!-- Messages list -->
+        <!-- Enhanced messages list -->
         <div
           v-for="message in displayMessages"
           :key="message.id"
-          class="message"
+          class="message-wrapper"
         >
           <GroupMessageItem
             :message="{
@@ -128,108 +194,266 @@
               sender: message.sender || {
                 id: message.sender_id || 'unknown',
                 name: 'Unknown User',
-                avatar: undefined
+                avatar: undefined,
+                role: 'member' as const,
+                status: 'offline' as const,
               },
               timestamp: message.timestamp || '',
-              isCurrentUser: message.isCurrentUser ?? false
+              isCurrentUser: message.isCurrentUser ?? false,
             }"
             @edit-click="handleEditMessage"
             @delete-click="handleUnsendMessage"
-            @retry-click="(messageId) => retryMessage(messageId, message.content)"
+            @retry-click="
+              (messageId) => retryMessage(messageId, message.content)
+            "
           />
         </div>
+
         <!-- End of messages indicator for auto-scroll -->
-        <div ref="messagesEndRef"></div>
+        <div ref="messagesEndRef" class="h-1"></div>
       </div>
 
-      <!-- Message input area -->
-      <div class="p-4 bg-white border-t border-gray-200">
+      <!-- Enhanced message input area -->
+      <div class="px-4 sm:px-6 py-4 bg-white border-t border-gray-200">
+        <!-- Enhanced upload progress indicator with React-style UI -->
+        <div
+          v-if="isUploading && uploadProgress.length > 0"
+          class="mb-3 bg-blue-50 rounded-lg p-3 border border-blue-200"
+        >
+          <div class="text-sm font-medium text-blue-800 mb-3 flex items-center">
+            <Icon name="fa:cloud-upload" class="h-4 w-4 mr-2" />
+            Uploading {{ uploadProgress.length }} file{{
+              uploadProgress.length > 1 ? "s" : ""
+            }}...
+          </div>
+          <div class="space-y-3">
+            <div
+              v-for="progress in uploadProgress"
+              :key="progress.id"
+              class="bg-white rounded-lg p-3 shadow-sm border border-gray-200"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2 flex-1 min-w-0">
+                  <Icon
+                    :name="
+                      progress.file.type.startsWith('image/')
+                        ? 'fa:image'
+                        : 'fa:file'
+                    "
+                    class="h-4 w-4 text-gray-500 flex-shrink-0"
+                  />
+                  <span class="text-sm font-medium text-gray-900 truncate">{{
+                    progress.file.name
+                  }}</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-xs text-gray-500"
+                    >{{ progress.progress }}%</span
+                  >
+                  <div class="w-4 h-4">
+                    <Icon
+                      v-if="progress.status === 'uploading'"
+                      name="svg-spinners:270-ring"
+                      class="h-4 w-4 text-blue-500"
+                    />
+                    <Icon
+                      v-else-if="progress.status === 'success'"
+                      name="fa:check-circle"
+                      class="h-4 w-4 text-green-500"
+                    />
+                    <Icon
+                      v-else-if="progress.status === 'error'"
+                      name="fa:times-circle"
+                      class="h-4 w-4 text-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  class="h-2 rounded-full transition-all duration-300"
+                  :style="{ width: `${progress.progress}%` }"
+                  :class="{
+                    'bg-blue-500': progress.status === 'uploading',
+                    'bg-green-500': progress.status === 'success',
+                    'bg-red-500': progress.status === 'error',
+                  }"
+                ></div>
+              </div>
+              <div
+                v-if="progress.error"
+                class="text-red-600 text-xs mt-2 flex items-center"
+              >
+                <Icon name="fa:exclamation-triangle" class="h-3 w-3 mr-1" />
+                {{ progress.error }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit message indicator -->
         <div
           v-if="editingMessageId"
-          class="flex items-center mb-2 bg-blue-50 p-2 rounded"
+          class="flex items-center justify-between mb-3 bg-blue-50 p-3 rounded-lg border border-blue-200"
         >
-          <span class="text-sm text-blue-700 flex-1"> Editing message </span>
+          <div class="flex items-center">
+            <Icon name="fa:edit" class="h-4 w-4 text-blue-600 mr-2" />
+            <span class="text-sm font-medium text-blue-700"
+              >Editing message</span
+            >
+          </div>
           <button
             @click="handleCancelEdit"
-            class="text-gray-600 hover:text-gray-800"
+            class="p-1 text-gray-600 hover:text-gray-800 rounded transition-colors"
           >
             <Icon name="lucide:x" class="h-4 w-4" />
           </button>
         </div>
-        <div class="flex items-center">
+
+        <!-- Main input container -->
+        <div class="flex items-end space-x-3">
+          <!-- Attachment button with enhanced menu -->
           <div class="relative">
             <button
               @click="isAttachmentMenuOpen = !isAttachmentMenuOpen"
-              class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
+              class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200"
+              :class="{ 'bg-blue-100 text-blue-600': isAttachmentMenuOpen }"
               title="Attach file"
+              :disabled="isSending || isUploading"
             >
-              <Icon name="lucide:paperclip" class="h-5 w-5" />
+              <Icon
+                v-if="isUploading"
+                name="svg-spinners:270-ring"
+                class="h-5 w-5"
+              />
+              <Icon v-else name="lucide:paperclip" class="h-5 w-5" />
             </button>
+
+            <!-- Enhanced attachment menu -->
             <div
               v-if="isAttachmentMenuOpen"
-              class="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10"
+              class="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-10 animate-fadeIn"
+              style="min-width: 180px"
             >
               <button
+                type="button"
                 @click="handleFileUpload"
-                class="flex items-center text-gray-700 hover:text-blue-500 mb-2 w-full text-left px-4 py-2"
+                class="flex items-center w-full text-left px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200"
+                :disabled="isSending || isUploading"
+                :class="{
+                  'opacity-50 cursor-not-allowed': isSending || isUploading,
+                }"
               >
-                <Icon name="fa:file" class="mr-2" /> File
+                <div
+                  class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3"
+                >
+                  <Icon name="fa:file" class="h-4 w-4 text-blue-600" />
+                </div>
+                <div class="flex-1">
+                  <div class="text-sm font-medium">Document</div>
+                  <div class="text-xs text-gray-500">Share a file</div>
+                </div>
+                <Icon
+                  v-if="isUploading"
+                  name="svg-spinners:270-ring"
+                  class="h-4 w-4 text-blue-500"
+                />
               </button>
               <button
+                type="button"
                 @click="handleImageUpload"
-                class="flex items-center text-gray-700 hover:text-blue-500 w-full text-left px-4 py-2"
+                class="flex items-center w-full text-left px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200"
+                :disabled="isSending || isUploading"
+                :class="{
+                  'opacity-50 cursor-not-allowed': isSending || isUploading,
+                }"
               >
-                <Icon name="fa:image" class="mr-2" /> Image
+                <div
+                  class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3"
+                >
+                  <Icon name="fa:image" class="h-4 w-4 text-green-600" />
+                </div>
+                <div class="flex-1">
+                  <div class="text-sm font-medium">Photo</div>
+                  <div class="text-xs text-gray-500">Share an image</div>
+                </div>
+                <Icon
+                  v-if="isUploading"
+                  name="svg-spinners:270-ring"
+                  class="h-4 w-4 text-blue-500"
+                />
               </button>
             </div>
           </div>
+
+          <!-- Hidden file inputs -->
           <input
             ref="fileInputRef"
             type="file"
             class="hidden"
+            multiple
             @change="handleFileChange"
+            :disabled="isSending || isUploading"
           />
           <input
             ref="imageInputRef"
             type="file"
             accept="image/*"
             class="hidden"
+            multiple
             @change="handleImageChange"
+            :disabled="isSending || isUploading"
           />
-          <input
-            v-model="inputMessage"
-            type="text"
-            :placeholder="
-              editingMessageId ? 'Edit your message...' : 'Type your message...'
-            "
-            class="flex-1 py-2 px-4 rounded-full border border-gray-300 focus:outline-none focus:border-blue-400 text-gray-700"
-            @keydown.enter.prevent="handleSendMessage"
-          />
+
+          <!-- Enhanced message input -->
+          <div class="flex-1 relative">
+            <input
+              v-model="inputMessage"
+              type="text"
+              :placeholder="
+                editingMessageId
+                  ? 'Edit your message...'
+                  : 'Type your message...'
+              "
+              class="w-full py-3 px-4 bg-gray-50 border border-gray-300 rounded-full focus:outline-none focus:border-blue-400 focus:bg-white text-gray-700 transition-colors duration-200"
+              @keydown.enter.prevent="handleSendMessage"
+              :disabled="isSending || isUploading"
+            />
+          </div>
+
+          <!-- Enhanced send button -->
           <button
             @click="handleSendMessage"
-            class="bg-blue-500 text-white p-3 rounded-full ml-2 hover:bg-blue-600 focus:outline-none"
-            :disabled="isSending || (!inputMessage.trim() && !editingMessageId)"
+            class="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+            :disabled="
+              isSending ||
+              isUploading ||
+              (!inputMessage.trim() && !editingMessageId)
+            "
             :class="{
               'opacity-50 cursor-not-allowed':
-                isSending || (!inputMessage.trim() && !editingMessageId),
+                isSending ||
+                isUploading ||
+                (!inputMessage.trim() && !editingMessageId),
+              'shadow-lg':
+                !isSending &&
+                !isUploading &&
+                (inputMessage.trim() || editingMessageId),
             }"
           >
             <div
               v-if="isSending"
-              class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+              class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"
             ></div>
-            <Icon v-else name="fa:paper-plane" class="h-4 w-4" />
+            <Icon
+              v-else-if="editingMessageId"
+              name="fa:check"
+              class="h-5 w-5"
+            />
+            <Icon v-else name="fa:paper-plane" class="h-5 w-5" />
           </button>
         </div>
       </div>
-
-      <!-- Group profile sidebar component (conditionally rendered) -->
-      <GroupProfile
-        v-if="showProfile"
-        :group="currentGroupForProfile"
-        @close="showProfile = false"
-        @update:group="updateGroup"
-      />
     </div>
 
     <!-- Group Info Panel (conditionally rendered as a side panel) -->
@@ -243,6 +467,33 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * GroupChatArea.vue - Enhanced Vue.js Group Chat Component
+ *
+ * UPDATED TO MATCH REACT PATTERNS:
+ * ✅ Enhanced file upload with 2-step process using fileUploadHelper
+ * ✅ Multiple file support with progress tracking
+ * ✅ React-style optimistic UI updates
+ * ✅ Improved responsive design with sm: breakpoints
+ * ✅ Enhanced attachment menu with better UX
+ * ✅ Modern progress indicators and loading states
+ * ✅ WebSocket integration with proper message syncing
+ * ✅ Better error handling and toast notifications
+ * ✅ Accessibility improvements and reduced motion support
+ * ✅ Enhanced styling matching React component patterns
+ *
+ * KEY FEATURES:
+ * - Real-time messaging with WebSocket support
+ * - File and image uploads with progress tracking
+ * - Message editing and deletion
+ * - Group member presence tracking
+ * - Search functionality
+ * - Responsive design for mobile and desktop
+ * - Optimistic UI updates for better UX
+ * - Session storage for message persistence
+ * - Enhanced error handling and recovery
+ */
+
 import { ref, computed, onMounted, nextTick, watch, onUnmounted } from "vue";
 import { useGroupsStore } from "~/composables/useGroups";
 import { useAuthStore } from "~/composables/useAuth";
@@ -260,6 +511,13 @@ import {
   extractValidDate,
   formatDateForSeparator,
 } from "~/utils/timestampHelper";
+import {
+  uploadFileAndSendMessage,
+  validateFile,
+  getMediaType,
+  formatFileSize,
+} from "~/utils/fileUploadHelper";
+import { WebSocketMessageType } from "~/composables/useWebSocket";
 
 // Initialize presence service and WebSocket listener
 const presence = usePresence();
@@ -320,6 +578,7 @@ interface Attachment {
   size?: string;
 }
 
+// Enhanced GroupMessage interface matching React patterns
 interface GroupMessage {
   id: string;
   message_id?: string; // Explicit tracking ID for better synchronization
@@ -330,6 +589,8 @@ interface GroupMessage {
     id: string;
     name: string;
     avatar?: string;
+    role?: "admin" | "member" | "owner"; // Enhanced with proper typing
+    status?: "online" | "offline" | "away" | "busy"; // Enhanced status options
   };
   sender_id?: string;
   group_id?: string;
@@ -350,22 +611,46 @@ interface GroupMessage {
   fromWebSocket?: boolean; // Track messages received via WebSocket
   receivedViaWebSocket?: boolean; // Track messages received via WebSocket
   sourceApi?: boolean; // Track messages from API
+  // React-style enhancement properties
+  reactions?: Array<{
+    emoji: string;
+    count: number;
+    userIds: string[];
+    hasReacted?: boolean;
+  }>;
+  mentions?: Array<{
+    userId: string;
+    name: string;
+    startIndex: number;
+    length: number;
+  }>;
+  replyTo?: {
+    id: string;
+    content: string;
+    senderName: string;
+  };
+  deliveryStatus?: "sending" | "sent" | "delivered" | "read" | "failed";
+  editHistory?: Array<{
+    content: string;
+    editedAt: string;
+  }>;
 }
 
 interface GroupMember {
   id: string;
   group_id: string;
   user_id: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "owner"; // Enhanced with owner role
   joined_at: string;
   name: string;
-  status: "online" | "offline";
+  status: "online" | "offline" | "away" | "busy"; // Enhanced status options
   // API response fields
   first_name?: string;
   last_name?: string;
   full_name?: string;
   username?: string;
   avatar_url?: string;
+  // Enhanced properties for better UX
   is_owner?: boolean;
   user?: {
     id: string;
@@ -377,14 +662,26 @@ interface GroupMember {
   };
   avatar?: string;
   isBlocked?: boolean;
+  // React-style enhancement properties
+  permissions?: {
+    canKick?: boolean;
+    canMute?: boolean;
+    canPromote?: boolean;
+    canEdit?: boolean;
+  };
+  lastSeen?: string;
+  isTyping?: boolean;
+  muteUntil?: string;
+  joinedVia?: "invite" | "link" | "admin";
+  customTitle?: string;
 }
 
-// Define Group interface for type safety
+// Enhanced GroupDetails interface matching React patterns
 interface GroupDetails {
   id: string;
   name: string;
-  description: string;
-  createdAt: string;
+  description?: string;
+  createdAt?: string;
   memberCount: number;
   members: GroupMember[];
   avatar?: string;
@@ -396,6 +693,24 @@ interface GroupDetails {
     content: string;
     sender_name: string;
     created_at: string;
+  };
+  // React-style additional properties
+  ownerId?: string;
+  isActive?: boolean;
+  settings?: {
+    allowMemberInvites?: boolean;
+    requireApproval?: boolean;
+    muteNotifications?: boolean;
+  };
+  // Enhanced React-style properties for better state management
+  isOnline?: boolean;
+  unreadCount?: number;
+  lastActivity?: string;
+  permissions?: {
+    canEdit?: boolean;
+    canDelete?: boolean;
+    canInvite?: boolean;
+    canLeave?: boolean;
   };
 }
 
@@ -414,7 +729,6 @@ const messagesStore = useMessagesStore();
 const inputMessage = ref("");
 const editingMessageId = ref<string | null>(null);
 const showDropdown = ref<string | null>(null);
-const showProfile = ref(false);
 const showSearch = ref(false);
 const showInfo = ref(false);
 const isAttachmentMenuOpen = ref(false);
@@ -425,6 +739,18 @@ const selectedMembers = ref<string[]>([]);
 const isLoading = ref(false);
 const isSending = ref(false);
 const isLoadingMore = ref(false);
+
+// Enhanced file upload state - React style
+interface FileProgress {
+  id: string;
+  file: File;
+  progress: number;
+  status: "pending" | "uploading" | "success" | "error";
+  error: string | null;
+}
+
+const uploadProgress = ref<FileProgress[]>([]);
+const isUploading = ref(false);
 
 // Add state for controlling API fetch behavior
 const lastFetchTime = ref(0);
@@ -1484,223 +1810,362 @@ const updateGroup = async (updatedGroup: any) => {
   }
 };
 
-// Helper function to format file size
-const formatFileSize = (bytes: number): string => {
-  if (bytes < 1024) return bytes + " bytes";
-  else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
-  else return (bytes / 1048576).toFixed(1) + " MB";
-};
-
-// Handle file upload
+// Enhanced file upload handler using the fileUploadHelper utility
 const handleFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const files = Array.from(input.files || []);
 
-  if (file) {
-    try {
-      isSending.value = true;
+  if (files.length === 0) return;
 
-      // Create temporary optimistic UI message with enhanced fields
-      const tempId = `temp-${Date.now()}`;
-      const nowISOString = new Date().toISOString();
+  try {
+    isUploading.value = true;
+    isAttachmentMenuOpen.value = false;
 
-      const newMessage: GroupMessage = {
-        id: tempId,
-        message_id: tempId, // Add message_id for better synchronization
-        content: "",
-        sender: {
-          id: currentUser.value?.id || "user",
-          name: currentUser.value?.name || "You",
-        },
-        sender_id: currentUser.value?.id || "user",
-        group_id: props.groupId,
-        // Store ISO string in raw_timestamp for accurate time tracking
-        raw_timestamp: nowISOString,
-        // Store ISO strings for consistent timestamp handling
-        sent_at: nowISOString,
-        created_at: nowISOString,
-        timestamp: new Date().toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
-        isCurrentUser: true,
-        pending: true, // Mark as pending
-        attachment: {
-          type: "file",
-          url: "#", // Placeholder URL
-          name: file.name,
-          size: formatFileSize(file.size),
-        },
-      };
+    // Initialize progress tracking for all files
+    uploadProgress.value = files.map((file) => ({
+      id: `upload-${Date.now()}-${Math.random()}`,
+      file,
+      progress: 0,
+      status: "pending" as const,
+      error: null,
+    }));
 
-      // Add to messages for optimistic UI
-      messages.value.push(newMessage);
+    // Process files sequentially to avoid overwhelming the server
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const progressItem = uploadProgress.value[i];
 
-      // Langsung menggunakan endpoint API /messages/media
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("media_type", file.type);
-      formData.append("related_to", props.groupId);
+      try {
+        // Validate file before upload
+        const validation = validateFile(file);
+        if (!validation.valid) {
+          throw new Error(validation.error || "Invalid file");
+        }
 
-      const response = await fetch(`/messages/media`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+        // Update status to uploading
+        progressItem.status = "uploading";
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+        // Create optimistic message for this file
+        const tempId = `temp-${Date.now()}-${i}`;
+        const nowISOString = new Date().toISOString();
+        const mediaType = getMediaType(file.type);
 
-      // Find and update the temp message status
-      const tempMessageIndex = messages.value.findIndex(
-        (msg) => msg.id === tempId
-      );
-      if (tempMessageIndex !== -1) {
-        // Mark as no longer pending
-        messages.value[tempMessageIndex] = {
-          ...messages.value[tempMessageIndex],
-          pending: false,
+        // Convert media type to attachment type (only "image" or "file" are supported)
+        const attachmentType: "image" | "file" =
+          mediaType === "image" ? "image" : "file";
+
+        const optimisticMessage: GroupMessage = {
+          id: tempId,
+          message_id: tempId,
+          content: "",
+          sender: {
+            id: currentUser.value?.id || "user",
+            name: currentUser.value?.name || "You",
+          },
+          sender_id: currentUser.value?.id || "user",
+          group_id: props.groupId,
+          raw_timestamp: nowISOString,
+          sent_at: nowISOString,
+          created_at: nowISOString,
+          timestamp: new Date().toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+          isCurrentUser: true,
+          pending: true,
+          attachment: {
+            type: attachmentType,
+            url: attachmentType === "image" ? URL.createObjectURL(file) : "#",
+            name: file.name,
+            size: formatFileSize(file.size),
+          },
         };
+
+        // Add optimistic message to UI
+        messages.value.push(optimisticMessage);
+
+        // Scroll to bottom
+        nextTick(() => {
+          if (messagesEndRef.value) {
+            messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+          }
+        });
+
+        // Upload file using the helper utility
+        const result = await uploadFileAndSendMessage(
+          file,
+          props.groupId,
+          "",
+          true, // isGroup = true
+          (progress: number) => {
+            progressItem.progress = progress;
+          }
+        );
+
+        // Update progress to success
+        progressItem.status = "success";
+        progressItem.progress = 100;
+
+        // Update the optimistic message
+        const tempMessageIndex = messages.value.findIndex(
+          (msg) => msg.id === tempId
+        );
+        if (tempMessageIndex !== -1) {
+          messages.value[tempMessageIndex] = {
+            ...messages.value[tempMessageIndex],
+            pending: false,
+            attachment: {
+              ...messages.value[tempMessageIndex].attachment!,
+              url:
+                result.fileUrl ||
+                messages.value[tempMessageIndex].attachment!.url,
+            },
+          };
+        }
+
+        // Clean up blob URL for images
+        if (
+          attachmentType === "image" &&
+          optimisticMessage.attachment?.url?.startsWith("blob:")
+        ) {
+          URL.revokeObjectURL(optimisticMessage.attachment.url);
+        }
+      } catch (error: any) {
+        console.error("Error uploading file:", error);
+        progressItem.status = "error";
+        progressItem.error = error.message || "Upload failed";
+
+        // Update the optimistic message to show error
+        const tempMessageIndex = messages.value.findIndex(
+          (msg) => msg.id === `temp-${Date.now()}-${i}`
+        );
+        if (tempMessageIndex !== -1) {
+          messages.value[tempMessageIndex] = {
+            ...messages.value[tempMessageIndex],
+            pending: false,
+            failed: true,
+          };
+        }
+
+        if ($toast) {
+          $toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        }
       }
-
-      // Refresh messages from the server to get the real file URL
-      await fetchGroupMessages();
-
-      // Save to session storage after file upload
-      saveToSessionStorage(messages.value);
-
-      isAttachmentMenuOpen.value = false;
-
-      // Reset file input
-      if (fileInputRef.value) {
-        fileInputRef.value.value = "";
-      }
-    } catch (error) {
-      if ($toast) {
-        $toast.error("Failed to send file. Please try again.");
-      }
-    } finally {
-      isSending.value = false;
     }
 
-    // Scroll to bottom
-    nextTick(() => {
-      if (messagesEndRef.value) {
-        messagesEndRef.value.scrollIntoView();
-      }
-    });
+    // Refresh messages to get the real data
+    await fetchGroupMessages();
+    saveToSessionStorage(messages.value);
+
+    // Show success toast for successfully uploaded files
+    const successCount = uploadProgress.value.filter(
+      (p) => p.status === "success"
+    ).length;
+    if (successCount > 0 && $toast) {
+      $toast.success(
+        `Successfully uploaded ${successCount} file${
+          successCount > 1 ? "s" : ""
+        }`
+      );
+    }
+  } catch (error: any) {
+    console.error("Error in file upload process:", error);
+    if ($toast) {
+      $toast.error("Failed to upload files");
+    }
+  } finally {
+    isUploading.value = false;
+
+    // Clear progress after a delay
+    setTimeout(() => {
+      uploadProgress.value = [];
+    }, 3000);
+
+    // Reset file input
+    if (fileInputRef.value) {
+      fileInputRef.value.value = "";
+    }
   }
 };
 
-// Handle image upload
+// Enhanced image upload handler
 const handleImageChange = async (event: Event) => {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const files = Array.from(input.files || []);
 
-  if (file) {
-    try {
-      isSending.value = true;
+  if (files.length === 0) return;
 
-      // Create local preview URL
-      const imageUrl = URL.createObjectURL(file);
+  // Filter to only image files
+  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
 
-      // Optimistic UI message with enhanced fields for synchronization
-      const tempId = `temp-${Date.now()}`;
-      const nowISOString = new Date().toISOString();
+  if (imageFiles.length === 0) {
+    if ($toast) {
+      $toast.error("Please select valid image files");
+    }
+    return;
+  }
 
-      const newMessage: GroupMessage = {
-        id: tempId,
-        message_id: tempId, // Add message_id for better synchronization
-        content: "",
-        sender: {
-          id: currentUser.value?.id || "user",
-          name: currentUser.value?.name || "You",
-        },
-        sender_id: currentUser.value?.id || "user",
-        group_id: props.groupId,
-        // Store ISO string in raw_timestamp for accurate time tracking
-        raw_timestamp: nowISOString,
-        // Store ISO strings for consistent timestamp handling
-        sent_at: nowISOString,
-        created_at: nowISOString,
-        timestamp: new Date().toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
-        isCurrentUser: true,
-        pending: true, // Mark as pending
-        attachment: {
-          type: "image",
-          url: imageUrl,
-          name: file.name,
-          size: formatFileSize(file.size),
-        },
-      };
+  try {
+    isUploading.value = true;
+    isAttachmentMenuOpen.value = false;
 
-      // Add to messages for optimistic UI
-      messages.value.push(newMessage);
+    // Initialize progress tracking for all images
+    uploadProgress.value = imageFiles.map((file) => ({
+      id: `upload-${Date.now()}-${Math.random()}`,
+      file,
+      progress: 0,
+      status: "pending" as const,
+      error: null,
+    }));
 
-      // Langsung menggunakan endpoint API /messages/media
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("media_type", file.type);
-      formData.append("related_to", props.groupId);
+    // Process images sequentially
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      const progressItem = uploadProgress.value[i];
 
-      const response = await fetch(`/messages/media`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+      try {
+        // Validate image file
+        const validation = validateFile(file);
+        if (!validation.valid) {
+          throw new Error(validation.error || "Invalid image file");
+        }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+        // Update status to uploading
+        progressItem.status = "uploading";
 
-      // Clean up the blob URL to prevent memory leaks
-      URL.revokeObjectURL(imageUrl);
+        // Create optimistic message with image preview
+        const tempId = `temp-${Date.now()}-${i}`;
+        const nowISOString = new Date().toISOString();
+        const imageUrl = URL.createObjectURL(file);
 
-      // Find and update the temporary message instead of removing it
-      const tempMessageIndex = messages.value.findIndex(
-        (msg) => msg.id === tempId
-      );
-
-      if (tempMessageIndex !== -1) {
-        // Mark as sent successfully
-        messages.value[tempMessageIndex] = {
-          ...messages.value[tempMessageIndex],
-          pending: false,
+        const optimisticMessage: GroupMessage = {
+          id: tempId,
+          message_id: tempId,
+          content: "",
+          sender: {
+            id: currentUser.value?.id || "user",
+            name: currentUser.value?.name || "You",
+          },
+          sender_id: currentUser.value?.id || "user",
+          group_id: props.groupId,
+          raw_timestamp: nowISOString,
+          sent_at: nowISOString,
+          created_at: nowISOString,
+          timestamp: new Date().toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+          isCurrentUser: true,
+          pending: true,
+          attachment: {
+            type: "image",
+            url: imageUrl,
+            name: file.name,
+            size: formatFileSize(file.size),
+          },
         };
+
+        // Add optimistic message to UI
+        messages.value.push(optimisticMessage);
+
+        // Scroll to bottom
+        nextTick(() => {
+          if (messagesEndRef.value) {
+            messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+          }
+        });
+
+        // Upload image using the helper utility
+        const result = await uploadFileAndSendMessage(
+          file,
+          props.groupId,
+          "",
+          true, // isGroup = true
+          (progress: number) => {
+            progressItem.progress = progress;
+          }
+        );
+
+        // Update progress to success
+        progressItem.status = "success";
+        progressItem.progress = 100;
+
+        // Clean up the blob URL
+        URL.revokeObjectURL(imageUrl);
+
+        // Update the optimistic message
+        const tempMessageIndex = messages.value.findIndex(
+          (msg) => msg.id === tempId
+        );
+        if (tempMessageIndex !== -1) {
+          messages.value[tempMessageIndex] = {
+            ...messages.value[tempMessageIndex],
+            pending: false,
+            attachment: {
+              ...messages.value[tempMessageIndex].attachment!,
+              url:
+                result.fileUrl ||
+                messages.value[tempMessageIndex].attachment!.url,
+            },
+          };
+        }
+      } catch (error: any) {
+        console.error("Error uploading image:", error);
+        progressItem.status = "error";
+        progressItem.error = error.message || "Upload failed";
+
+        // Update the optimistic message to show error
+        const tempMessageIndex = messages.value.findIndex(
+          (msg) => msg.id === `temp-${Date.now()}-${i}`
+        );
+        if (tempMessageIndex !== -1) {
+          messages.value[tempMessageIndex] = {
+            ...messages.value[tempMessageIndex],
+            pending: false,
+            failed: true,
+          };
+        }
+
+        if ($toast) {
+          $toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        }
       }
-
-      // Refresh messages from the server
-      await fetchGroupMessages();
-
-      // Save to session storage after image upload
-      saveToSessionStorage(messages.value);
-
-      isAttachmentMenuOpen.value = false;
-
-      // Reset file input
-      if (imageInputRef.value) {
-        imageInputRef.value.value = "";
-      }
-    } catch (error) {
-      if ($toast) {
-        $toast.error("Failed to send image. Please try again.");
-      }
-    } finally {
-      isSending.value = false;
     }
 
-    // Scroll to bottom
-    nextTick(() => {
-      if (messagesEndRef.value) {
-        messagesEndRef.value.scrollIntoView();
-      }
-    });
+    // Refresh messages to get the real data
+    await fetchGroupMessages();
+    saveToSessionStorage(messages.value);
+
+    // Show success toast for successfully uploaded images
+    const successCount = uploadProgress.value.filter(
+      (p) => p.status === "success"
+    ).length;
+    if (successCount > 0 && $toast) {
+      $toast.success(
+        `Successfully uploaded ${successCount} image${
+          successCount > 1 ? "s" : ""
+        }`
+      );
+    }
+  } catch (error: any) {
+    console.error("Error in image upload process:", error);
+    if ($toast) {
+      $toast.error("Failed to upload images");
+    }
+  } finally {
+    isUploading.value = false;
+
+    // Clear progress after a delay
+    setTimeout(() => {
+      uploadProgress.value = [];
+    }, 3000);
+
+    // Reset file input
+    if (imageInputRef.value) {
+      imageInputRef.value.value = "";
+    }
   }
 };
 
@@ -2234,41 +2699,323 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Add any component-specific styles here */
+/* Enhanced styles matching React patterns */
 
-/* Example: Custom style for the message bubble */
-.message {
-  transition: background-color 0.3s ease;
+/* Smooth animations for all transitions */
+* {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Change background color on hover for message bubble */
-.message:hover {
-  background-color: #f1f1f1;
+/* Message container animations */
+.message-wrapper {
+  transition: all 0.2s ease-in-out;
 }
 
-/* Style for the typing indicator */
+.message-wrapper:hover {
+  transform: translateX(4px);
+}
+
+/* Enhanced fade-in animation for attachment menu */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Smooth scrollbar styles for webkit browsers */
+.overflow-auto::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 9999px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Enhanced focus styles */
+button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+input:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Loading spinner enhancement */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Progress bar smooth animation */
+.progress-bar {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Enhanced button hover effects */
+.btn-hover-lift {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Message bubble enhancements */
+.message-bubble {
+  transition: all 0.2s ease-in-out;
+}
+
+.message-bubble:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Responsive design helpers */
+@media (max-width: 640px) {
+  .message-wrapper {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .message-bubble {
+    font-size: 14px;
+  }
+}
+
+/* Upload progress container styling */
+.upload-progress-container {
+  backdrop-filter: blur(4px);
+}
+
+/* Enhanced attachment menu styling */
+.attachment-menu {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Loading backdrop effect */
+.loading-backdrop {
+  backdrop-filter: blur(4px);
+}
+
+/* Message status indicators */
+.message-status {
+  transition: all 0.2s ease-in-out;
+}
+
+.message-status.pending {
+  opacity: 0.6;
+}
+
+.message-status.failed {
+  opacity: 0.5;
+}
+
+.message-status.success {
+  opacity: 1;
+}
+
+/* Enhanced group avatar with online indicator */
+.group-avatar {
+  position: relative;
+}
+
+.online-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  background-color: #34d399;
+  border: 2px solid white;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Enhanced input focus effects */
+.enhanced-input {
+  transition: all 0.2s ease-in-out;
+}
+
+.enhanced-input:focus {
+  transform: scale(1.02);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Improved mobile responsiveness */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 12px 16px;
+  }
+
+  .chat-input-container {
+    padding: 12px 16px;
+  }
+
+  .messages-container {
+    padding: 0 16px;
+  }
+}
+
+/* Dark mode support (future enhancement) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-ready {
+    background-color: #111827;
+    color: white;
+  }
+}
+
+/* Accessibility improvements */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .high-contrast {
+    border: 2px solid black;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom typing indicator animation */
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
 .typing-indicator {
   font-style: italic;
-  color: #888;
+  color: #6b7280;
 }
 
-/* Custom scrollbar styles */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.typing-dot {
+  animation: typing 1.4s infinite;
 }
 
-::-webkit-scrollbar-thumb {
-  background-color: #ccc;
-  border-radius: 4px;
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background-color: #aaa;
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
 }
 
-::-webkit-scrollbar-track {
-  background-color: #f9f9f9;
-  border-radius: 4px;
+/* Enhanced scroll behavior */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Message hover effects */
+.message-item:hover .message-actions {
+  opacity: 1;
+  visibility: visible;
+}
+
+.message-actions {
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease-in-out;
+}
+
+/* File upload drag and drop styling */
+.drag-over {
+  border: 2px dashed #3b82f6;
+  background-color: #eff6ff;
+}
+
+/* Enhanced button states */
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
 }
 </style>

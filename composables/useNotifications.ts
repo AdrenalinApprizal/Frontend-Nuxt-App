@@ -2,19 +2,28 @@ import { ref } from "vue";
 import { useNuxtApp } from "#app";
 import { useAuthStore } from "~/composables/useAuth";
 
-// Define types
+// Define types (enhanced to match React implementation)
 export interface Notification {
   id: string;
+  user_id: string;
+  type: string;
   content: string;
+  related_to?: string;
   read: boolean;
   created_at: string;
-  type: string;
   data?: Record<string, any>;
+  title?: string;
+  message?: string;
+  action_url?: string;
+  category?: string;
+  priority?: "low" | "medium" | "high" | "urgent";
+  metadata?: Record<string, any>;
 }
 
 export interface NotificationPagination {
   current_page: number;
   total_pages: number;
+  total_count: number;
   items_per_page: number;
   has_more_pages: boolean;
 }
@@ -22,21 +31,49 @@ export interface NotificationPagination {
 export interface NotificationResponse {
   notifications: Notification[];
   pagination: NotificationPagination;
+  success?: boolean;
+  message?: string;
+}
+
+export interface GetNotificationsResponse {
+  notifications: Notification[];
+  total_count: number;
+  page: number;
+  limit: number;
+  success?: boolean;
 }
 
 export interface UnreadCountResponse {
   count: number;
+  success?: boolean;
+}
+
+export interface NotificationFilters {
+  type?: string;
+  read?: boolean;
+  priority?: string;
+  category?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface NotificationOptions {
+  filters?: NotificationFilters;
+  sort?: "created_at" | "updated_at" | "priority";
+  order?: "asc" | "desc";
 }
 
 export const useNotifications = () => {
-  // State
+  // State (enhanced to match React)
   const notifications = ref<Notification[]>([]);
   const unreadCount = ref<number>(0);
   const isLoading = ref<boolean>(false);
+  const loading = ref<boolean>(false); // Alias for React compatibility
   const error = ref<string | null>(null);
   const pagination = ref<NotificationPagination>({
     current_page: 1,
     total_pages: 1,
+    total_count: 0,
     items_per_page: 10,
     has_more_pages: false,
   });
@@ -45,134 +82,58 @@ export const useNotifications = () => {
   const nuxtApp = useNuxtApp();
   const authStore = useAuthStore();
 
-  // API endpoint
+  // API endpoint - ensure it ends without a trailing slash
   const API_ENDPOINT = "/api/proxy/notifications";
 
-  // Helper to get headers with auth token
-  const getHeaders = () => {
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    };
-
-    if (authStore.token) {
-      // Use Bearer prefix by default for notifications (standard OAuth format)
-      headers["Authorization"] = `Bearer ${authStore.token}`;
-    }
-
-    return headers;
-  };
-
-  // Helper to try multiple token formats
-  const fetchWithTokenFormats = async (url: string, options: RequestInit) => {
-    // Try with Bearer prefix first (standard OAuth format)
+  // Helper function for API calls (matching React implementation)
+  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     try {
-      // Only add Authorization header if token exists
-      const headers = { ...(options.headers as Record<string, string>) };
+      const defaultOptions: RequestInit = {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+      };
 
+      // Add authorization header if session has access_token
       if (authStore.token) {
-        headers.Authorization = `Bearer ${authStore.token}`;
+        defaultOptions.headers = {
+          ...defaultOptions.headers,
+          Authorization: `Bearer ${authStore.token}`,
+        };
       }
 
-      const response = await fetch(url, {
+      // Merge default options with provided options
+      const mergedOptions = {
+        ...defaultOptions,
         ...options,
-        headers,
-      });
+        headers: {
+          ...defaultOptions.headers,
+          ...options.headers,
+        },
+      };
 
-      if (response.ok) {
-        console.log(
-          "[DEBUG] Notification API request successful with 'Bearer' prefix"
-        );
-        return response;
+      // Fix path construction - ensure we don't get double slashes
+      let url;
+      if (endpoint.startsWith("http")) {
+        url = endpoint;
+      } else {
+        // Handle endpoint paths correctly, ensuring proper slash handling
+        const endpointPath = endpoint.startsWith("/")
+          ? endpoint.slice(1)
+          : endpoint;
+        url = `${API_ENDPOINT}/${endpointPath}`.replace(/\/+/g, "/");
       }
 
-      console.log(
-        `[DEBUG] Request failed with 'Bearer' prefix: ${response.status}`
-      );
-    } catch (error) {
-      console.error("[DEBUG] Error with 'Bearer' prefix:", error);
-    }
+      console.log(`[Notification API] Calling: ${url}`);
 
-    // Then try with Token prefix as fallback
-    try {
-      const headers = { ...(options.headers as Record<string, string>) };
+      const response = await fetch(url, mergedOptions);
 
-      if (authStore.token) {
-        headers.Authorization = `Token ${authStore.token}`;
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
-
-      if (response.ok) {
-        console.log(
-          "[DEBUG] Notification API request successful with 'Token' prefix"
-        );
-        return response;
-      }
-
-      console.log(
-        `[DEBUG] Request failed with 'Token' prefix: ${response.status}`
-      );
-    } catch (error) {
-      console.error("[DEBUG] Error with 'Token' prefix:", error);
-    }
-
-    // Finally try with no prefix
-    try {
-      const headers = { ...(options.headers as Record<string, string>) };
-
-      if (authStore.token) {
-        headers.Authorization = authStore.token;
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
-
-      if (response.ok) {
-        console.log(
-          "[DEBUG] Notification API request successful with no prefix"
-        );
-        return response;
-      }
-
-      console.log(`[DEBUG] Request failed with no prefix: ${response.status}`);
-      return response; // Return the last response even if it failed
-    } catch (error) {
-      console.error("[DEBUG] Error with no prefix:", error);
-      throw error; // Re-throw if all attempts failed
-    }
-  };
-
-  /**
-   * Fetch notifications with pagination
-   */
-  const getNotifications = async (
-    offset = 0,
-    limit = 20
-  ): Promise<NotificationResponse> => {
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-      // Using our helper function that tries multiple token formats
-      const response = await fetchWithTokenFormats(
-        `${API_ENDPOINT}?offset=${offset}&limit=${limit}`,
-        {
-          method: "GET",
-          headers: getHeaders(),
-          credentials: "include",
-        }
-      );
-
+      // Handle different response formats
       if (!response.ok) {
-        // Handle error responses - could be JSON or text
-        let errorMessage: string;
         const contentType = response.headers.get("content-type");
+        let errorMessage: string;
 
         try {
           if (contentType && contentType.includes("application/json")) {
@@ -181,7 +142,6 @@ export const useNotifications = () => {
               errorData.message ||
               `Error ${response.status}: ${response.statusText}`;
           } else {
-            // Handle plain text error response
             const errorText = await response.text();
             errorMessage =
               errorText || `Error ${response.status}: ${response.statusText}`;
@@ -190,20 +150,54 @@ export const useNotifications = () => {
           errorMessage = `Error ${response.status}: ${response.statusText}`;
         }
 
-        error.value = errorMessage;
-        console.error(`Error fetching notifications: ${errorMessage}`);
         throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        return await response.json();
+      }
+
+      return await response.text();
+    } catch (err: any) {
+      console.error(`API call failed for ${endpoint}:`, err);
+      throw err;
+    }
+  };
+
+  /**
+   * Get notifications with pagination (enhanced to match React implementation)
+   */
+  const getNotifications = async (
+    page: number = 1,
+    limit: number = 20
+  ): Promise<NotificationResponse> => {
+    isLoading.value = true;
+    loading.value = true; // Update both for compatibility
+    error.value = null;
+
+    try {
+      const offset = (page - 1) * limit;
+      const data = await apiCall(`?offset=${offset}&limit=${limit}`, {
+        method: "GET",
+      });
+
       console.log("[DEBUG] Response data from notifications API:", data);
 
-      // More flexible response format handling
+      // Handle different response formats
+      let notificationsData: Notification[] = [];
+      let paginationData: NotificationPagination = {
+        current_page: page,
+        total_pages: 1,
+        total_count: 0,
+        items_per_page: limit,
+        has_more_pages: false,
+      };
+
       if (data && Array.isArray(data)) {
         // Handle case where API returns an array directly
-        notifications.value = data.map((notification: any) => ({
+        notificationsData = data.map((notification: any) => ({
           ...notification,
-          // Ensure required properties exist
           id: notification.id || notification._id || `temp-${Date.now()}`,
           content:
             notification.content || notification.message || "New notification",
@@ -215,17 +209,12 @@ export const useNotifications = () => {
           type: notification.type || "default",
         }));
 
-        // Simple pagination if not provided
-        pagination.value = {
-          current_page: offset / limit + 1,
+        paginationData = {
+          current_page: page,
           total_pages: data.length > 0 ? Math.ceil(data.length / limit) : 1,
+          total_count: data.length,
           items_per_page: limit,
           has_more_pages: data.length >= limit,
-        };
-
-        return {
-          notifications: notifications.value,
-          pagination: pagination.value,
         };
       }
       // Handle case where API returns object with notifications array
@@ -233,9 +222,8 @@ export const useNotifications = () => {
         const notificationsArray =
           data.notifications || data.data || data.results || [];
 
-        notifications.value = notificationsArray.map((notification: any) => ({
+        notificationsData = notificationsArray.map((notification: any) => ({
           ...notification,
-          // Ensure required properties exist
           id: notification.id || notification._id || `temp-${Date.now()}`,
           content:
             notification.content || notification.message || "New notification",
@@ -249,12 +237,15 @@ export const useNotifications = () => {
 
         // Use pagination if provided, or create default
         if (data.pagination) {
-          pagination.value = data.pagination;
+          paginationData = data.pagination;
         } else if (data.meta) {
-          pagination.value = {
-            current_page:
-              data.meta.current_page || data.meta.page || offset / limit + 1,
+          paginationData = {
+            current_page: data.meta.current_page || data.meta.page || page,
             total_pages: data.meta.total_pages || data.meta.pageCount || 1,
+            total_count:
+              data.meta.total_count ||
+              data.meta.totalCount ||
+              notificationsArray.length,
             items_per_page:
               data.meta.per_page || data.meta.itemsPerPage || limit,
             has_more_pages:
@@ -262,50 +253,39 @@ export const useNotifications = () => {
           };
         } else {
           // Default pagination
-          pagination.value = {
-            current_page: offset / limit + 1,
+          paginationData = {
+            current_page: page,
             total_pages:
               notificationsArray.length > 0
                 ? Math.ceil(notificationsArray.length / limit)
                 : 1,
+            total_count: notificationsArray.length,
             items_per_page: limit,
             has_more_pages: notificationsArray.length >= limit,
           };
         }
-
-        return {
-          notifications: notifications.value,
-          pagination: pagination.value,
-        };
       }
-      // Handle empty response or other formats
-      else {
-        console.log("API returned empty or unexpected response format:", data);
-        // Instead of throwing, just set empty notifications
-        notifications.value = [];
-        pagination.value = {
-          current_page: offset / limit + 1,
-          total_pages: 1,
-          items_per_page: limit,
-          has_more_pages: false,
-        };
 
-        return {
-          notifications: [],
-          pagination: pagination.value,
-        };
-      }
+      // Update state
+      notifications.value = notificationsData;
+      pagination.value = paginationData;
+
+      return {
+        notifications: notificationsData,
+        pagination: paginationData,
+      };
     } catch (err: any) {
-      error.value = err.message || "Failed to fetch notifications";
+      error.value = `Failed to get notifications: ${err.message}`;
       console.error("Error fetching notifications:", err);
       throw err;
     } finally {
       isLoading.value = false;
+      loading.value = false; // Update both for compatibility
     }
   };
 
   /**
-   * Load more notifications (for pagination)
+   * Load more notifications (for pagination) - Enhanced to match React
    */
   const loadMoreNotifications =
     async (): Promise<NotificationResponse | null> => {
@@ -313,17 +293,15 @@ export const useNotifications = () => {
         return null;
       }
 
-      // Calculate new offset based on current items and limit
-      const currentOffset =
-        pagination.value.current_page * pagination.value.items_per_page;
-      const limit = pagination.value.items_per_page;
-
       try {
-        const response = await getNotifications(currentOffset, limit);
+        const nextPage = pagination.value.current_page + 1;
+        const response = await getNotifications(
+          nextPage,
+          pagination.value.items_per_page
+        );
 
-        // Append new notifications to the existing list
+        // Append new notifications to existing ones (React pattern)
         if (response && response.notifications) {
-          // Use previous notifications and add new ones
           notifications.value = [
             ...notifications.value,
             ...response.notifications,
@@ -338,72 +316,54 @@ export const useNotifications = () => {
     };
 
   /**
-   * Get unread notifications count
+   * Get unread notifications count (Enhanced to match React)
    */
   const getUnreadCount = async (): Promise<UnreadCountResponse> => {
     // Don't set isLoading to true for unread count to prevent UI flicker
     error.value = null;
 
     try {
-      const response = await fetchWithTokenFormats(
-        `${API_ENDPOINT}/unread-count`,
-        {
-          method: "GET",
-          headers: getHeaders(),
-          credentials: "include",
-        }
-      );
+      console.log("[Notifications] Fetching unread count...");
+      const response = await apiCall("/unread-count", {
+        method: "GET",
+      });
 
-      if (!response.ok) {
-        // Handle error responses - could be JSON or text
-        let errorMessage: string;
-        const contentType = response.headers.get("content-type");
+      console.log("[DEBUG] Unread count response:", response);
 
-        try {
-          if (contentType && contentType.includes("application/json")) {
-            const errorData = await response.json();
-            errorMessage =
-              errorData.message ||
-              `Error ${response.status}: ${response.statusText}`;
-          } else {
-            // Handle plain text error response
-            const errorText = await response.text();
-            errorMessage =
-              errorText || `Error ${response.status}: ${response.statusText}`;
+      // Handle various response formats (matching React implementation)
+      if (response && typeof response.count === "number") {
+        unreadCount.value = response.count;
+        return response;
+      } else if (response && typeof response === "object") {
+        // Try to find a count property with a different name
+        const possibleCountProps = ["count", "unread_count", "total", "unread"];
+        for (const prop of possibleCountProps) {
+          if (typeof response[prop] === "number") {
+            console.log(`[Notifications] Found count in property: ${prop}`);
+            const count = response[prop];
+            unreadCount.value = count;
+            return { count };
           }
-        } catch (parseError) {
-          errorMessage = `Error ${response.status}: ${response.statusText}`;
         }
 
-        // For 401 errors, we'll still return a valid response with count 0
-        // to prevent UI errors but log the issue
-        if (response.status === 401) {
-          console.warn(
-            "Authentication error when fetching notification count. Using count 0."
-          );
-          return { count: 0 };
-        }
-
-        error.value = errorMessage;
-        console.error(`Error fetching unread count: ${errorMessage}`);
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-
-      if (data && typeof data.count === "number") {
-        unreadCount.value = data.count;
-      } else {
-        console.warn("Invalid unread count response:", data);
+        console.warn(
+          "[Notifications] Invalid unread count response:",
+          response
+        );
         // Keep the previous value if response is invalid
+        return { count: unreadCount.value };
+      } else if (typeof response === "number") {
+        // Handle case where API returns just the number
+        unreadCount.value = response;
+        return { count: response };
+      } else {
+        console.warn("[Notifications] Unexpected response format:", response);
+        return { count: unreadCount.value };
       }
-
-      return data;
     } catch (err: any) {
-      // For errors fetching unread count, we'll use 0 as default
-      // but still record the error
-      error.value = err.message || "Failed to fetch unread count";
-      console.error("Error fetching unread count:", err);
+      // For errors fetching unread count, we'll use 0 as default but still record the error
+      error.value = `Failed to get unread notification count: ${err.message}`;
+      console.error("[Notifications] Error fetching unread count:", err);
 
       // Return a valid response with count 0 to prevent UI errors
       return { count: 0 };
@@ -411,7 +371,7 @@ export const useNotifications = () => {
   };
 
   /**
-   * Mark a notification as read
+   * Mark a notification as read (Enhanced to match React)
    */
   const markAsRead = async (notificationId: string): Promise<any> => {
     if (!notificationId) {
@@ -419,30 +379,17 @@ export const useNotifications = () => {
       throw new Error("Invalid notification ID");
     }
 
+    isLoading.value = true;
+    loading.value = true;
+    error.value = null;
+
     try {
-      const response = await fetchWithTokenFormats(
-        `${API_ENDPOINT}/${notificationId}/read`,
-        {
-          method: "PATCH",
-          headers: getHeaders(),
-          credentials: "include",
-        }
-      );
+      const response = await apiCall(`/${notificationId}/read`, {
+        method: "PUT",
+        body: JSON.stringify({}),
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `Error marking notification as read: ${response.status} ${response.statusText}`,
-          errorText
-        );
-        throw new Error(
-          `Failed to mark notification as read: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-
-      // Update local state
+      // Update local state (React pattern)
       notifications.value = notifications.value.map(
         (notification: Notification) =>
           notification.id === notificationId
@@ -455,39 +402,32 @@ export const useNotifications = () => {
         unreadCount.value -= 1;
       }
 
-      return data;
+      return response;
     } catch (err: any) {
       error.value = err.message || "Failed to mark notification as read";
       console.error("Error marking notification as read:", err);
       throw err;
+    } finally {
+      isLoading.value = false;
+      loading.value = false;
     }
   };
 
   /**
-   * Mark all notifications as read
+   * Mark all notifications as read (Enhanced to match React)
    */
   const markAllAsRead = async (): Promise<any> => {
+    isLoading.value = true;
+    loading.value = true;
+    error.value = null;
+
     try {
-      const response = await fetchWithTokenFormats(`${API_ENDPOINT}/read-all`, {
+      const response = await apiCall("/read-all", {
         method: "PUT",
-        headers: getHeaders(),
-        credentials: "include",
+        body: JSON.stringify({}),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `Error marking all notifications as read: ${response.status} ${response.statusText}`,
-          errorText
-        );
-        throw new Error(
-          `Failed to mark all notifications as read: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-
-      // Update local state
+      // Update local state (React pattern)
       notifications.value = notifications.value.map(
         (notification: Notification) => ({
           ...notification,
@@ -498,27 +438,56 @@ export const useNotifications = () => {
       // Reset unread count
       unreadCount.value = 0;
 
-      return data;
+      return response;
     } catch (err: any) {
       error.value = err.message || "Failed to mark all notifications as read";
       console.error("Error marking all notifications as read:", err);
       throw err;
+    } finally {
+      isLoading.value = false;
+      loading.value = false;
+    }
+  };
+
+  /**
+   * Check the notification service health (New from React implementation)
+   */
+  const checkHealth = async () => {
+    isLoading.value = true;
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await apiCall("/health", {
+        method: "GET",
+      });
+
+      return response;
+    } catch (err: any) {
+      error.value = `Failed to check notification service health: ${err.message}`;
+      console.error("Error checking notification service health:", err);
+      throw err;
+    } finally {
+      isLoading.value = false;
+      loading.value = false;
     }
   };
 
   return {
-    // State
+    // State (matching React implementation)
     notifications,
     unreadCount,
     isLoading,
+    loading, // Alias for React compatibility
     error,
     pagination,
 
-    // Actions
+    // Actions (matching React implementation)
     getNotifications,
     loadMoreNotifications,
     getUnreadCount,
     markAsRead,
     markAllAsRead,
+    checkHealth,
   };
 };

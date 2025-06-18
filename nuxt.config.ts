@@ -11,12 +11,15 @@ export default defineNuxtConfig({
   nitro: {
     preset: "vercel",
     experimental: {
-      wasm: true
+      wasm: false
     },
     esbuild: {
       options: {
-        target: "esnext"
+        target: "es2022"
       }
+    },
+    rollupConfig: {
+      external: ["@iconify/utils", "@iconify/tools", "@iconify/types"]
     }
   },
   app: {

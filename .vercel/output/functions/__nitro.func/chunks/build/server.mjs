@@ -1,13 +1,9 @@
 import { p as publicAssetsURL, l as lib, b as baseURL } from '../routes/renderer.mjs';
-import { n as parseQuery$1, o as hasProtocol, q as joinURL, t as getContext, v as withQuery, x as withTrailingSlash, y as withoutTrailingSlash, z as isScriptProtocol, A as sanitizeStatusCode, $ as $fetch, B as createHooks, C as executeAsync, k as createError$1, D as toRouteMatcher, E as createRouter$1, F as defu } from '../nitro/nitro.mjs';
+import { o as parseQuery$1, q as hasProtocol, t as joinURL, v as getContext, x as withQuery, y as withTrailingSlash, z as withoutTrailingSlash, A as isScriptProtocol, B as sanitizeStatusCode, $ as $fetch, f as createHooks, C as executeAsync, l as createError$1, D as toRouteMatcher, E as createRouter$1, F as defu } from '../nitro/nitro.mjs';
 import { defineStore, createPinia, setActivePinia, shouldHydrate } from 'pinia';
 import node_stream__default from 'node:stream';
 import '../_/shared.cjs.prod.mjs';
-import '@vue/runtime-dom';
-import 'unhead/server';
 import 'devalue';
-import 'unhead/utils';
-import 'unhead/plugins';
 import 'node:http';
 import 'node:https';
 import 'node:events';

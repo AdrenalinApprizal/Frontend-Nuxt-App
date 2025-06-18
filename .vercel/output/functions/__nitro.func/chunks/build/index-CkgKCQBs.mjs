@@ -9,12 +9,8 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import '@vue/runtime-dom';
 import 'node:stream';
-import 'unhead/server';
 import 'devalue';
-import 'unhead/utils';
-import 'unhead/plugins';
 import 'pinia';
 
 const _sfc_main = /* @__PURE__ */ vueExports.defineComponent({

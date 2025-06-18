@@ -13,12 +13,8 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import '@vue/runtime-dom';
 import 'node:stream';
-import 'unhead/server';
 import 'devalue';
-import 'unhead/utils';
-import 'unhead/plugins';
 import 'pinia';
 import './_plugin-vue_export-helper-1tPrXgE0.mjs';
 

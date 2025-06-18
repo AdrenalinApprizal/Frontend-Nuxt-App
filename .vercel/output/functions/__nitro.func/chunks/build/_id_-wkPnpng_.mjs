@@ -15,12 +15,8 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import '@vue/runtime-dom';
 import 'node:stream';
-import 'unhead/server';
 import 'devalue';
-import 'unhead/utils';
-import 'unhead/plugins';
 import 'mitt';
 
 const _sfc_main$8 = /* @__PURE__ */ vueExports.defineComponent({

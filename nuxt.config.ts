@@ -10,6 +10,10 @@ export default defineNuxtConfig({
     transpile: [
       "vue3-toastify",
       "vue-router",
+      "vue-bundle-renderer",
+      "@vue/server-renderer",
+      "destr",
+      "ufo"
     ],
   },
 
@@ -23,6 +27,9 @@ export default defineNuxtConfig({
         target: "esnext",
       },
     },
+    rollupConfig: {
+      external: []
+    }
   },
 
   app: {

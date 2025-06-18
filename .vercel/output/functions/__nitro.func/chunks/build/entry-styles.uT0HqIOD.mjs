@@ -1,7 +1,6 @@
 import { a as buildAssetsURL } from '../routes/renderer.mjs';
 import { i as index } from './entry-styles-4.mjs-B2XqsIFd.mjs';
 import { a as app_vue_vue_type_style_index_0_lang } from './entry-styles-5.mjs-Dt2GtObw.mjs';
-import 'vue-bundle-renderer/runtime';
 import '../nitro/nitro.mjs';
 import 'node:http';
 import 'node:https';

@@ -1,5 +1,5 @@
 import { defineComponent, shallowRef, h, resolveComponent, ref, computed, mergeProps, unref, inject, hasInjectionContext, Suspense, getCurrentInstance, provide, watch, shallowReactive, Fragment, createElementBlock, cloneVNode, reactive, useSSRContext, createApp, withCtx, createVNode, toRef, onErrorCaptured, onServerPrefetch, resolveDynamicComponent, effectScope, isReadonly, isRef, isShallow, isReactive, toRaw, defineAsyncComponent, getCurrentScope } from 'vue';
-import { n as parseQuery$1, o as hasProtocol, q as joinURL, t as getContext, w as withQuery, v as withTrailingSlash, x as withoutTrailingSlash, y as isScriptProtocol, z as sanitizeStatusCode, $ as $fetch, A as createHooks, B as executeAsync, k as createError$1, C as toRouteMatcher, D as createRouter$1, E as defu } from '../nitro/nitro.mjs';
+import { n as parseQuery$1, o as hasProtocol, q as joinURL, t as getContext, v as withQuery, x as withTrailingSlash, y as withoutTrailingSlash, z as isScriptProtocol, A as sanitizeStatusCode, $ as $fetch, B as createHooks, C as executeAsync, k as createError$1, D as toRouteMatcher, E as createRouter$1, F as defu } from '../nitro/nitro.mjs';
 import { p as publicAssetsURL, b as baseURL } from '../routes/renderer.mjs';
 import { defineStore, createPinia, setActivePinia, shouldHydrate } from 'pinia';
 import { ssrRenderAttrs, ssrRenderComponent, ssrRenderClass, ssrRenderAttr, ssrInterpolate, ssrIncludeBooleanAttr, ssrRenderDynamicModel, ssrRenderSuspense, ssrRenderVNode } from 'vue/server-renderer';
@@ -10,7 +10,6 @@ import 'node:buffer';
 import 'node:fs';
 import 'node:path';
 import 'node:crypto';
-import 'vue-bundle-renderer/runtime';
 import 'unhead/server';
 import 'devalue';
 import 'unhead/utils';

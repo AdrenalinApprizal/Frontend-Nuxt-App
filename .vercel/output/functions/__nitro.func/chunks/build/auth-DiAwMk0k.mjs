@@ -9,7 +9,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../routes/renderer.mjs';
-import 'vue-bundle-renderer/runtime';
 import 'vue/server-renderer';
 import 'unhead/server';
 import 'devalue';

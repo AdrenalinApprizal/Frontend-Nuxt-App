@@ -3,6 +3,7 @@
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
+  ssr: true,
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
   css: ["~/assets/css/main.css", "@fortawesome/fontawesome-free/css/all.css"],
 
@@ -13,7 +14,8 @@ export default defineNuxtConfig({
       "vue-bundle-renderer",
       "@vue/server-renderer",
       "destr",
-      "ufo"
+      "ufo",
+      "vue"
     ],
   },
 

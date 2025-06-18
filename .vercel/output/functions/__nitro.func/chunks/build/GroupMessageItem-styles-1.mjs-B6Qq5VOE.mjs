@@ -1,0 +1,4 @@
+const GroupMessageItem_vue_vue_type_style_index_0_scoped_2ff1d7b6_lang = "@keyframes slideDown-2ff1d7b6{0%{opacity:0;transform:translateY(-10px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}.animate-slideDown[data-v-2ff1d7b6]{animation:slideDown-2ff1d7b6 .2s ease-out}.message-item:hover .message-actions[data-v-2ff1d7b6]{opacity:1;visibility:visible}.message-actions[data-v-2ff1d7b6]{opacity:0;transition:all .2s ease-in-out;visibility:hidden}.group:hover .group-hover\\:opacity-100[data-v-2ff1d7b6]{opacity:1}.group:hover .group-hover\\:scale-100[data-v-2ff1d7b6]{transform:scale(1)}.status-indicator[data-v-2ff1d7b6]{transition:all .2s ease-in-out}.focus\\:ring-2[data-v-2ff1d7b6]:focus{box-shadow:0 0 0 2px #3b82f680}.focus\\:ring-offset-2[data-v-2ff1d7b6]:focus{box-shadow:0 0 0 2px #fff,0 0 0 4px #3b82f680}";
+
+export { GroupMessageItem_vue_vue_type_style_index_0_scoped_2ff1d7b6_lang as G };
+//# sourceMappingURL=GroupMessageItem-styles-1.mjs-B6Qq5VOE.mjs.map

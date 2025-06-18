@@ -1,5 +1,4 @@
 import { v as vueExports, u as useRouter, s as serverRenderer_cjs_prodExports } from './server.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -38,4 +37,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=index-3gYi0LLn.mjs.map
+//# sourceMappingURL=index-C5kvgkHF.mjs.map

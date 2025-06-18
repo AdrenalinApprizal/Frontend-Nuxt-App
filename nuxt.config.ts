@@ -21,7 +21,8 @@ export default defineNuxtConfig({
       "@vue/reactivity",
       "destr",
       "ufo",
-      "vue"
+      "vue",
+      "entities"
     ],
   },
 
@@ -37,7 +38,9 @@ export default defineNuxtConfig({
     },
     rollupConfig: {
       external: []
-    }
+    },
+    bundledStorage: [],
+    minify: false
   },
 
   app: {

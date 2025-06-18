@@ -10,7 +10,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'entities/lib/decode.js';
 import 'estree-walker';
 import 'source-map-js';
 import '@vue/runtime-dom';

@@ -1,7 +1,6 @@
 import { s as serverRenderer_cjs_prodExports, v as vueExports } from './server.mjs';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
 import { u as useHead } from './v3-t8mT2aUh.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -76,4 +75,4 @@ _sfc_main.setup = (props, ctx) => {
 const error500 = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-4b6f0a29"]]);
 
 export { error500 as default };
-//# sourceMappingURL=error-500-DRIA-kAS.mjs.map
+//# sourceMappingURL=error-500-umI1RETs.mjs.map

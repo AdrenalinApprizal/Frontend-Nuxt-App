@@ -5,7 +5,6 @@ import { defineStore } from 'pinia';
 import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
 import { a as useMessagesStore, u as useWebSocket, b as formatDateForSeparator, e as eventBus, f as formatMessageTimestamp, _ as __nuxt_component_0 } from './OptimizedAvatar-CIwqHRpr.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -4070,4 +4069,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=_id_-CMeCtZAv.mjs.map
+//# sourceMappingURL=_id_-Dng5uQJg.mjs.map

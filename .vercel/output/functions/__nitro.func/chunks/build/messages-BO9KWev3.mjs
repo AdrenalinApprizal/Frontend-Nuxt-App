@@ -5,7 +5,6 @@ import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
 import { u as useWebSocket, s as setInterval, a as useMessagesStore, _ as __nuxt_component_0$2, f as formatMessageTimestamp } from './OptimizedAvatar-CIwqHRpr.mjs';
 import { u as usePresence } from './usePresence-DI3wi_wD.mjs';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -670,4 +669,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=messages-Dvh2q1Bk.mjs.map
+//# sourceMappingURL=messages-BO9KWev3.mjs.map

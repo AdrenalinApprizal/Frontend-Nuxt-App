@@ -3,7 +3,6 @@ import { _ as __nuxt_component_1 } from './NotificationDropdown-BcpzIWTO.mjs';
 import { format, formatDistanceToNow } from 'date-fns';
 import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
 import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -318,4 +317,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=groups-CyuVHcl0.mjs.map
+//# sourceMappingURL=groups-C2eWzkVp.mjs.map

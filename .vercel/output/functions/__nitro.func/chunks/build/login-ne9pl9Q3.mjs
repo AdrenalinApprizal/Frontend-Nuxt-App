@@ -1,7 +1,6 @@
 import { v as vueExports, s as serverRenderer_cjs_prodExports, u as useRouter, a as useNuxtApp, b as useAuthStore, c as _imports_0, d as _sfc_main$6, _ as __nuxt_component_0$1 } from './server.mjs';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
 import { u as useHead } from './v3-t8mT2aUh.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -113,4 +112,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=login--rob6rXh.mjs.map
+//# sourceMappingURL=login-ne9pl9Q3.mjs.map

@@ -1,6 +1,5 @@
 import { v as vueExports, e as useRoute, u as useRouter, b as useAuthStore, s as serverRenderer_cjs_prodExports } from './server.mjs';
 import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -67,4 +66,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=_id_-BEiV-2ey.mjs.map
+//# sourceMappingURL=_id_-B0c_Cnxp.mjs.map

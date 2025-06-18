@@ -4,7 +4,6 @@ import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
 import { u as usePresence } from './usePresence-DI3wi_wD.mjs';
 import 'date-fns';
 import './_plugin-vue_export-helper-1tPrXgE0.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -495,4 +494,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=friends-r6fR8X8y.mjs.map
+//# sourceMappingURL=friends-gS9kmXCt.mjs.map

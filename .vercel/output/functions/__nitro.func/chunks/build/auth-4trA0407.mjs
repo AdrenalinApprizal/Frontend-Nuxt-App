@@ -1,5 +1,4 @@
 import { i as defineNuxtRouteMiddleware } from './server.mjs';
-import 'entities/lib/decode.js';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -26,4 +25,4 @@ const auth = defineNuxtRouteMiddleware((to, from) => {
 });
 
 export { auth as default };
-//# sourceMappingURL=auth-DWFPniUs.mjs.map
+//# sourceMappingURL=auth-4trA0407.mjs.map

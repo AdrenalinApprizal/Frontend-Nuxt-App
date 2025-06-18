@@ -1,14 +1,25 @@
 const client_manifest = {
-  "_BxhD8nA_.js": {
+  "_BACBSbGs.js": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "BxhD8nA_.js",
+    "file": "BACBSbGs.js",
+    "name": "useFriends",
+    "imports": [
+      "node_modules/nuxt/dist/app/entry.js"
+    ]
+  },
+  "_BF2WJbEo.js": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "BF2WJbEo.js",
     "name": "OptimizedAvatar",
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
-      "_CUS27wSW.js",
+      "_BACBSbGs.js",
       "_DlAUqK2U.js"
     ],
     "css": [
@@ -21,45 +32,45 @@ const client_manifest = {
     "prefetch": true,
     "preload": true
   },
-  "_C1C4yZe5.js": {
+  "_BM6g1ZKC.js": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "C1C4yZe5.js",
+    "file": "BM6g1ZKC.js",
+    "name": "NotificationDropdown",
+    "imports": [
+      "node_modules/nuxt/dist/app/entry.js",
+      "_BACBSbGs.js",
+      "_DlAUqK2U.js"
+    ],
+    "css": [
+      "NotificationDropdown.4cu85CUz.css"
+    ]
+  },
+  "NotificationDropdown.4cu85CUz.css": {
+    "file": "NotificationDropdown.4cu85CUz.css",
+    "resourceType": "style",
+    "prefetch": true,
+    "preload": true
+  },
+  "_BmG0zM2y.js": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "BmG0zM2y.js",
     "name": "v3",
     "imports": [
       "node_modules/nuxt/dist/app/entry.js"
     ]
   },
-  "_CUS27wSW.js": {
+  "_C9nQQgRz.js": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CUS27wSW.js",
-    "name": "useFriends",
-    "imports": [
-      "node_modules/nuxt/dist/app/entry.js"
-    ]
-  },
-  "_CkBq1SU_.js": {
-    "resourceType": "script",
-    "module": true,
-    "prefetch": true,
-    "preload": true,
-    "file": "CkBq1SU_.js",
-    "name": "useGroups",
-    "imports": [
-      "node_modules/nuxt/dist/app/entry.js"
-    ]
-  },
-  "_DQe-bbaP.js": {
-    "resourceType": "script",
-    "module": true,
-    "prefetch": true,
-    "preload": true,
-    "file": "DQe-bbaP.js",
+    "file": "C9nQQgRz.js",
     "name": "usePresence",
     "imports": [
       "node_modules/nuxt/dist/app/entry.js"
@@ -72,6 +83,17 @@ const client_manifest = {
     "preload": true,
     "file": "DlAUqK2U.js",
     "name": "_plugin-vue_export-helper"
+  },
+  "_DpbNEjx8.js": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "DpbNEjx8.js",
+    "name": "useGroups",
+    "imports": [
+      "node_modules/nuxt/dist/app/entry.js"
+    ]
   },
   "_NotificationDropdown.4cu85CUz.css": {
     "resourceType": "style",
@@ -87,34 +109,12 @@ const client_manifest = {
     "file": "OptimizedAvatar.D7NiwYWt.css",
     "src": "_OptimizedAvatar.D7NiwYWt.css"
   },
-  "_hGq67M-F.js": {
-    "resourceType": "script",
-    "module": true,
-    "prefetch": true,
-    "preload": true,
-    "file": "hGq67M-F.js",
-    "name": "NotificationDropdown",
-    "imports": [
-      "node_modules/nuxt/dist/app/entry.js",
-      "_CUS27wSW.js",
-      "_DlAUqK2U.js"
-    ],
-    "css": [
-      "NotificationDropdown.4cu85CUz.css"
-    ]
-  },
-  "NotificationDropdown.4cu85CUz.css": {
-    "file": "NotificationDropdown.4cu85CUz.css",
-    "resourceType": "style",
-    "prefetch": true,
-    "preload": true
-  },
   "middleware/auth.ts": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CFL3EpcW.js",
+    "file": "D2omlKIi.js",
     "name": "auth",
     "src": "middleware/auth.ts",
     "isDynamicEntry": true,
@@ -122,19 +122,67 @@ const client_manifest = {
       "node_modules/nuxt/dist/app/entry.js"
     ]
   },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.ttf": {
+    "resourceType": "font",
+    "mimeType": "font/ttf",
+    "file": "fa-brands-400.D1LuMI3I.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2": {
+    "resourceType": "font",
+    "mimeType": "font/woff2",
+    "file": "fa-brands-400.D_cYUPeE.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.ttf": {
+    "resourceType": "font",
+    "mimeType": "font/ttf",
+    "file": "fa-regular-400.DZaxPHgR.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2": {
+    "resourceType": "font",
+    "mimeType": "font/woff2",
+    "file": "fa-regular-400.BjRzuEpd.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.ttf": {
+    "resourceType": "font",
+    "mimeType": "font/ttf",
+    "file": "fa-solid-900.D0aA9rwL.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2": {
+    "resourceType": "font",
+    "mimeType": "font/woff2",
+    "file": "fa-solid-900.CTAAxXor.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.ttf": {
+    "resourceType": "font",
+    "mimeType": "font/ttf",
+    "file": "fa-v4compatibility.CCth-dXg.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2": {
+    "resourceType": "font",
+    "mimeType": "font/woff2",
+    "file": "fa-v4compatibility.C9RhG_FT.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2"
+  },
   "node_modules/nuxt/dist/app/components/error-404.vue": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "nnj-yEiY.js",
+    "file": "C6IyPUjx.js",
     "name": "error-404",
     "src": "node_modules/nuxt/dist/app/components/error-404.vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
       "_DlAUqK2U.js",
-      "_C1C4yZe5.js"
+      "_BmG0zM2y.js"
     ],
     "css": []
   },
@@ -149,13 +197,13 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "REEU0xv2.js",
+    "file": "BCFGOeya.js",
     "name": "error-500",
     "src": "node_modules/nuxt/dist/app/components/error-500.vue",
     "isDynamicEntry": true,
     "imports": [
       "_DlAUqK2U.js",
-      "_C1C4yZe5.js",
+      "_BmG0zM2y.js",
       "node_modules/nuxt/dist/app/entry.js"
     ],
     "css": []
@@ -171,7 +219,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "Bgep9vz_.js",
+    "file": "DlGJ4qri.js",
     "name": "entry",
     "src": "node_modules/nuxt/dist/app/entry.js",
     "isEntry": true,
@@ -196,14 +244,14 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CkXk52L6.js",
+    "file": "CYehro8q.js",
     "name": "login",
     "src": "pages/auth/login.vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
       "_DlAUqK2U.js",
-      "_C1C4yZe5.js"
+      "_BmG0zM2y.js"
     ]
   },
   "pages/auth/register.vue": {
@@ -211,13 +259,13 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "Bs4DqRv-.js",
+    "file": "_6nmtJbN.js",
     "name": "register",
     "src": "pages/auth/register.vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
-      "_C1C4yZe5.js"
+      "_BmG0zM2y.js"
     ]
   },
   "pages/chat/friends.vue": {
@@ -225,15 +273,15 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "DUTTTsjR.js",
+    "file": "CBeccD5l.js",
     "name": "friends",
     "src": "pages/chat/friends.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_hGq67M-F.js",
+      "_BM6g1ZKC.js",
       "node_modules/nuxt/dist/app/entry.js",
-      "_CUS27wSW.js",
-      "_DQe-bbaP.js",
+      "_BACBSbGs.js",
+      "_C9nQQgRz.js",
       "_DlAUqK2U.js"
     ]
   },
@@ -242,15 +290,15 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CCCCNZaz.js",
+    "file": "CJafQOUk.js",
     "name": "groups",
     "src": "pages/chat/groups.vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
-      "_hGq67M-F.js",
-      "_CkBq1SU_.js",
-      "_CUS27wSW.js",
+      "_BM6g1ZKC.js",
+      "_DpbNEjx8.js",
+      "_BACBSbGs.js",
       "_DlAUqK2U.js"
     ]
   },
@@ -259,13 +307,13 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "DZW0VlVF.js",
+    "file": "QuQfAOiz.js",
     "name": "_id_",
     "src": "pages/chat/groups/[id].vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
-      "_CkBq1SU_.js"
+      "_DpbNEjx8.js"
     ]
   },
   "pages/chat/messages.vue": {
@@ -273,17 +321,17 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "DvCOdxVY.js",
+    "file": "CJhQjAtr.js",
     "name": "messages",
     "src": "pages/chat/messages.vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
-      "_hGq67M-F.js",
-      "_CUS27wSW.js",
-      "_CkBq1SU_.js",
-      "_BxhD8nA_.js",
-      "_DQe-bbaP.js",
+      "_BM6g1ZKC.js",
+      "_BACBSbGs.js",
+      "_DpbNEjx8.js",
+      "_BF2WJbEo.js",
+      "_C9nQQgRz.js",
       "_DlAUqK2U.js"
     ],
     "css": [
@@ -301,17 +349,17 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "B1MYHJmG.js",
+    "file": "BKispYdd.js",
     "name": "_id_",
     "src": "pages/chat/messages/[id].vue",
     "isDynamicEntry": true,
     "imports": [
       "node_modules/nuxt/dist/app/entry.js",
-      "_CkBq1SU_.js",
-      "_DQe-bbaP.js",
-      "_CUS27wSW.js",
+      "_DpbNEjx8.js",
+      "_C9nQQgRz.js",
+      "_BACBSbGs.js",
       "_DlAUqK2U.js",
-      "_BxhD8nA_.js"
+      "_BF2WJbEo.js"
     ],
     "css": [
       "_id_.CVrNJF5D.css"
@@ -328,7 +376,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "uEHyMA7R.js",
+    "file": "DO3VI_oT.js",
     "name": "index",
     "src": "pages/index.vue",
     "isDynamicEntry": true,

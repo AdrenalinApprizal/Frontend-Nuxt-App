@@ -1,4 +1,4 @@
-import { defineComponent, shallowRef, h, resolveComponent, ref, computed, inject, hasInjectionContext, Suspense, getCurrentInstance, unref, provide, watch, shallowReactive, Fragment, createElementBlock, cloneVNode, reactive, useSSRContext, createApp, mergeProps, withCtx, createVNode, toRef, onErrorCaptured, onServerPrefetch, resolveDynamicComponent, effectScope, isReadonly, isRef, isShallow, isReactive, toRaw, defineAsyncComponent, getCurrentScope } from 'vue';
+import { defineComponent, shallowRef, h, resolveComponent, ref, computed, mergeProps, unref, inject, hasInjectionContext, Suspense, getCurrentInstance, provide, watch, shallowReactive, Fragment, createElementBlock, cloneVNode, reactive, useSSRContext, createApp, withCtx, createVNode, toRef, onErrorCaptured, onServerPrefetch, resolveDynamicComponent, effectScope, isReadonly, isRef, isShallow, isReactive, toRaw, defineAsyncComponent, getCurrentScope } from 'vue';
 import { n as parseQuery$1, o as hasProtocol, q as joinURL, t as getContext, w as withQuery, v as withTrailingSlash, x as withoutTrailingSlash, y as isScriptProtocol, z as sanitizeStatusCode, $ as $fetch, A as createHooks, B as executeAsync, k as createError$1, C as toRouteMatcher, D as createRouter$1, E as defu } from '../nitro/nitro.mjs';
 import { p as publicAssetsURL, b as baseURL } from '../routes/renderer.mjs';
 import { defineStore, createPinia, setActivePinia, shouldHydrate } from 'pinia';
@@ -2068,40 +2068,40 @@ const _routes = [
   {
     name: "auth-login",
     path: "/auth/login",
-    component: () => import('./login-DZNpEwv2.mjs')
+    component: () => import('./login-D9Zox7yL.mjs')
   },
   {
     name: "chat-groups",
     path: "/chat/groups",
-    component: () => import('./groups-DtCp-y6D.mjs'),
+    component: () => import('./groups-ubw79yPT.mjs'),
     children: [
       {
         name: "chat-groups-id",
         path: ":id()",
-        component: () => import('./_id_-CdGRu37S.mjs')
+        component: () => import('./_id_-CjruL1Je.mjs')
       }
     ]
   },
   {
     name: "chat-friends",
     path: "/chat/friends",
-    component: () => import('./friends-NdX0cgrL.mjs')
+    component: () => import('./friends-BPpJchxJ.mjs')
   },
   {
     name: "auth-register",
     path: "/auth/register",
-    component: () => import('./register-DQZFDhLl.mjs')
+    component: () => import('./register-CbrNDCEE.mjs')
   },
   {
     name: "chat-messages",
     path: "/chat/messages",
     meta: { "middleware": ["auth"] },
-    component: () => import('./messages-DOOiA_Lt.mjs'),
+    component: () => import('./messages-Dw7H9SPW.mjs'),
     children: [
       {
         name: "chat-messages-id",
         path: ":id()",
-        component: () => import('./_id_-Cxbvyf4f.mjs')
+        component: () => import('./_id_-CyVXfQTr.mjs')
       }
     ]
   }
@@ -2229,7 +2229,7 @@ const globalMiddleware = [
   manifest_45route_45rule
 ];
 const namedMiddleware = {
-  auth: () => import('./auth-1SbuIlwN.mjs')
+  auth: () => import('./auth-DiAwMk0k.mjs')
 };
 const plugin$1 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:router",
@@ -3647,6 +3647,68 @@ const plugins = [
   router_S6yKjqoQ3Sb8o2lehB5PRjhy2uyi4DI_Ja_jhT1JS60,
   toast_F_pfj7FgRLbXLAWiXjuGtvyN_yqw93f_EjHy5PiyXpc
 ];
+const _sfc_main$6 = /* @__PURE__ */ defineComponent({
+  __name: "Icon",
+  __ssrInlineRender: true,
+  props: {
+    name: {},
+    class: { default: "" }
+  },
+  setup(__props) {
+    const props = __props;
+    const iconClass = computed(() => {
+      const baseClass = props.class || "";
+      const iconMap = {
+        // Eye icons
+        "fa:eye": "fas fa-eye",
+        "fa:eye-slash": "fas fa-eye-slash",
+        // Basic icons
+        "fa:search": "fas fa-search",
+        "fa:info-circle": "fas fa-info-circle",
+        "fa:ellipsis-v": "fas fa-ellipsis-v",
+        "fa:chevron-up": "fas fa-chevron-up",
+        "fa:chevron-down": "fas fa-chevron-down",
+        "fa:cloud-upload": "fas fa-cloud-upload-alt",
+        "fa:exclamation-triangle": "fas fa-exclamation-triangle",
+        "fa:edit": "fas fa-edit",
+        "fa:file": "fas fa-file",
+        "fa:paperclip": "fas fa-paperclip",
+        "fa:times": "fas fa-times",
+        "fa:arrow-left": "fas fa-arrow-left",
+        "fa:phone": "fas fa-phone",
+        "fa:video": "fas fa-video",
+        "fa:cog": "fas fa-cog",
+        "fa:plus": "fas fa-plus",
+        "fa:user": "fas fa-user",
+        "fa:users": "fas fa-users",
+        "fa:send": "fas fa-paper-plane",
+        "fa:smile": "fas fa-smile",
+        "fa:image": "fas fa-image",
+        "fa:microphone": "fas fa-microphone",
+        "fa:camera": "fas fa-camera",
+        // Lucide icons mapped to FontAwesome
+        "lucide:x": "fas fa-times",
+        "lucide:paperclip": "fas fa-paperclip",
+        "lucide:send": "fas fa-paper-plane",
+        "lucide:smile": "fas fa-smile",
+        "lucide:image": "fas fa-image",
+        "lucide:mic": "fas fa-microphone",
+        "lucide:camera": "fas fa-camera"
+      };
+      const faClass = iconMap[props.name] || "fas fa-question-circle";
+      return `${faClass} ${baseClass}`.trim();
+    });
+    return (_ctx, _push, _parent, _attrs) => {
+      _push(`<i${ssrRenderAttrs(mergeProps({ class: unref(iconClass) }, _attrs))}></i>`);
+    };
+  }
+});
+const _sfc_setup$6 = _sfc_main$6.setup;
+_sfc_main$6.setup = (props, ctx) => {
+  const ssrContext = useSSRContext();
+  (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("components/Icon.vue");
+  return _sfc_setup$6 ? _sfc_setup$6(props, ctx) : void 0;
+};
 const _sfc_main$5 = /* @__PURE__ */ defineComponent({
   __name: "ProfilePictureModal",
   __ssrInlineRender: true,
@@ -3665,7 +3727,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     const previewUrl = ref(null);
     const isUploading = ref(false);
     return (_ctx, _push, _parent, _attrs) => {
-      const _component_Icon = resolveComponent("Icon");
+      const _component_Icon = _sfc_main$6;
       _push(`<div${ssrRenderAttrs(mergeProps({ class: "fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70 backdrop-blur-sm" }, _attrs))}><div class="bg-[#050C1B] border border-blue-500/30 p-4 rounded-lg shadow-lg max-w-md w-full text-white relative"><button class="absolute top-2 right-2 text-gray-400 hover:text-gray-200">`);
       _push(ssrRenderComponent(_component_Icon, {
         name: "fa:times",
@@ -3767,7 +3829,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     }
     return (_ctx, _push, _parent, _attrs) => {
       var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
-      const _component_Icon = resolveComponent("Icon");
+      const _component_Icon = _sfc_main$6;
       const _component_ProfilePictureModal = _sfc_main$5;
       _push(`<div${ssrRenderAttrs(mergeProps({ class: "fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 backdrop-blur-sm" }, _attrs))}><div class="bg-[#050C1B] border border-blue-500/30 p-4 rounded-lg shadow-lg w-80 text-white relative"><button class="absolute top-2 right-2 text-gray-400 hover:text-gray-200">`);
       _push(ssrRenderComponent(_component_Icon, {
@@ -3871,7 +3933,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const showLogoutConfirmation = ref(false);
     return (_ctx, _push, _parent, _attrs) => {
       const _component_NuxtLink = __nuxt_component_0$1;
-      const _component_Icon = resolveComponent("Icon");
+      const _component_Icon = _sfc_main$6;
       const _component_ProfilePopup = _sfc_main$4;
       _push(`<!--[--><nav class="flex flex-col justify-between h-screen w-16 bg-[#050C1B] text-white py-5"><div class="flex flex-col items-center"><div class="flex items-center justify-center w-12 h-12 mb-10"><img${ssrRenderAttr("src", _imports_0)} alt="Voxta Logo" class="rounded-full w-10 h-10"></div><div class="flex flex-col space-y-8">`);
       _push(ssrRenderComponent(_component_NuxtLink, {
@@ -4213,5 +4275,5 @@ let entry;
 }
 const entry$1 = (ssrContext) => entry(ssrContext);
 
-export { __nuxt_component_0$1 as _, useNuxtApp as a, useAuthStore as b, _imports_0 as c, useRoute as d, entry$1 as default, useRoute$1 as e, __nuxt_component_0 as f, useRuntimeConfig as g, defineNuxtRouteMiddleware as h, tryUseNuxtApp as t, useRouter as u };
+export { __nuxt_component_0$1 as _, useNuxtApp as a, useAuthStore as b, _imports_0 as c, _sfc_main$6 as d, entry$1 as default, useRoute as e, useRoute$1 as f, __nuxt_component_0 as g, useRuntimeConfig as h, defineNuxtRouteMiddleware as i, tryUseNuxtApp as t, useRouter as u };
 //# sourceMappingURL=server.mjs.map

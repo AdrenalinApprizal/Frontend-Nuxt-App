@@ -13,6 +13,12 @@ export default defineNuxtConfig({
       "vue-router",
       "vue-bundle-renderer",
       "@vue/server-renderer",
+      "@vue/compiler-dom",
+      "@vue/shared",
+      "@vue/compiler-core",
+      "@vue/compiler-sfc",
+      "@vue/compiler-ssr",
+      "@vue/reactivity",
       "destr",
       "ufo",
       "vue"

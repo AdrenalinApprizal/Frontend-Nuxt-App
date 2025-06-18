@@ -7,7 +7,6 @@
     "@babel/parser": "7.27.5",
     "@vue/compiler-core": "3.5.16",
     "@vue/compiler-dom": "3.5.16",
-    "@vue/compiler-ssr": "3.5.16",
     "@vue/devtools-api": "7.7.7",
     "@vue/devtools-kit": "7.7.7",
     "@vue/devtools-shared": "7.7.7",

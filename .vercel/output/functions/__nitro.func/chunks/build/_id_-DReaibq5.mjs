@@ -1,5 +1,5 @@
 import { v as vueExports, e as useRoute, u as useRouter, b as useAuthStore, s as serverRenderer_cjs_prodExports } from './server.mjs';
-import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
+import { u as useGroupsStore } from './useGroups-DELxsTvM.mjs';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -11,7 +11,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 
 const _sfc_main = /* @__PURE__ */ vueExports.defineComponent({
   __name: "[id]",
@@ -59,4 +58,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=_id_-CFuD-9qh.mjs.map
+//# sourceMappingURL=_id_-DReaibq5.mjs.map

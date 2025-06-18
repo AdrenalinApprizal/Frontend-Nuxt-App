@@ -2,7 +2,6 @@ import { p as publicAssetsURL, l as lib, b as baseURL } from '../routes/renderer
 import http from 'node:http';
 import https from 'node:https';
 import { o as parseQuery$1, q as hasProtocol, t as joinURL, v as getContext, x as withQuery, y as withTrailingSlash, z as withoutTrailingSlash, A as isScriptProtocol, B as sanitizeStatusCode, C as l, D as i, E as s, f as createHooks, F as executeAsync, l as createError$1, G as withBase, H as destr, I as toRouteMatcher, J as createRouter$1, K as defu } from '../nitro/nitro.mjs';
-import { defineStore, createPinia, setActivePinia, shouldHydrate } from 'pinia';
 import node_stream__default from 'node:stream';
 import '../_/shared.cjs.prod.mjs';
 import 'node:events';
@@ -21402,6 +21401,467 @@ const createError = (error) => {
   });
   return nuxtError;
 };
+var pinia_prod = {};
+var hasRequiredPinia_prod;
+function requirePinia_prod() {
+  if (hasRequiredPinia_prod) return pinia_prod;
+  hasRequiredPinia_prod = 1;
+  (function(exports) {
+    /*!
+     * pinia v3.0.3
+     * (c) 2025 Eduardo San Martin Morote
+     * @license MIT
+     */
+    var vue2 = requireVue_cjs_prod();
+    let activePinia;
+    const setActivePinia = (pinia) => activePinia = pinia;
+    const getActivePinia = () => vue2.hasInjectionContext() && vue2.inject(piniaSymbol) || activePinia;
+    const piniaSymbol = (
+      /* istanbul ignore next */
+      Symbol()
+    );
+    function isPlainObject(o) {
+      return o && typeof o === "object" && Object.prototype.toString.call(o) === "[object Object]" && typeof o.toJSON !== "function";
+    }
+    exports.MutationType = void 0;
+    (function(MutationType) {
+      MutationType["direct"] = "direct";
+      MutationType["patchObject"] = "patch object";
+      MutationType["patchFunction"] = "patch function";
+    })(exports.MutationType || (exports.MutationType = {}));
+    function createPinia() {
+      const scope = vue2.effectScope(true);
+      const state = scope.run(() => vue2.ref({}));
+      let _p = [];
+      let toBeInstalled = [];
+      const pinia = vue2.markRaw({
+        install(app) {
+          setActivePinia(pinia);
+          pinia._a = app;
+          app.provide(piniaSymbol, pinia);
+          app.config.globalProperties.$pinia = pinia;
+          toBeInstalled.forEach((plugin2) => _p.push(plugin2));
+          toBeInstalled = [];
+        },
+        use(plugin2) {
+          if (!this._a) {
+            toBeInstalled.push(plugin2);
+          } else {
+            _p.push(plugin2);
+          }
+          return this;
+        },
+        _p,
+        // it's actually undefined here
+        // @ts-expect-error
+        _a: null,
+        _e: scope,
+        _s: /* @__PURE__ */ new Map(),
+        state
+      });
+      return pinia;
+    }
+    function disposePinia(pinia) {
+      pinia._e.stop();
+      pinia._s.clear();
+      pinia._p.splice(0);
+      pinia.state.value = {};
+      pinia._a = null;
+    }
+    function acceptHMRUpdate(initialUseStore, hot) {
+      {
+        return () => {
+        };
+      }
+    }
+    const noop2 = () => {
+    };
+    function addSubscription(subscriptions, callback, detached, onCleanup = noop2) {
+      subscriptions.push(callback);
+      const removeSubscription = () => {
+        const idx = subscriptions.indexOf(callback);
+        if (idx > -1) {
+          subscriptions.splice(idx, 1);
+          onCleanup();
+        }
+      };
+      if (!detached && vue2.getCurrentScope()) {
+        vue2.onScopeDispose(removeSubscription);
+      }
+      return removeSubscription;
+    }
+    function triggerSubscriptions(subscriptions, ...args) {
+      subscriptions.slice().forEach((callback) => {
+        callback(...args);
+      });
+    }
+    const fallbackRunWithContext = (fn) => fn();
+    const ACTION_MARKER = Symbol();
+    const ACTION_NAME = Symbol();
+    function mergeReactiveObjects(target, patchToApply) {
+      if (target instanceof Map && patchToApply instanceof Map) {
+        patchToApply.forEach((value, key) => target.set(key, value));
+      } else if (target instanceof Set && patchToApply instanceof Set) {
+        patchToApply.forEach(target.add, target);
+      }
+      for (const key in patchToApply) {
+        if (!patchToApply.hasOwnProperty(key))
+          continue;
+        const subPatch = patchToApply[key];
+        const targetValue = target[key];
+        if (isPlainObject(targetValue) && isPlainObject(subPatch) && target.hasOwnProperty(key) && !vue2.isRef(subPatch) && !vue2.isReactive(subPatch)) {
+          target[key] = mergeReactiveObjects(targetValue, subPatch);
+        } else {
+          target[key] = subPatch;
+        }
+      }
+      return target;
+    }
+    const skipHydrateSymbol = (
+      /* istanbul ignore next */
+      Symbol()
+    );
+    function skipHydrate(obj) {
+      return Object.defineProperty(obj, skipHydrateSymbol, {});
+    }
+    function shouldHydrate(obj) {
+      return !isPlainObject(obj) || !Object.prototype.hasOwnProperty.call(obj, skipHydrateSymbol);
+    }
+    const { assign: assign2 } = Object;
+    function isComputed(o) {
+      return !!(vue2.isRef(o) && o.effect);
+    }
+    function createOptionsStore(id, options, pinia, hot) {
+      const { state, actions, getters } = options;
+      const initialState = pinia.state.value[id];
+      let store;
+      function setup() {
+        if (!initialState && true) {
+          pinia.state.value[id] = state ? state() : {};
+        }
+        const localState = vue2.toRefs(pinia.state.value[id]);
+        return assign2(localState, actions, Object.keys(getters || {}).reduce((computedGetters, name) => {
+          computedGetters[name] = vue2.markRaw(vue2.computed(() => {
+            setActivePinia(pinia);
+            const store2 = pinia._s.get(id);
+            return getters[name].call(store2, store2);
+          }));
+          return computedGetters;
+        }, {}));
+      }
+      store = createSetupStore(id, setup, options, pinia, hot, true);
+      return store;
+    }
+    function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) {
+      let scope;
+      const optionsForPlugin = assign2({ actions: {} }, options);
+      const $subscribeOptions = { deep: true };
+      let isListening;
+      let isSyncListening;
+      let subscriptions = [];
+      let actionSubscriptions = [];
+      let debuggerEvents;
+      const initialState = pinia.state.value[$id];
+      if (!isOptionsStore && !initialState && true) {
+        pinia.state.value[$id] = {};
+      }
+      vue2.ref({});
+      let activeListener;
+      function $patch(partialStateOrMutator) {
+        let subscriptionMutation;
+        isListening = isSyncListening = false;
+        if (typeof partialStateOrMutator === "function") {
+          partialStateOrMutator(pinia.state.value[$id]);
+          subscriptionMutation = {
+            type: exports.MutationType.patchFunction,
+            storeId: $id,
+            events: debuggerEvents
+          };
+        } else {
+          mergeReactiveObjects(pinia.state.value[$id], partialStateOrMutator);
+          subscriptionMutation = {
+            type: exports.MutationType.patchObject,
+            payload: partialStateOrMutator,
+            storeId: $id,
+            events: debuggerEvents
+          };
+        }
+        const myListenerId = activeListener = Symbol();
+        vue2.nextTick().then(() => {
+          if (activeListener === myListenerId) {
+            isListening = true;
+          }
+        });
+        isSyncListening = true;
+        triggerSubscriptions(subscriptions, subscriptionMutation, pinia.state.value[$id]);
+      }
+      const $reset = isOptionsStore ? function $reset2() {
+        const { state } = options;
+        const newState = state ? state() : {};
+        this.$patch(($state) => {
+          assign2($state, newState);
+        });
+      } : (
+        /* istanbul ignore next */
+        noop2
+      );
+      function $dispose() {
+        scope.stop();
+        subscriptions = [];
+        actionSubscriptions = [];
+        pinia._s.delete($id);
+      }
+      const action = (fn, name = "") => {
+        if (ACTION_MARKER in fn) {
+          fn[ACTION_NAME] = name;
+          return fn;
+        }
+        const wrappedAction = function() {
+          setActivePinia(pinia);
+          const args = Array.from(arguments);
+          const afterCallbackList = [];
+          const onErrorCallbackList = [];
+          function after(callback) {
+            afterCallbackList.push(callback);
+          }
+          function onError(callback) {
+            onErrorCallbackList.push(callback);
+          }
+          triggerSubscriptions(actionSubscriptions, {
+            args,
+            name: wrappedAction[ACTION_NAME],
+            store,
+            after,
+            onError
+          });
+          let ret;
+          try {
+            ret = fn.apply(this && this.$id === $id ? this : store, args);
+          } catch (error) {
+            triggerSubscriptions(onErrorCallbackList, error);
+            throw error;
+          }
+          if (ret instanceof Promise) {
+            return ret.then((value) => {
+              triggerSubscriptions(afterCallbackList, value);
+              return value;
+            }).catch((error) => {
+              triggerSubscriptions(onErrorCallbackList, error);
+              return Promise.reject(error);
+            });
+          }
+          triggerSubscriptions(afterCallbackList, ret);
+          return ret;
+        };
+        wrappedAction[ACTION_MARKER] = true;
+        wrappedAction[ACTION_NAME] = name;
+        return wrappedAction;
+      };
+      const partialStore = {
+        _p: pinia,
+        // _s: scope,
+        $id,
+        $onAction: addSubscription.bind(null, actionSubscriptions),
+        $patch,
+        $reset,
+        $subscribe(callback, options2 = {}) {
+          const removeSubscription = addSubscription(subscriptions, callback, options2.detached, () => stopWatcher());
+          const stopWatcher = scope.run(() => vue2.watch(() => pinia.state.value[$id], (state) => {
+            if (options2.flush === "sync" ? isSyncListening : isListening) {
+              callback({
+                storeId: $id,
+                type: exports.MutationType.direct,
+                events: debuggerEvents
+              }, state);
+            }
+          }, assign2({}, $subscribeOptions, options2)));
+          return removeSubscription;
+        },
+        $dispose
+      };
+      const store = vue2.reactive(partialStore);
+      pinia._s.set($id, store);
+      const runWithContext = pinia._a && pinia._a.runWithContext || fallbackRunWithContext;
+      const setupStore = runWithContext(() => pinia._e.run(() => (scope = vue2.effectScope()).run(() => setup({ action }))));
+      for (const key in setupStore) {
+        const prop = setupStore[key];
+        if (vue2.isRef(prop) && !isComputed(prop) || vue2.isReactive(prop)) {
+          if (!isOptionsStore) {
+            if (initialState && shouldHydrate(prop)) {
+              if (vue2.isRef(prop)) {
+                prop.value = initialState[key];
+              } else {
+                mergeReactiveObjects(prop, initialState[key]);
+              }
+            }
+            pinia.state.value[$id][key] = prop;
+          }
+        } else if (typeof prop === "function") {
+          const actionValue = action(prop, key);
+          setupStore[key] = actionValue;
+          optionsForPlugin.actions[key] = prop;
+        } else ;
+      }
+      assign2(store, setupStore);
+      assign2(vue2.toRaw(store), setupStore);
+      Object.defineProperty(store, "$state", {
+        get: () => pinia.state.value[$id],
+        set: (state) => {
+          $patch(($state) => {
+            assign2($state, state);
+          });
+        }
+      });
+      pinia._p.forEach((extender) => {
+        {
+          assign2(store, scope.run(() => extender({
+            store,
+            app: pinia._a,
+            pinia,
+            options: optionsForPlugin
+          })));
+        }
+      });
+      if (initialState && isOptionsStore && options.hydrate) {
+        options.hydrate(store.$state, initialState);
+      }
+      isListening = true;
+      isSyncListening = true;
+      return store;
+    }
+    /*! #__NO_SIDE_EFFECTS__ */
+    // @__NO_SIDE_EFFECTS__
+    function defineStore(id, setup, setupOptions) {
+      let options;
+      const isSetupStore = typeof setup === "function";
+      options = isSetupStore ? setupOptions : setup;
+      function useStore(pinia, hot) {
+        const hasContext = vue2.hasInjectionContext();
+        pinia = // in test mode, ignore the argument provided as we can always retrieve a
+        // pinia instance with getActivePinia()
+        (pinia) || (hasContext ? vue2.inject(piniaSymbol, null) : null);
+        if (pinia)
+          setActivePinia(pinia);
+        pinia = activePinia;
+        if (!pinia._s.has(id)) {
+          if (isSetupStore) {
+            createSetupStore(id, setup, options, pinia);
+          } else {
+            createOptionsStore(id, options, pinia);
+          }
+        }
+        const store = pinia._s.get(id);
+        return store;
+      }
+      useStore.$id = id;
+      return useStore;
+    }
+    let mapStoreSuffix = "Store";
+    function setMapStoreSuffix(suffix) {
+      mapStoreSuffix = suffix;
+    }
+    function mapStores(...stores) {
+      return stores.reduce((reduced, useStore) => {
+        reduced[useStore.$id + mapStoreSuffix] = function() {
+          return useStore(this.$pinia);
+        };
+        return reduced;
+      }, {});
+    }
+    function mapState(useStore, keysOrMapper) {
+      return Array.isArray(keysOrMapper) ? keysOrMapper.reduce((reduced, key) => {
+        reduced[key] = function() {
+          return useStore(this.$pinia)[key];
+        };
+        return reduced;
+      }, {}) : Object.keys(keysOrMapper).reduce((reduced, key) => {
+        reduced[key] = function() {
+          const store = useStore(this.$pinia);
+          const storeKey = keysOrMapper[key];
+          return typeof storeKey === "function" ? storeKey.call(this, store) : (
+            // @ts-expect-error: FIXME: should work?
+            store[storeKey]
+          );
+        };
+        return reduced;
+      }, {});
+    }
+    const mapGetters = mapState;
+    function mapActions(useStore, keysOrMapper) {
+      return Array.isArray(keysOrMapper) ? keysOrMapper.reduce((reduced, key) => {
+        reduced[key] = function(...args) {
+          return useStore(this.$pinia)[key](...args);
+        };
+        return reduced;
+      }, {}) : Object.keys(keysOrMapper).reduce((reduced, key) => {
+        reduced[key] = function(...args) {
+          return useStore(this.$pinia)[keysOrMapper[key]](...args);
+        };
+        return reduced;
+      }, {});
+    }
+    function mapWritableState(useStore, keysOrMapper) {
+      return Array.isArray(keysOrMapper) ? keysOrMapper.reduce((reduced, key) => {
+        reduced[key] = {
+          get() {
+            return useStore(this.$pinia)[key];
+          },
+          set(value) {
+            return useStore(this.$pinia)[key] = value;
+          }
+        };
+        return reduced;
+      }, {}) : Object.keys(keysOrMapper).reduce((reduced, key) => {
+        reduced[key] = {
+          get() {
+            return useStore(this.$pinia)[keysOrMapper[key]];
+          },
+          set(value) {
+            return useStore(this.$pinia)[keysOrMapper[key]] = value;
+          }
+        };
+        return reduced;
+      }, {});
+    }
+    function storeToRefs(store) {
+      const rawStore = vue2.toRaw(store);
+      const refs = {};
+      for (const key in rawStore) {
+        const value = rawStore[key];
+        if (value.effect) {
+          refs[key] = // ...
+          vue2.computed({
+            get: () => store[key],
+            set(value2) {
+              store[key] = value2;
+            }
+          });
+        } else if (vue2.isRef(value) || vue2.isReactive(value)) {
+          refs[key] = // ---
+          vue2.toRef(store, key);
+        }
+      }
+      return refs;
+    }
+    exports.acceptHMRUpdate = acceptHMRUpdate;
+    exports.createPinia = createPinia;
+    exports.defineStore = defineStore;
+    exports.disposePinia = disposePinia;
+    exports.getActivePinia = getActivePinia;
+    exports.mapActions = mapActions;
+    exports.mapGetters = mapGetters;
+    exports.mapState = mapState;
+    exports.mapStores = mapStores;
+    exports.mapWritableState = mapWritableState;
+    exports.setActivePinia = setActivePinia;
+    exports.setMapStoreSuffix = setMapStoreSuffix;
+    exports.shouldHydrate = shouldHydrate;
+    exports.skipHydrate = skipHydrate;
+    exports.storeToRefs = storeToRefs;
+  })(pinia_prod);
+  return pinia_prod;
+}
+var pinia_prodExports = /* @__PURE__ */ requirePinia_prod();
 async function getRouteRules(arg) {
   const path = typeof arg === "string" ? arg : arg.path;
   {
@@ -21421,7 +21881,7 @@ const payloadPlugin = definePayloadPlugin(() => {
   definePayloadReducer(
     "skipHydrate",
     // We need to return something truthy to be treated as a match
-    (data) => !shouldHydrate(data) && 1
+    (data) => !pinia_prodExports.shouldHydrate(data) && 1
   );
 });
 const unhead_k2P3m_ZDyjlr2mMYnoDPwavjsDN8hBlk9cFai0bbopU = /* @__PURE__ */ defineNuxtPlugin({
@@ -23104,45 +23564,45 @@ const _routes = [
   {
     name: "index",
     path: "/",
-    component: () => import('./index-vOsAn5le.mjs')
+    component: () => import('./index-Dfuzg0Rw.mjs')
   },
   {
     name: "auth-login",
     path: "/auth/login",
-    component: () => import('./login-DUR27YTf.mjs')
+    component: () => import('./login-D7qKoOg8.mjs')
   },
   {
     name: "chat-groups",
     path: "/chat/groups",
-    component: () => import('./groups-Cg9hb1Oc.mjs'),
+    component: () => import('./groups-DZZbADBW.mjs'),
     children: [
       {
         name: "chat-groups-id",
         path: ":id()",
-        component: () => import('./_id_-CFuD-9qh.mjs')
+        component: () => import('./_id_-DReaibq5.mjs')
       }
     ]
   },
   {
     name: "chat-friends",
     path: "/chat/friends",
-    component: () => import('./friends-5uRf30oo.mjs')
+    component: () => import('./friends-BqFMZbS7.mjs')
   },
   {
     name: "auth-register",
     path: "/auth/register",
-    component: () => import('./register-DM0E2OMf.mjs')
+    component: () => import('./register-BQLZtxXM.mjs')
   },
   {
     name: "chat-messages",
     path: "/chat/messages",
     meta: { "middleware": ["auth"] },
-    component: () => import('./messages-Bj1FQugL.mjs'),
+    component: () => import('./messages-Di6zPYSv.mjs'),
     children: [
       {
         name: "chat-messages-id",
         path: ":id()",
-        component: () => import('./_id_-C4YlCTtt.mjs')
+        component: () => import('./_id_-BWp5AjmF.mjs')
       }
     ]
   }
@@ -23270,7 +23730,7 @@ const globalMiddleware = [
   manifest_45route_45rule
 ];
 const namedMiddleware = {
-  auth: () => import('./auth-vOm5Q-5t.mjs')
+  auth: () => import('./auth-bg4fEB9J.mjs')
 };
 const plugin$1 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:router",
@@ -23797,9 +24257,9 @@ function applyTrailingSlashBehavior(to, trailingSlash) {
 const plugin = /* @__PURE__ */ defineNuxtPlugin({
   name: "pinia",
   setup(nuxtApp) {
-    const pinia = createPinia();
+    const pinia = pinia_prodExports.createPinia();
     nuxtApp.vueApp.use(pinia);
-    setActivePinia(pinia);
+    pinia_prodExports.setActivePinia(pinia);
     {
       nuxtApp.payload.pinia = vueExports.toRaw(pinia.state.value);
     }
@@ -23813,7 +24273,7 @@ const plugin = /* @__PURE__ */ defineNuxtPlugin({
 const components_plugin_z4hgvsiddfKkfXTP6M8M4zG5Cb7sGnDhcryKVM45Di4 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:global-components"
 });
-const useAuthStore = defineStore("auth", () => {
+const useAuthStore = pinia_prodExports.defineStore("auth", () => {
   const user = vueExports.ref(null);
   const isAuthenticated = vueExports.computed(() => !!user.value);
   const token = vueExports.ref(null);
@@ -27468,8 +27928,8 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = vueExports.defineAsyncComponent(() => import('./error-404-BUJ-z-cL.mjs'));
-    const _Error = vueExports.defineAsyncComponent(() => import('./error-500-t8Lx0HET.mjs'));
+    const _Error404 = vueExports.defineAsyncComponent(() => import('./error-404-CSlBmksB.mjs'));
+    const _Error = vueExports.defineAsyncComponent(() => import('./error-500-BuYOuWNQ.mjs'));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
       _push(serverRenderer_cjs_prodExports.ssrRenderComponent(vueExports.unref(ErrorTemplate), vueExports.mergeProps({ statusCode: vueExports.unref(statusCode), statusMessage: vueExports.unref(statusMessage), description: vueExports.unref(description), stack: vueExports.unref(stack) }, _attrs), null, _parent));
@@ -27551,5 +28011,5 @@ let entry;
 }
 const entry$1 = (ssrContext) => entry(ssrContext);
 
-export { __nuxt_component_0$1 as _, useNuxtApp as a, useAuthStore as b, _imports_0 as c, _sfc_main$6 as d, entry$1 as default, useRoute as e, useRoute$1 as f, __nuxt_component_0 as g, useRuntimeConfig as h, defineNuxtRouteMiddleware as i, serverRenderer_cjs_prodExports as s, tryUseNuxtApp as t, useRouter as u, vueExports as v };
+export { __nuxt_component_0$1 as _, useNuxtApp as a, useAuthStore as b, _imports_0 as c, _sfc_main$6 as d, entry$1 as default, useRoute as e, useRoute$1 as f, __nuxt_component_0 as g, useRuntimeConfig as h, defineNuxtRouteMiddleware as i, pinia_prodExports as p, serverRenderer_cjs_prodExports as s, tryUseNuxtApp as t, useRouter as u, vueExports as v };
 //# sourceMappingURL=server.mjs.map

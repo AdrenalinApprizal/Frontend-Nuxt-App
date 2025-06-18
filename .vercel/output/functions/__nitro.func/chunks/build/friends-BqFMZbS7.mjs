@@ -1,7 +1,7 @@
 import { _ as __nuxt_component_1 } from './NotificationDropdown-BcpzIWTO.mjs';
 import { v as vueExports, u as useRouter, b as useAuthStore, s as serverRenderer_cjs_prodExports, c as _imports_0, f as useRoute$1, a as useNuxtApp, d as _sfc_main$6 } from './server.mjs';
-import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
-import { u as usePresence } from './usePresence-DI3wi_wD.mjs';
+import { u as useFriendsStore } from './useFriends-DIt7fa-3.mjs';
+import { u as usePresence } from './usePresence-BVA8YSMe.mjs';
 import 'date-fns';
 import './_plugin-vue_export-helper-1tPrXgE0.mjs';
 import '../routes/renderer.mjs';
@@ -15,7 +15,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 
 const _sfc_main$2 = /* @__PURE__ */ vueExports.defineComponent({
   __name: "FriendRequest",
@@ -487,4 +486,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=friends-5uRf30oo.mjs.map
+//# sourceMappingURL=friends-BqFMZbS7.mjs.map

@@ -53,7 +53,9 @@ export default defineNuxtConfig({
       "mlly",
       "pkg-types",
       "c12",
-      "jiti"
+      "jiti",
+      "pinia",
+      "@pinia/nuxt"
     ],
   },
 

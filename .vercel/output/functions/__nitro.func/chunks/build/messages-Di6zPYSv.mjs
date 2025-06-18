@@ -1,9 +1,9 @@
 import { v as vueExports, u as useRouter, f as useRoute$1, a as useNuxtApp, b as useAuthStore, s as serverRenderer_cjs_prodExports, g as __nuxt_component_0, c as _imports_0, e as useRoute, d as _sfc_main$6, _ as __nuxt_component_0$1 } from './server.mjs';
 import { u as useNotifications, _ as __nuxt_component_1 } from './NotificationDropdown-BcpzIWTO.mjs';
-import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
-import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
-import { u as useWebSocket, s as setInterval, a as useMessagesStore, _ as __nuxt_component_0$2, f as formatMessageTimestamp } from './OptimizedAvatar-CIwqHRpr.mjs';
-import { u as usePresence } from './usePresence-DI3wi_wD.mjs';
+import { u as useFriendsStore } from './useFriends-DIt7fa-3.mjs';
+import { u as useGroupsStore } from './useGroups-DELxsTvM.mjs';
+import { u as useWebSocket, s as setInterval, a as useMessagesStore, _ as __nuxt_component_0$2, f as formatMessageTimestamp } from './OptimizedAvatar-chuoBSNE.mjs';
+import { u as usePresence } from './usePresence-BVA8YSMe.mjs';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
@@ -16,7 +16,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 import 'date-fns';
 import 'mitt';
 
@@ -662,4 +661,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=messages-Bj1FQugL.mjs.map
+//# sourceMappingURL=messages-Di6zPYSv.mjs.map

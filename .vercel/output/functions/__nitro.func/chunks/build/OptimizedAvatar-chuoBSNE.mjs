@@ -1,5 +1,4 @@
-import { v as vueExports, u as useRouter, b as useAuthStore, a as useNuxtApp, h as useRuntimeConfig, s as serverRenderer_cjs_prodExports, d as _sfc_main$6 } from './server.mjs';
-import { defineStore } from 'pinia';
+import { p as pinia_prodExports, v as vueExports, u as useRouter, b as useAuthStore, a as useNuxtApp, h as useRuntimeConfig, s as serverRenderer_cjs_prodExports, d as _sfc_main$6 } from './server.mjs';
 import mitt from 'mitt';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
 
@@ -7,7 +6,7 @@ const intervalError = "[nuxt] `setInterval` should not be used on the server. Co
 const setInterval = () => {
   console.error(intervalError);
 };
-const useMessagesStore = defineStore("messages", () => {
+const useMessagesStore = pinia_prodExports.defineStore("messages", () => {
   const messages = vueExports.ref([]);
   const isLoading = vueExports.ref(false);
   const error = vueExports.ref(null);
@@ -824,7 +823,7 @@ function formatDateForSeparator(timestamp) {
     return "Unknown Date";
   }
 }
-const useWebSocket = defineStore("websocket", () => {
+const useWebSocket = pinia_prodExports.defineStore("websocket", () => {
   const socketMessages = vueExports.ref(null);
   const isMessagesConnected = vueExports.ref(false);
   const isMessagesConnecting = vueExports.ref(false);
@@ -2198,4 +2197,4 @@ _sfc_main.setup = (props, ctx) => {
 const __nuxt_component_0 = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-3baf5395"]]);
 
 export { __nuxt_component_0 as _, useMessagesStore as a, formatDateForSeparator as b, eventBus as e, formatMessageTimestamp as f, setInterval as s, useWebSocket as u };
-//# sourceMappingURL=OptimizedAvatar-CIwqHRpr.mjs.map
+//# sourceMappingURL=OptimizedAvatar-chuoBSNE.mjs.map

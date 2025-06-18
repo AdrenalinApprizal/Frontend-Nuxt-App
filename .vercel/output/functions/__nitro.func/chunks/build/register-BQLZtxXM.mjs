@@ -11,7 +11,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 
 const _sfc_main$1 = /* @__PURE__ */ vueExports.defineComponent({
   __name: "RegisterForm",
@@ -109,4 +108,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=register-DM0E2OMf.mjs.map
+//# sourceMappingURL=register-BQLZtxXM.mjs.map

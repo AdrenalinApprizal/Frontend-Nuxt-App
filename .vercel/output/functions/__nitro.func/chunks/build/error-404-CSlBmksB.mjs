@@ -12,7 +12,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 
 const _sfc_main = {
   __name: "error-404",
@@ -89,4 +88,4 @@ _sfc_main.setup = (props, ctx) => {
 const error404 = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-06403dcb"]]);
 
 export { error404 as default };
-//# sourceMappingURL=error-404-BUJ-z-cL.mjs.map
+//# sourceMappingURL=error-404-CSlBmksB.mjs.map

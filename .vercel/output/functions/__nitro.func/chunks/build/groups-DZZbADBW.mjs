@@ -1,8 +1,8 @@
 import { v as vueExports, u as useRouter, b as useAuthStore, s as serverRenderer_cjs_prodExports, c as _imports_0, a as useNuxtApp, d as _sfc_main$6, _ as __nuxt_component_0$1 } from './server.mjs';
 import { _ as __nuxt_component_1 } from './NotificationDropdown-BcpzIWTO.mjs';
 import { format, formatDistanceToNow } from 'date-fns';
-import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
-import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
+import { u as useGroupsStore } from './useGroups-DELxsTvM.mjs';
+import { u as useFriendsStore } from './useFriends-DIt7fa-3.mjs';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -14,7 +14,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 import './_plugin-vue_export-helper-1tPrXgE0.mjs';
 
 const _sfc_main$1 = /* @__PURE__ */ vueExports.defineComponent({
@@ -310,4 +309,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=groups-Cg9hb1Oc.mjs.map
+//# sourceMappingURL=groups-DZZbADBW.mjs.map

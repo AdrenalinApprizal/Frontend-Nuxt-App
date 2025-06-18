@@ -10,7 +10,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 
 const auth = defineNuxtRouteMiddleware((to, from) => {
   console.log("Auth middleware temporarily disabled for debugging");
@@ -18,4 +17,4 @@ const auth = defineNuxtRouteMiddleware((to, from) => {
 });
 
 export { auth as default };
-//# sourceMappingURL=auth-vOm5Q-5t.mjs.map
+//# sourceMappingURL=auth-bg4fEB9J.mjs.map

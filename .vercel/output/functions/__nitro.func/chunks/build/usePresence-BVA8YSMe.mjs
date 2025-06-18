@@ -1,8 +1,7 @@
-import { defineStore } from 'pinia';
-import { v as vueExports, a as useNuxtApp } from './server.mjs';
+import { p as pinia_prodExports, v as vueExports, a as useNuxtApp } from './server.mjs';
 
 const PRESENCE_PATH = "/presence";
-const usePresenceStore = defineStore("presence", () => {
+const usePresenceStore = pinia_prodExports.defineStore("presence", () => {
   const userStatuses = vueExports.ref(/* @__PURE__ */ new Map());
   const currentStatus = vueExports.ref("online");
   const isLoading = vueExports.ref(false);
@@ -346,4 +345,4 @@ function usePresence() {
 }
 
 export { usePresence as u };
-//# sourceMappingURL=usePresence-DI3wi_wD.mjs.map
+//# sourceMappingURL=usePresence-BVA8YSMe.mjs.map

@@ -10,7 +10,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'pinia';
 
 const _sfc_main = /* @__PURE__ */ vueExports.defineComponent({
   __name: "index",
@@ -30,4 +29,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=index-vOsAn5le.mjs.map
+//# sourceMappingURL=index-Dfuzg0Rw.mjs.map

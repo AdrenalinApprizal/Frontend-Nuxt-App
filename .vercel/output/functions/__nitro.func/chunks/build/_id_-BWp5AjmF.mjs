@@ -1,10 +1,9 @@
-import { v as vueExports, f as useRoute$1, u as useRouter, b as useAuthStore, s as serverRenderer_cjs_prodExports, a as useNuxtApp, d as _sfc_main$6$1 } from './server.mjs';
-import { u as useGroupsStore } from './useGroups-CkV_vNHq.mjs';
-import { u as usePresence } from './usePresence-DI3wi_wD.mjs';
-import { defineStore } from 'pinia';
-import { u as useFriendsStore } from './useFriends-DzoMEWH6.mjs';
+import { v as vueExports, f as useRoute$1, u as useRouter, b as useAuthStore, s as serverRenderer_cjs_prodExports, a as useNuxtApp, d as _sfc_main$6$1, p as pinia_prodExports } from './server.mjs';
+import { u as useGroupsStore } from './useGroups-DELxsTvM.mjs';
+import { u as usePresence } from './usePresence-BVA8YSMe.mjs';
+import { u as useFriendsStore } from './useFriends-DIt7fa-3.mjs';
 import { _ as _export_sfc } from './_plugin-vue_export-helper-1tPrXgE0.mjs';
-import { a as useMessagesStore, u as useWebSocket, b as formatDateForSeparator, e as eventBus, f as formatMessageTimestamp, _ as __nuxt_component_0 } from './OptimizedAvatar-CIwqHRpr.mjs';
+import { a as useMessagesStore, u as useWebSocket, b as formatDateForSeparator, e as eventBus, f as formatMessageTimestamp, _ as __nuxt_component_0 } from './OptimizedAvatar-chuoBSNE.mjs';
 import '../routes/renderer.mjs';
 import '../nitro/nitro.mjs';
 import 'node:http';
@@ -149,7 +148,7 @@ _sfc_main$8.setup = (props, ctx) => {
   return _sfc_setup$8 ? _sfc_setup$8(props, ctx) : void 0;
 };
 const FILE_SERVICE_PATH = "";
-const useFilesStore = defineStore("files", () => {
+const useFilesStore = pinia_prodExports.defineStore("files", () => {
   const files = vueExports.ref([]);
   const userMedia = vueExports.ref([]);
   const groupMedia = vueExports.ref([]);
@@ -4062,4 +4061,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=_id_-C4YlCTtt.mjs.map
+//# sourceMappingURL=_id_-BWp5AjmF.mjs.map

@@ -1,7 +1,6 @@
-import { defineStore } from 'pinia';
-import { v as vueExports } from './server.mjs';
+import { p as pinia_prodExports, v as vueExports } from './server.mjs';
 
-const useFriendsStore = defineStore("friends", () => {
+const useFriendsStore = pinia_prodExports.defineStore("friends", () => {
   const friends = vueExports.ref([]);
   const pendingRequests = vueExports.ref([]);
   const blockedUsers = vueExports.ref([]);
@@ -690,4 +689,4 @@ const useFriendsStore = defineStore("friends", () => {
 });
 
 export { useFriendsStore as u };
-//# sourceMappingURL=useFriends-DzoMEWH6.mjs.map
+//# sourceMappingURL=useFriends-DIt7fa-3.mjs.map

@@ -1,7 +1,6 @@
-import { defineStore } from 'pinia';
-import { v as vueExports, a as useNuxtApp } from './server.mjs';
+import { p as pinia_prodExports, v as vueExports, a as useNuxtApp } from './server.mjs';
 
-const useGroupsStore = defineStore("groups", () => {
+const useGroupsStore = pinia_prodExports.defineStore("groups", () => {
   const groups = vueExports.ref([]);
   const currentGroup = vueExports.ref(null);
   const groupMembers = vueExports.ref([]);
@@ -722,4 +721,4 @@ const useGroupsStore = defineStore("groups", () => {
 });
 
 export { useGroupsStore as u };
-//# sourceMappingURL=useGroups-CkV_vNHq.mjs.map
+//# sourceMappingURL=useGroups-DELxsTvM.mjs.map

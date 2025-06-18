@@ -6,8 +6,6 @@ import 'node:buffer';
 import 'node:fs';
 import 'node:path';
 import 'node:crypto';
-import '@iconify/utils';
-import 'consola';
 
 const API_BASE_URL = process.env.NUXT_PUBLIC_API_BASE_URL || "http://localhost:8081/api";
 const GROUP_API_BASE_URL = process.env.NUXT_PUBLIC_GROUP_API_URL || "http://localhost:8082/api";

@@ -1,11 +1,8 @@
-import { defineComponent, shallowRef, h, resolveComponent, ref, computed, inject, hasInjectionContext, Suspense, getCurrentInstance, onServerPrefetch, unref, provide, watch, shallowReactive, Fragment, toValue, toRef, nextTick, createElementBlock, cloneVNode, defineAsyncComponent, reactive, useSSRContext, createApp, mergeProps, withCtx, createVNode, onErrorCaptured, resolveDynamicComponent, effectScope, isReadonly, isRef, isShallow, isReactive, toRaw, getCurrentScope } from 'vue';
-import { k as publicAssetsURL, o as parseQuery$1, q as hasProtocol, t as joinURL, v as klona, w as defuFn, x as withQuery, y as withTrailingSlash, z as withoutTrailingSlash, A as isScriptProtocol, B as getContext, C as sanitizeStatusCode, l as createError$1, $ as $fetch$1, D as baseURL, E as createHooks, F as executeAsync, G as toRouteMatcher, H as createRouter$1, I as defu } from '../nitro/nitro.mjs';
+import { defineComponent, shallowRef, h, resolveComponent, ref, computed, inject, hasInjectionContext, Suspense, getCurrentInstance, unref, provide, watch, shallowReactive, Fragment, createElementBlock, cloneVNode, reactive, useSSRContext, createApp, mergeProps, withCtx, createVNode, toRef, onErrorCaptured, onServerPrefetch, resolveDynamicComponent, effectScope, isReadonly, isRef, isShallow, isReactive, toRaw, defineAsyncComponent, getCurrentScope } from 'vue';
+import { n as parseQuery$1, o as hasProtocol, q as joinURL, t as getContext, w as withQuery, v as withTrailingSlash, x as withoutTrailingSlash, y as isScriptProtocol, z as sanitizeStatusCode, $ as $fetch, A as createHooks, B as executeAsync, k as createError$1, C as toRouteMatcher, D as createRouter$1, E as defu } from '../nitro/nitro.mjs';
+import { p as publicAssetsURL, b as baseURL } from '../routes/renderer.mjs';
 import { defineStore, createPinia, setActivePinia, shouldHydrate } from 'pinia';
-import { Icon, getIcon, loadIcon as loadIcon$1, _api, addAPIProvider, setCustomIconsLoader } from '@iconify/vue';
 import { ssrRenderAttrs, ssrRenderComponent, ssrRenderClass, ssrRenderAttr, ssrInterpolate, ssrIncludeBooleanAttr, ssrRenderDynamicModel, ssrRenderSuspense, ssrRenderVNode } from 'vue/server-renderer';
-import { getIconCSS } from '@iconify/utils/lib/css/icon';
-import { debounce } from 'perfect-debounce';
-import { u as useHead$1, h as headSymbol } from '../routes/renderer.mjs';
 import 'node:http';
 import 'node:https';
 import 'node:events';
@@ -13,8 +10,6 @@ import 'node:buffer';
 import 'node:fs';
 import 'node:path';
 import 'node:crypto';
-import '@iconify/utils';
-import 'consola';
 import 'vue-bundle-renderer/runtime';
 import 'unhead/server';
 import 'devalue';
@@ -22,7 +17,7 @@ import 'unhead/utils';
 import 'unhead/plugins';
 
 if (!globalThis.$fetch) {
-  globalThis.$fetch = $fetch$1.create({
+  globalThis.$fetch = $fetch.create({
     baseURL: baseURL()
   });
 }
@@ -30,7 +25,6 @@ if (!("global" in globalThis)) {
   globalThis.global = globalThis;
 }
 const nuxtLinkDefaults = { "componentName": "NuxtLink" };
-const asyncDataDefaults = { "value": null, "errorValue": null, "deep": true };
 const appId = "nuxt-app";
 function getNuxtAppCtx(id = appId) {
   return getContext(id, {
@@ -367,21 +361,6 @@ const createError = (error) => {
   });
   return nuxtError;
 };
-function injectHead(nuxtApp) {
-  var _a;
-  const nuxt = nuxtApp || tryUseNuxtApp();
-  return ((_a = nuxt == null ? void 0 : nuxt.ssrContext) == null ? void 0 : _a.head) || (nuxt == null ? void 0 : nuxt.runWithContext(() => {
-    if (hasInjectionContext()) {
-      return inject(headSymbol);
-    }
-  }));
-}
-function useHead(input, options = {}) {
-  const head = injectHead(options.nuxt);
-  if (head) {
-    return useHead$1(input, { head, ...options });
-  }
-}
 async function getRouteRules(arg) {
   const path = typeof arg === "string" ? arg : arg.path;
   {
@@ -627,9 +606,9 @@ function createMemoryHistory(base = "") {
     listen(callback) {
       listeners.push(callback);
       return () => {
-        const index2 = listeners.indexOf(callback);
-        if (index2 > -1)
-          listeners.splice(index2, 1);
+        const index = listeners.indexOf(callback);
+        if (index > -1)
+          listeners.splice(index, 1);
       };
     },
     destroy() {
@@ -1066,9 +1045,9 @@ function createRouterMatcher(routes, globalOptions) {
         matcher.alias.forEach(removeRoute);
       }
     } else {
-      const index2 = matchers.indexOf(matcherRef);
-      if (index2 > -1) {
-        matchers.splice(index2, 1);
+      const index = matchers.indexOf(matcherRef);
+      if (index > -1) {
+        matchers.splice(index, 1);
         if (matcherRef.record.name)
           matcherMap.delete(matcherRef.record.name);
         matcherRef.children.forEach(removeRoute);
@@ -1080,8 +1059,8 @@ function createRouterMatcher(routes, globalOptions) {
     return matchers;
   }
   function insertMatcher(matcher) {
-    const index2 = findInsertionIndex(matcher, matchers);
-    matchers.splice(index2, 0, matcher);
+    const index = findInsertionIndex(matcher, matchers);
+    matchers.splice(index, 0, matcher);
     if (matcher.record.name && !isAliasRecord(matcher))
       matcherMap.set(matcher.record.name, matcher);
   }
@@ -1399,9 +1378,9 @@ function useLink(props) {
     const currentMatched = currentRoute.matched;
     if (!routeMatched || !currentMatched.length)
       return -1;
-    const index2 = currentMatched.findIndex(isSameRouteRecord.bind(null, routeMatched));
-    if (index2 > -1)
-      return index2;
+    const index = currentMatched.findIndex(isSameRouteRecord.bind(null, routeMatched));
+    if (index > -1)
+      return index;
     const parentRecordPath = getOriginalPath(matched[length - 2]);
     return (
       // we are dealing with nested routes
@@ -1409,7 +1388,7 @@ function useLink(props) {
       // referring to the empty child. Or we currently are on a different
       // child of the same parent
       getOriginalPath(routeMatched) === parentRecordPath && // avoid comparing the child with its parent
-      currentMatched[currentMatched.length - 1].path !== parentRecordPath ? currentMatched.findIndex(isSameRouteRecord.bind(null, matched[length - 2])) : index2
+      currentMatched[currentMatched.length - 1].path !== parentRecordPath ? currentMatched.findIndex(isSameRouteRecord.bind(null, matched[length - 2])) : index
     );
   });
   const isActive = computed(() => activeRecordIndex.value > -1 && includesParams(currentRoute.params, route.value.params));
@@ -2084,45 +2063,45 @@ const _routes = [
   {
     name: "index",
     path: "/",
-    component: () => import('./index-DoYlt3EX.mjs')
+    component: () => import('./index-MXlQQ3rs.mjs')
   },
   {
     name: "auth-login",
     path: "/auth/login",
-    component: () => import('./login--GqCW58U.mjs')
+    component: () => import('./login-DZNpEwv2.mjs')
   },
   {
     name: "chat-groups",
     path: "/chat/groups",
-    component: () => import('./groups-DPTseoPt.mjs'),
+    component: () => import('./groups-DtCp-y6D.mjs'),
     children: [
       {
         name: "chat-groups-id",
         path: ":id()",
-        component: () => import('./_id_-CioE-Glh.mjs')
+        component: () => import('./_id_-CdGRu37S.mjs')
       }
     ]
   },
   {
     name: "chat-friends",
     path: "/chat/friends",
-    component: () => import('./friends-DoWTGOUY.mjs')
+    component: () => import('./friends-NdX0cgrL.mjs')
   },
   {
     name: "auth-register",
     path: "/auth/register",
-    component: () => import('./register-MV-n-dq_.mjs')
+    component: () => import('./register-DQZFDhLl.mjs')
   },
   {
     name: "chat-messages",
     path: "/chat/messages",
     meta: { "middleware": ["auth"] },
-    component: () => import('./messages-YOALfatt.mjs'),
+    component: () => import('./messages-DOOiA_Lt.mjs'),
     children: [
       {
         name: "chat-messages-id",
         path: ":id()",
-        component: () => import('./_id_-cUgA7fc8.mjs')
+        component: () => import('./_id_-Cxbvyf4f.mjs')
       }
     ]
   }
@@ -2145,9 +2124,9 @@ function isChangingPage(to, from) {
     return true;
   }
   const areComponentsSame = to.matched.every(
-    (comp, index2) => {
+    (comp, index) => {
       var _a, _b;
-      return comp.components && comp.components.default === ((_b = (_a = from.matched[index2]) == null ? void 0 : _a.components) == null ? void 0 : _b.default);
+      return comp.components && comp.components.default === ((_b = (_a = from.matched[index]) == null ? void 0 : _a.components) == null ? void 0 : _b.default);
     }
   );
   if (areComponentsSame) {
@@ -2250,7 +2229,7 @@ const globalMiddleware = [
   manifest_45route_45rule
 ];
 const namedMiddleware = {
-  auth: () => import('./auth-BkbWri1u.mjs')
+  auth: () => import('./auth-1SbuIlwN.mjs')
 };
 const plugin$1 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:router",
@@ -2505,243 +2484,6 @@ defineComponent({
     };
   }
 });
-const isDefer = (dedupe) => dedupe === "defer" || dedupe === false;
-function useAsyncData(...args) {
-  var _a;
-  const autoKey = typeof args[args.length - 1] === "string" ? args.pop() : void 0;
-  if (_isAutoKeyNeeded(args[0], args[1])) {
-    args.unshift(autoKey);
-  }
-  let [_key, _handler, options = {}] = args;
-  const key = computed(() => toValue(_key));
-  if (typeof key.value !== "string") {
-    throw new TypeError("[nuxt] [useAsyncData] key must be a string.");
-  }
-  if (typeof _handler !== "function") {
-    throw new TypeError("[nuxt] [useAsyncData] handler must be a function.");
-  }
-  const nuxtApp = useNuxtApp();
-  options.server ?? (options.server = true);
-  options.default ?? (options.default = getDefault);
-  options.getCachedData ?? (options.getCachedData = getDefaultCachedData);
-  options.lazy ?? (options.lazy = false);
-  options.immediate ?? (options.immediate = true);
-  options.deep ?? (options.deep = asyncDataDefaults.deep);
-  options.dedupe ?? (options.dedupe = "cancel");
-  options._functionName || "useAsyncData";
-  nuxtApp._asyncData[key.value];
-  const initialFetchOptions = { cause: "initial", dedupe: options.dedupe };
-  if (!((_a = nuxtApp._asyncData[key.value]) == null ? void 0 : _a._init)) {
-    initialFetchOptions.cachedData = options.getCachedData(key.value, nuxtApp, { cause: "initial" });
-    nuxtApp._asyncData[key.value] = createAsyncData(nuxtApp, key.value, _handler, options, initialFetchOptions.cachedData);
-  }
-  const asyncData = nuxtApp._asyncData[key.value];
-  asyncData._deps++;
-  const initialFetch = () => nuxtApp._asyncData[key.value].execute(initialFetchOptions);
-  const fetchOnServer = options.server !== false && nuxtApp.payload.serverRendered;
-  if (fetchOnServer && options.immediate) {
-    const promise = initialFetch();
-    if (getCurrentInstance()) {
-      onServerPrefetch(() => promise);
-    } else {
-      nuxtApp.hook("app:created", async () => {
-        await promise;
-      });
-    }
-  }
-  const asyncReturn = {
-    data: writableComputedRef(() => {
-      var _a2;
-      return (_a2 = nuxtApp._asyncData[key.value]) == null ? void 0 : _a2.data;
-    }),
-    pending: writableComputedRef(() => {
-      var _a2;
-      return (_a2 = nuxtApp._asyncData[key.value]) == null ? void 0 : _a2.pending;
-    }),
-    status: writableComputedRef(() => {
-      var _a2;
-      return (_a2 = nuxtApp._asyncData[key.value]) == null ? void 0 : _a2.status;
-    }),
-    error: writableComputedRef(() => {
-      var _a2;
-      return (_a2 = nuxtApp._asyncData[key.value]) == null ? void 0 : _a2.error;
-    }),
-    refresh: (...args2) => nuxtApp._asyncData[key.value].execute(...args2),
-    execute: (...args2) => nuxtApp._asyncData[key.value].execute(...args2),
-    clear: () => clearNuxtDataByKey(nuxtApp, key.value)
-  };
-  const asyncDataPromise = Promise.resolve(nuxtApp._asyncDataPromises[key.value]).then(() => asyncReturn);
-  Object.assign(asyncDataPromise, asyncReturn);
-  return asyncDataPromise;
-}
-function writableComputedRef(getter) {
-  return computed({
-    get() {
-      var _a;
-      return (_a = getter()) == null ? void 0 : _a.value;
-    },
-    set(value) {
-      const ref2 = getter();
-      if (ref2) {
-        ref2.value = value;
-      }
-    }
-  });
-}
-function _isAutoKeyNeeded(keyOrFetcher, fetcher) {
-  if (typeof keyOrFetcher === "string") {
-    return false;
-  }
-  if (typeof keyOrFetcher === "object" && keyOrFetcher !== null) {
-    return false;
-  }
-  if (typeof keyOrFetcher === "function" && typeof fetcher === "function") {
-    return false;
-  }
-  return true;
-}
-function clearNuxtDataByKey(nuxtApp, key) {
-  if (key in nuxtApp.payload.data) {
-    nuxtApp.payload.data[key] = void 0;
-  }
-  if (key in nuxtApp.payload._errors) {
-    nuxtApp.payload._errors[key] = asyncDataDefaults.errorValue;
-  }
-  if (nuxtApp._asyncData[key]) {
-    nuxtApp._asyncData[key].data.value = void 0;
-    nuxtApp._asyncData[key].error.value = asyncDataDefaults.errorValue;
-    {
-      nuxtApp._asyncData[key].pending.value = false;
-    }
-    nuxtApp._asyncData[key].status.value = "idle";
-  }
-  if (key in nuxtApp._asyncDataPromises) {
-    if (nuxtApp._asyncDataPromises[key]) {
-      nuxtApp._asyncDataPromises[key].cancelled = true;
-    }
-    nuxtApp._asyncDataPromises[key] = void 0;
-  }
-}
-function pick(obj, keys) {
-  const newObj = {};
-  for (const key of keys) {
-    newObj[key] = obj[key];
-  }
-  return newObj;
-}
-function createAsyncData(nuxtApp, key, _handler, options, initialCachedData) {
-  var _a;
-  (_a = nuxtApp.payload._errors)[key] ?? (_a[key] = asyncDataDefaults.errorValue);
-  const hasCustomGetCachedData = options.getCachedData !== getDefaultCachedData;
-  const handler = _handler ;
-  const _ref = options.deep ? ref : shallowRef;
-  const hasCachedData = initialCachedData != null;
-  const unsubRefreshAsyncData = nuxtApp.hook("app:data:refresh", async (keys) => {
-    if (!keys || keys.includes(key)) {
-      await asyncData.execute({ cause: "refresh:hook" });
-    }
-  });
-  const asyncData = {
-    data: _ref(hasCachedData ? initialCachedData : options.default()),
-    pending: shallowRef(!hasCachedData),
-    error: toRef(nuxtApp.payload._errors, key),
-    status: shallowRef("idle"),
-    execute: (opts = {}) => {
-      if (nuxtApp._asyncDataPromises[key]) {
-        if (isDefer(opts.dedupe ?? options.dedupe)) {
-          return nuxtApp._asyncDataPromises[key];
-        }
-        nuxtApp._asyncDataPromises[key].cancelled = true;
-      }
-      if (opts.cause === "initial" || nuxtApp.isHydrating) {
-        const cachedData = "cachedData" in opts ? opts.cachedData : options.getCachedData(key, nuxtApp, { cause: opts.cause ?? "refresh:manual" });
-        if (cachedData != null) {
-          nuxtApp.payload.data[key] = asyncData.data.value = cachedData;
-          asyncData.error.value = asyncDataDefaults.errorValue;
-          asyncData.status.value = "success";
-          return Promise.resolve(cachedData);
-        }
-      }
-      {
-        asyncData.pending.value = true;
-      }
-      asyncData.status.value = "pending";
-      const promise = new Promise(
-        (resolve, reject) => {
-          try {
-            resolve(handler(nuxtApp));
-          } catch (err) {
-            reject(err);
-          }
-        }
-      ).then(async (_result) => {
-        if (promise.cancelled) {
-          return nuxtApp._asyncDataPromises[key];
-        }
-        let result = _result;
-        if (options.transform) {
-          result = await options.transform(_result);
-        }
-        if (options.pick) {
-          result = pick(result, options.pick);
-        }
-        nuxtApp.payload.data[key] = result;
-        asyncData.data.value = result;
-        asyncData.error.value = asyncDataDefaults.errorValue;
-        asyncData.status.value = "success";
-      }).catch((error) => {
-        if (promise.cancelled) {
-          return nuxtApp._asyncDataPromises[key];
-        }
-        asyncData.error.value = createError(error);
-        asyncData.data.value = unref(options.default());
-        asyncData.status.value = "error";
-      }).finally(() => {
-        if (promise.cancelled) {
-          return;
-        }
-        {
-          asyncData.pending.value = false;
-        }
-        delete nuxtApp._asyncDataPromises[key];
-      });
-      nuxtApp._asyncDataPromises[key] = promise;
-      return nuxtApp._asyncDataPromises[key];
-    },
-    _execute: debounce((...args) => asyncData.execute(...args), 0, { leading: true }),
-    _default: options.default,
-    _deps: 0,
-    _init: true,
-    _hash: void 0,
-    _off: () => {
-      var _a2;
-      unsubRefreshAsyncData();
-      if ((_a2 = nuxtApp._asyncData[key]) == null ? void 0 : _a2._init) {
-        nuxtApp._asyncData[key]._init = false;
-      }
-      if (!hasCustomGetCachedData) {
-        nextTick(() => {
-          var _a3;
-          if (!((_a3 = nuxtApp._asyncData[key]) == null ? void 0 : _a3._init)) {
-            clearNuxtDataByKey(nuxtApp, key);
-            asyncData.execute = () => Promise.resolve();
-            asyncData.data.value = asyncDataDefaults.value;
-          }
-        });
-      }
-    }
-  };
-  return asyncData;
-}
-const getDefault = () => asyncDataDefaults.value;
-const getDefaultCachedData = (key, nuxtApp, ctx) => {
-  if (nuxtApp.isHydrating) {
-    return nuxtApp.payload.data[key];
-  }
-  if (ctx.cause !== "refresh:manual" && ctx.cause !== "refresh:hook") {
-    return nuxtApp.static.data[key];
-  }
-};
 const firstNonUndefined = (...args) => args.find((arg) => arg !== void 0);
 // @__NO_SIDE_EFFECTS__
 function defineNuxtLink(options) {
@@ -3002,7 +2744,7 @@ function defineNuxtLink(options) {
     // }) as unknown as DefineComponent<NuxtLinkProps, object, object, ComputedOptions, MethodOptions, object, object, EmitsOptions, string, object, NuxtLinkProps, object, SlotsType<NuxtLinkSlots>>
   });
 }
-const __nuxt_component_0$2 = /* @__PURE__ */ defineNuxtLink(nuxtLinkDefaults);
+const __nuxt_component_0$1 = /* @__PURE__ */ defineNuxtLink(nuxtLinkDefaults);
 function applyTrailingSlashBehavior(to, trailingSlash) {
   const normalizeFn = trailingSlash === "append" ? withTrailingSlash : withoutTrailingSlash;
   const hasProtocolDifferentFromHttp = hasProtocol(to) && !to.startsWith("http");
@@ -3010,209 +2752,6 @@ function applyTrailingSlashBehavior(to, trailingSlash) {
     return to;
   }
   return normalizeFn(to, true);
-}
-const inlineConfig = {
-  "nuxt": {},
-  "icon": {
-    "provider": "server",
-    "class": "",
-    "aliases": {},
-    "iconifyApiEndpoint": "https://api.iconify.design",
-    "localApiEndpoint": "/api/_nuxt_icon",
-    "fallbackToApi": true,
-    "cssSelectorPrefix": "i-",
-    "cssWherePseudo": true,
-    "mode": "css",
-    "attrs": {
-      "aria-hidden": true
-    },
-    "collections": [
-      "academicons",
-      "akar-icons",
-      "ant-design",
-      "arcticons",
-      "basil",
-      "bi",
-      "bitcoin-icons",
-      "bpmn",
-      "brandico",
-      "bx",
-      "bxl",
-      "bxs",
-      "bytesize",
-      "carbon",
-      "catppuccin",
-      "cbi",
-      "charm",
-      "ci",
-      "cib",
-      "cif",
-      "cil",
-      "circle-flags",
-      "circum",
-      "clarity",
-      "codicon",
-      "covid",
-      "cryptocurrency",
-      "cryptocurrency-color",
-      "dashicons",
-      "devicon",
-      "devicon-plain",
-      "ei",
-      "el",
-      "emojione",
-      "emojione-monotone",
-      "emojione-v1",
-      "entypo",
-      "entypo-social",
-      "eos-icons",
-      "ep",
-      "et",
-      "eva",
-      "f7",
-      "fa",
-      "fa-brands",
-      "fa-regular",
-      "fa-solid",
-      "fa6-brands",
-      "fa6-regular",
-      "fa6-solid",
-      "fad",
-      "fe",
-      "feather",
-      "file-icons",
-      "flag",
-      "flagpack",
-      "flat-color-icons",
-      "flat-ui",
-      "flowbite",
-      "fluent",
-      "fluent-emoji",
-      "fluent-emoji-flat",
-      "fluent-emoji-high-contrast",
-      "fluent-mdl2",
-      "fontelico",
-      "fontisto",
-      "formkit",
-      "foundation",
-      "fxemoji",
-      "gala",
-      "game-icons",
-      "geo",
-      "gg",
-      "gis",
-      "gravity-ui",
-      "gridicons",
-      "grommet-icons",
-      "guidance",
-      "healthicons",
-      "heroicons",
-      "heroicons-outline",
-      "heroicons-solid",
-      "hugeicons",
-      "humbleicons",
-      "ic",
-      "icomoon-free",
-      "icon-park",
-      "icon-park-outline",
-      "icon-park-solid",
-      "icon-park-twotone",
-      "iconamoon",
-      "iconoir",
-      "icons8",
-      "il",
-      "ion",
-      "iwwa",
-      "jam",
-      "la",
-      "lets-icons",
-      "line-md",
-      "logos",
-      "ls",
-      "lucide",
-      "lucide-lab",
-      "mage",
-      "majesticons",
-      "maki",
-      "map",
-      "marketeq",
-      "material-symbols",
-      "material-symbols-light",
-      "mdi",
-      "mdi-light",
-      "medical-icon",
-      "memory",
-      "meteocons",
-      "mi",
-      "mingcute",
-      "mono-icons",
-      "mynaui",
-      "nimbus",
-      "nonicons",
-      "noto",
-      "noto-v1",
-      "octicon",
-      "oi",
-      "ooui",
-      "openmoji",
-      "oui",
-      "pajamas",
-      "pepicons",
-      "pepicons-pencil",
-      "pepicons-pop",
-      "pepicons-print",
-      "ph",
-      "pixelarticons",
-      "prime",
-      "ps",
-      "quill",
-      "radix-icons",
-      "raphael",
-      "ri",
-      "rivet-icons",
-      "si-glyph",
-      "simple-icons",
-      "simple-line-icons",
-      "skill-icons",
-      "solar",
-      "streamline",
-      "streamline-emojis",
-      "subway",
-      "svg-spinners",
-      "system-uicons",
-      "tabler",
-      "tdesign",
-      "teenyicons",
-      "token",
-      "token-branded",
-      "topcoat",
-      "twemoji",
-      "typcn",
-      "uil",
-      "uim",
-      "uis",
-      "uit",
-      "uiw",
-      "unjs",
-      "vaadin",
-      "vs",
-      "vscode-icons",
-      "websymbol",
-      "weui",
-      "whh",
-      "wi",
-      "wpf",
-      "zmdi",
-      "zondicons"
-    ],
-    "fetchTimeout": 1500
-  }
-};
-const __appConfig = /* @__PURE__ */ defuFn(inlineConfig);
-function useAppConfig() {
-  const nuxtApp = useNuxtApp();
-  nuxtApp._appConfig || (nuxtApp._appConfig = klona(__appConfig));
-  return nuxtApp._appConfig;
 }
 const plugin = /* @__PURE__ */ defineNuxtPlugin({
   name: "pinia",
@@ -3230,61 +2769,8 @@ const plugin = /* @__PURE__ */ defineNuxtPlugin({
     };
   }
 });
-const LazyIcon = defineAsyncComponent(() => Promise.resolve().then(() => index).then((r2) => r2["default"] || r2.default || r2));
-const lazyGlobalComponents = [
-  ["Icon", LazyIcon]
-];
 const components_plugin_z4hgvsiddfKkfXTP6M8M4zG5Cb7sGnDhcryKVM45Di4 = /* @__PURE__ */ defineNuxtPlugin({
-  name: "nuxt:global-components",
-  setup(nuxtApp) {
-    for (const [name, component] of lazyGlobalComponents) {
-      nuxtApp.vueApp.component(name, component);
-      nuxtApp.vueApp.component("Lazy" + name, component);
-    }
-  }
-});
-const plugin_MeUvTuoKUi51yb_kBguab6hdcExVXeTtZtTg9TZZBB8 = /* @__PURE__ */ defineNuxtPlugin({
-  name: "@nuxt/icon",
-  setup() {
-    var _a, _b;
-    const configs = /* @__PURE__ */ useRuntimeConfig();
-    const options = useAppConfig().icon;
-    _api.setFetch($fetch.native);
-    const resources = [];
-    if (options.provider === "server") {
-      const baseURL2 = ((_b = (_a = configs.app) == null ? void 0 : _a.baseURL) == null ? void 0 : _b.replace(/\/$/, "")) ?? "";
-      resources.push(baseURL2 + (options.localApiEndpoint || "/api/_nuxt_icon"));
-      if (options.fallbackToApi === true || options.fallbackToApi === "client-only") {
-        resources.push(options.iconifyApiEndpoint);
-      }
-    } else if (options.provider === "none") {
-      _api.setFetch(() => Promise.resolve(new Response()));
-    } else {
-      resources.push(options.iconifyApiEndpoint);
-    }
-    async function customIconLoader(icons, prefix) {
-      try {
-        const data = await $fetch(resources[0] + "/" + prefix + ".json", {
-          query: {
-            icons: icons.join(",")
-          }
-        });
-        if (!data || data.prefix !== prefix || !data.icons)
-          throw new Error("Invalid data" + JSON.stringify(data));
-        return data;
-      } catch (e) {
-        console.error("Failed to load custom icons", e);
-        return null;
-      }
-    }
-    addAPIProvider("", { resources });
-    for (const prefix of options.customCollections || []) {
-      if (prefix)
-        setCustomIconsLoader(customIconLoader, prefix);
-    }
-  }
-  // For type portability
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  name: "nuxt:global-components"
 });
 const useAuthStore = defineStore("auth", () => {
   const user = ref(null);
@@ -4157,223 +3643,10 @@ const plugins = [
   revive_payload_server_MVtmlZaQpj6ApFmshWfUWl5PehCebzaBf2NuRMiIbms,
   plugin,
   components_plugin_z4hgvsiddfKkfXTP6M8M4zG5Cb7sGnDhcryKVM45Di4,
-  plugin_MeUvTuoKUi51yb_kBguab6hdcExVXeTtZtTg9TZZBB8,
   api_jy9dy79pM_nYQuRKPrcfNg56p_gKkzw9SekUTZgAenc,
   router_S6yKjqoQ3Sb8o2lehB5PRjhy2uyi4DI_Ja_jhT1JS60,
   toast_F_pfj7FgRLbXLAWiXjuGtvyN_yqw93f_EjHy5PiyXpc
 ];
-async function loadIcon(name, timeout) {
-  if (!name)
-    return null;
-  const _icon = getIcon(name);
-  if (_icon)
-    return _icon;
-  let timeoutWarn;
-  const load = loadIcon$1(name).catch(() => {
-    console.warn(`[Icon] failed to load icon \`${name}\``);
-    return null;
-  });
-  if (timeout > 0)
-    await Promise.race([
-      load,
-      new Promise((resolve) => {
-        timeoutWarn = setTimeout(() => {
-          console.warn(`[Icon] loading icon \`${name}\` timed out after ${timeout}ms`);
-          resolve();
-        }, timeout);
-      })
-    ]).finally(() => clearTimeout(timeoutWarn));
-  else
-    await load;
-  return getIcon(name);
-}
-function useResolvedName(getName) {
-  const options = useAppConfig().icon;
-  const collections = (options.collections || []).sort((a, b) => b.length - a.length);
-  return computed(() => {
-    var _a;
-    const name = getName();
-    const bare = name.startsWith(options.cssSelectorPrefix) ? name.slice(options.cssSelectorPrefix.length) : name;
-    const resolved = ((_a = options.aliases) == null ? void 0 : _a[bare]) || bare;
-    if (!resolved.includes(":")) {
-      const collection = collections.find((c) => resolved.startsWith(c + "-"));
-      return collection ? collection + ":" + resolved.slice(collection.length + 1) : resolved;
-    }
-    return resolved;
-  });
-}
-function resolveCustomizeFn(customize, globalCustomize) {
-  if (customize === false) return void 0;
-  if (customize === true || customize === null) return globalCustomize;
-  return customize;
-}
-const SYMBOL_SERVER_CSS = "NUXT_ICONS_SERVER_CSS";
-function escapeCssSelector(selector) {
-  return selector.replace(/([^\w-])/g, "\\$1");
-}
-const NuxtIconCss = /* @__PURE__ */ defineComponent({
-  name: "NuxtIconCss",
-  props: {
-    name: {
-      type: String,
-      required: true
-    },
-    customize: {
-      type: [Function, Boolean, null],
-      default: null,
-      required: false
-    }
-  },
-  setup(props) {
-    const nuxt = useNuxtApp();
-    const options = useAppConfig().icon;
-    const cssClass = computed(() => props.name ? options.cssSelectorPrefix + props.name : "");
-    const selector = computed(() => "." + escapeCssSelector(cssClass.value));
-    function getCSS(icon, withLayer = true) {
-      let iconSelector = selector.value;
-      if (options.cssWherePseudo) {
-        iconSelector = `:where(${iconSelector})`;
-      }
-      const css = getIconCSS(icon, {
-        iconSelector,
-        format: "compressed",
-        customise: resolveCustomizeFn(props.customize, options.customize)
-      });
-      if (options.cssLayer && withLayer) {
-        return `@layer ${options.cssLayer} { ${css} }`;
-      }
-      return css;
-    }
-    onServerPrefetch(async () => {
-      var _a;
-      {
-        const configs = (/* @__PURE__ */ useRuntimeConfig()).icon || {};
-        if (!((_a = configs == null ? void 0 : configs.serverKnownCssClasses) == null ? void 0 : _a.includes(cssClass.value))) {
-          const icon = await loadIcon(props.name, options.fetchTimeout).catch(() => null);
-          if (!icon)
-            return null;
-          let ssrCSS = nuxt.vueApp._context.provides[SYMBOL_SERVER_CSS];
-          if (!ssrCSS) {
-            ssrCSS = nuxt.vueApp._context.provides[SYMBOL_SERVER_CSS] = /* @__PURE__ */ new Map();
-            nuxt.runWithContext(() => {
-              useHead({
-                style: [
-                  () => {
-                    const sep = "";
-                    let css = Array.from(ssrCSS.values()).sort().join(sep);
-                    if (options.cssLayer) {
-                      css = `@layer ${options.cssLayer} {${sep}${css}${sep}}`;
-                    }
-                    return { innerHTML: css };
-                  }
-                ]
-              }, {
-                tagPriority: "low"
-              });
-            });
-          }
-          if (props.name && !ssrCSS.has(props.name)) {
-            const css = getCSS(icon, false);
-            ssrCSS.set(props.name, css);
-          }
-          return null;
-        }
-      }
-    });
-    return () => h("span", { class: ["iconify", cssClass.value] });
-  }
-});
-const NuxtIconSvg = /* @__PURE__ */ defineComponent({
-  name: "NuxtIconSvg",
-  props: {
-    name: {
-      type: String,
-      required: true
-    },
-    customize: {
-      type: [Function, Boolean, null],
-      default: null,
-      required: false
-    }
-  },
-  setup(props, { slots }) {
-    useNuxtApp();
-    const options = useAppConfig().icon;
-    const name = useResolvedName(() => props.name);
-    const storeKey = "i-" + name.value;
-    if (name.value) {
-      onServerPrefetch(async () => {
-        {
-          await useAsyncData(
-            storeKey,
-            async () => await loadIcon(name.value, options.fetchTimeout),
-            { deep: false }
-          );
-        }
-      });
-    }
-    return () => h(Icon, {
-      icon: name.value,
-      ssr: true,
-      // Iconify uses `customise`, where we expose `customize` for consistency
-      customise: resolveCustomizeFn(props.customize, options.customize)
-    }, slots);
-  }
-});
-const __nuxt_component_0$1 = defineComponent({
-  name: "NuxtIcon",
-  props: {
-    name: {
-      type: String,
-      required: true
-    },
-    mode: {
-      type: String,
-      required: false,
-      default: null
-    },
-    size: {
-      type: [Number, String],
-      required: false,
-      default: null
-    },
-    customize: {
-      type: [Function, Boolean, null],
-      default: null,
-      required: false
-    }
-  },
-  setup(props, { slots }) {
-    const nuxtApp = useNuxtApp();
-    const runtimeOptions = useAppConfig().icon;
-    const name = useResolvedName(() => props.name);
-    const component = computed(
-      () => {
-        var _a;
-        return ((_a = nuxtApp.vueApp) == null ? void 0 : _a.component(name.value)) || ((props.mode || runtimeOptions.mode) === "svg" ? NuxtIconSvg : NuxtIconCss);
-      }
-    );
-    const style = computed(() => {
-      const size = props.size || runtimeOptions.size;
-      return size ? { fontSize: Number.isNaN(+size) ? size : size + "px" } : null;
-    });
-    return () => h(
-      component.value,
-      {
-        ...runtimeOptions.attrs,
-        name: name.value,
-        class: runtimeOptions.class,
-        style: style.value,
-        customize: props.customize
-      },
-      slots
-    );
-  }
-});
-const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  default: __nuxt_component_0$1
-}, Symbol.toStringTag, { value: "Module" }));
 const _sfc_main$5 = /* @__PURE__ */ defineComponent({
   __name: "ProfilePictureModal",
   __ssrInlineRender: true,
@@ -4392,7 +3665,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     const previewUrl = ref(null);
     const isUploading = ref(false);
     return (_ctx, _push, _parent, _attrs) => {
-      const _component_Icon = __nuxt_component_0$1;
+      const _component_Icon = resolveComponent("Icon");
       _push(`<div${ssrRenderAttrs(mergeProps({ class: "fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70 backdrop-blur-sm" }, _attrs))}><div class="bg-[#050C1B] border border-blue-500/30 p-4 rounded-lg shadow-lg max-w-md w-full text-white relative"><button class="absolute top-2 right-2 text-gray-400 hover:text-gray-200">`);
       _push(ssrRenderComponent(_component_Icon, {
         name: "fa:times",
@@ -4494,7 +3767,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     }
     return (_ctx, _push, _parent, _attrs) => {
       var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
-      const _component_Icon = __nuxt_component_0$1;
+      const _component_Icon = resolveComponent("Icon");
       const _component_ProfilePictureModal = _sfc_main$5;
       _push(`<div${ssrRenderAttrs(mergeProps({ class: "fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 backdrop-blur-sm" }, _attrs))}><div class="bg-[#050C1B] border border-blue-500/30 p-4 rounded-lg shadow-lg w-80 text-white relative"><button class="absolute top-2 right-2 text-gray-400 hover:text-gray-200">`);
       _push(ssrRenderComponent(_component_Icon, {
@@ -4597,8 +3870,8 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const isLoggingOut = ref(false);
     const showLogoutConfirmation = ref(false);
     return (_ctx, _push, _parent, _attrs) => {
-      const _component_NuxtLink = __nuxt_component_0$2;
-      const _component_Icon = __nuxt_component_0$1;
+      const _component_NuxtLink = __nuxt_component_0$1;
+      const _component_Icon = resolveComponent("Icon");
       const _component_ProfilePopup = _sfc_main$4;
       _push(`<!--[--><nav class="flex flex-col justify-between h-screen w-16 bg-[#050C1B] text-white py-5"><div class="flex flex-col items-center"><div class="flex items-center justify-center w-12 h-12 mb-10"><img${ssrRenderAttr("src", _imports_0)} alt="Voxta Logo" class="rounded-full w-10 h-10"></div><div class="flex flex-col space-y-8">`);
       _push(ssrRenderComponent(_component_NuxtLink, {
@@ -4857,8 +4130,8 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = defineAsyncComponent(() => import('./error-404-BK1h2QxF.mjs'));
-    const _Error = defineAsyncComponent(() => import('./error-500-CPRwiWzG.mjs'));
+    const _Error404 = defineAsyncComponent(() => import('./error-404-DPeVTOGB.mjs'));
+    const _Error = defineAsyncComponent(() => import('./error-500-fJwY-k-q.mjs'));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
       _push(ssrRenderComponent(unref(ErrorTemplate), mergeProps({ statusCode: unref(statusCode), statusMessage: unref(statusMessage), description: unref(description), stack: unref(stack) }, _attrs), null, _parent));
@@ -4940,5 +4213,5 @@ let entry;
 }
 const entry$1 = (ssrContext) => entry(ssrContext);
 
-export { __nuxt_component_0$2 as _, useRouter as a, useNuxtApp as b, useAuthStore as c, _imports_0 as d, entry$1 as default, __nuxt_component_0$1 as e, useRoute as f, useRoute$1 as g, __nuxt_component_0 as h, useRuntimeConfig as i, defineNuxtRouteMiddleware as j, useHead as u };
+export { __nuxt_component_0$1 as _, useNuxtApp as a, useAuthStore as b, _imports_0 as c, useRoute as d, entry$1 as default, useRoute$1 as e, __nuxt_component_0 as f, useRuntimeConfig as g, defineNuxtRouteMiddleware as h, tryUseNuxtApp as t, useRouter as u };
 //# sourceMappingURL=server.mjs.map

@@ -1,5 +1,5 @@
 import { createRenderer, getRequestDependencies, getPreloadLinks, getPrefetchLinks } from 'vue-bundle-renderer/runtime';
-import { f as buildAssetsURL, u as useRuntimeConfig, h as getResponseStatusText, i as getResponseStatus, j as defineRenderHandler, k as publicAssetsURL, c as getQuery, l as createError, m as getRouteRules, n as useNitroApp } from '../nitro/nitro.mjs';
+import { j as joinRelativeURL, u as useRuntimeConfig, f as getResponseStatusText, h as getResponseStatus, i as defineRenderHandler, c as getQuery, k as createError, l as getRouteRules, m as useNitroApp } from '../nitro/nitro.mjs';
 import { renderToString } from 'vue/server-renderer';
 import { createHead as createHead$1, propsToString, renderSSRHead } from 'unhead/server';
 import { stringify, uneval } from 'devalue';
@@ -83,6 +83,21 @@ const appTeleportTag = "div";
 const appTeleportAttrs = {"id":"teleports"};
 
 const appId = "nuxt-app";
+
+function baseURL() {
+  return useRuntimeConfig().app.baseURL;
+}
+function buildAssetsDir() {
+  return useRuntimeConfig().app.buildAssetsDir;
+}
+function buildAssetsURL(...path) {
+  return joinRelativeURL(publicAssetsURL(), buildAssetsDir(), ...path);
+}
+function publicAssetsURL(...path) {
+  const app = useRuntimeConfig().app;
+  const publicBase = app.cdnURL || app.baseURL;
+  return path.length ? joinRelativeURL(publicBase, ...path) : publicBase;
+}
 
 const APP_ROOT_OPEN_TAG = `<${appRootTag}${propsToString(appRootAttrs)}>`;
 const APP_ROOT_CLOSE_TAG = `</${appRootTag}>`;
@@ -396,5 +411,5 @@ const renderer$1 = /*#__PURE__*/Object.freeze({
   default: renderer
 });
 
-export { headSymbol as h, renderer$1 as r, useHead as u };
+export { baseURL as b, headSymbol as h, publicAssetsURL as p, renderer$1 as r, useHead as u };
 //# sourceMappingURL=renderer.mjs.map

@@ -1,16 +1,4 @@
 {
   "version": 2,
-  "framework": "nuxtjs",
-  "functions": {
-    ".output/server/**/*.mjs": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x",
-      "memory": 1024
-    }
-  },
-  "env": {
-    "NITRO_PRESET": "vercel",
-    "NODE_ENV": "production"
-  },
-  "outputDirectory": ".output/public"
+  "framework": "nuxtjs"
 }

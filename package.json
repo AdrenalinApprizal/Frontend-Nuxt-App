@@ -12,12 +12,6 @@
     "vercel-build": "nuxt build"
   },
   "dependencies": {
-    "@iconify-json/fa": "^1.2.1",
-    "@iconify-json/lucide": "^1.2.40",
-    "@iconify/tools": "^4.1.2",
-    "@iconify/types": "^2.0.0",
-    "@iconify/utils": "^2.3.0",
-    "@nuxt/icon": "^1.12.0",
     "@nuxtjs/tailwindcss": "^6.14.0",
     "@pinia/nuxt": "^0.11.0",
     "date-fns": "^4.1.0",

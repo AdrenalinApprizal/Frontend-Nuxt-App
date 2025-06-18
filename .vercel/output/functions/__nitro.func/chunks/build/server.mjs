@@ -48,7 +48,7 @@ function createNuxtApp(options) {
     globalName: "nuxt",
     versions: {
       get nuxt() {
-        return "3.17.4";
+        return "3.17.5";
       },
       get vue() {
         return nuxtApp.vueApp.version;
@@ -2497,7 +2497,7 @@ defineComponent({
       }
       const slot = slots.fallback || slots.placeholder;
       if (slot) {
-        return slot();
+        return h(slot);
       }
       const fallbackStr = props.fallback || props.placeholder || "";
       const fallbackTag = props.fallbackTag || props.placeholderTag || "span";
@@ -2714,11 +2714,15 @@ function createAsyncData(nuxtApp, key, _handler, options, initialCachedData) {
     _init: true,
     _hash: void 0,
     _off: () => {
+      var _a2;
       unsubRefreshAsyncData();
-      asyncData._init = false;
+      if ((_a2 = nuxtApp._asyncData[key]) == null ? void 0 : _a2._init) {
+        nuxtApp._asyncData[key]._init = false;
+      }
       if (!hasCustomGetCachedData) {
         nextTick(() => {
-          if (!asyncData._init) {
+          var _a3;
+          if (!((_a3 = nuxtApp._asyncData[key]) == null ? void 0 : _a3._init)) {
             clearNuxtDataByKey(nuxtApp, key);
             asyncData.execute = () => Promise.resolve();
             asyncData.data.value = asyncDataDefaults.value;
@@ -3226,9 +3230,7 @@ const plugin = /* @__PURE__ */ defineNuxtPlugin({
     };
   }
 });
-const LazyIcon = defineAsyncComponent(() => Promise.resolve().then(function() {
-  return index;
-}).then((r2) => r2["default"] || r2.default || r2));
+const LazyIcon = defineAsyncComponent(() => Promise.resolve().then(() => index).then((r2) => r2["default"] || r2.default || r2));
 const lazyGlobalComponents = [
   ["Icon", LazyIcon]
 ];
@@ -4712,14 +4714,11 @@ _sfc_main$3.setup = (props, ctx) => {
 const defineRouteProvider = (name = "RouteProvider") => defineComponent({
   name,
   props: {
-    vnode: {
-      type: Object,
-      required: true
-    },
     route: {
       type: Object,
       required: true
     },
+    vnode: Object,
     vnodeRef: Object,
     renderKey: String,
     trackRootNodes: Boolean
@@ -4736,6 +4735,9 @@ const defineRouteProvider = (name = "RouteProvider") => defineComponent({
     }
     provide(PageRouteSymbol, shallowReactive(route));
     return () => {
+      if (!props.vnode) {
+        return props.vnode;
+      }
       return h(props.vnode, { ref: props.vnodeRef });
     };
   }

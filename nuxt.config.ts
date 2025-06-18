@@ -15,11 +15,8 @@ export default defineNuxtConfig({
     },
     esbuild: {
       options: {
-        target: "es2022"
+        target: "esnext"
       }
-    },
-    rollupConfig: {
-      external: ["@iconify/utils", "@iconify/tools", "@iconify/types"]
     }
   },
   app: {
@@ -56,16 +53,6 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_WS_MESSAGES_URL || "ws://localhost:8082",
       wsPresenceUrl:
         process.env.NUXT_PUBLIC_WS_PRESENCE_URL || "ws://localhost:8085",
-    },
-  },
-  vite: {
-    resolve: {
-      alias: {
-        "estree-walker": "~/packages/estree-walker-fix.js",
-      },
-    },
-    optimizeDeps: {
-      exclude: ["estree-walker"],
     },
   },
 });

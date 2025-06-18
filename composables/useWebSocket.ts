@@ -136,10 +136,8 @@ export const useWebSocket = defineStore("websocket", () => {
   const getMessagesWebSocketUrl = (): string => {
     // Connect directly to backend WebSocket server instead of using the proxy
     // Direct connection will preserve WebSocket headers properly
-    const wsBaseUrl =
-      process.env.NODE_ENV === "production"
-        ? "wss://your-production-url.com" // Ganti dengan URL production yang sesuai
-        : "ws://localhost:8082";
+    const config = useRuntimeConfig();
+    const wsBaseUrl = config.public.wsMessagesUrl;
 
     // Ensure we have a valid token before connecting
     const token = authStore.token;
@@ -154,10 +152,8 @@ export const useWebSocket = defineStore("websocket", () => {
   const getPresenceWebSocketUrl = (): string => {
     // Connect directly to backend WebSocket server instead of using the proxy
     // Direct connection will preserve WebSocket headers properly
-    const wsBaseUrl =
-      process.env.NODE_ENV === "production"
-        ? "wss://your-production-url.com" // Ganti dengan URL production yang sesuai
-        : "ws://localhost:8085";
+    const config = useRuntimeConfig();
+    const wsBaseUrl = config.public.wsPresenceUrl;
 
     // Ensure we have a valid token before connecting
     const token = authStore.token;

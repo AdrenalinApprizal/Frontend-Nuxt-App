@@ -15,12 +15,12 @@ interface EnhancedRequestInit extends RequestInit {
   duplex?: "half";
 }
 
-// Base URLs for different services
-const API_BASE_URL = "http://localhost:8081/api";
-const GROUP_API_BASE_URL = "http://localhost:8082/api";
-const NOTIFICATION_API_BASE_URL = "http://localhost:8083/api";
-const FILE_SERVICE_BASE_URL = "http://localhost:8084"; // File service base URL
-const PRESENCE_SERVICE_BASE_URL = "http://localhost:8085/api"; // Presence service base URL
+// Base URLs for different services - use process.env for server-side
+const API_BASE_URL = process.env.NUXT_PUBLIC_API_BASE_URL || "http://localhost:8081/api";
+const GROUP_API_BASE_URL = process.env.NUXT_PUBLIC_GROUP_API_URL || "http://localhost:8082/api";
+const NOTIFICATION_API_BASE_URL = process.env.NUXT_PUBLIC_NOTIFICATION_API_URL || "http://localhost:8083/api";
+const FILE_SERVICE_BASE_URL = process.env.NUXT_PUBLIC_FILE_SERVICE_URL || "http://localhost:8084";
+const PRESENCE_SERVICE_BASE_URL = process.env.NUXT_PUBLIC_PRESENCE_SERVICE_URL || "http://localhost:8085/api";
 
 // Helper function to ensure URLs are properly formatted
 const ensureValidUrl = (url: string): string => {

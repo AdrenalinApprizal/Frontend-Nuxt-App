@@ -8,6 +8,17 @@ export default defineNuxtConfig({
   build: {
     transpile: ["vue3-toastify", "vue-router"],
   },
+  nitro: {
+    preset: "vercel",
+    experimental: {
+      wasm: true
+    },
+    esbuild: {
+      options: {
+        target: "esnext"
+      }
+    }
+  },
   app: {
     head: {
       htmlAttrs: {
@@ -30,6 +41,18 @@ export default defineNuxtConfig({
       apiAuthUrl:
         process.env.NUXT_PUBLIC_API_AUTH_URL ||
         "http://localhost:8081/api/auth",
+      groupApiUrl:
+        process.env.NUXT_PUBLIC_GROUP_API_URL || "http://localhost:8082/api",
+      notificationApiUrl:
+        process.env.NUXT_PUBLIC_NOTIFICATION_API_URL || "http://localhost:8083/api",
+      fileServiceUrl:
+        process.env.NUXT_PUBLIC_FILE_SERVICE_URL || "http://localhost:8084",
+      presenceServiceUrl:
+        process.env.NUXT_PUBLIC_PRESENCE_SERVICE_URL || "http://localhost:8085/api",
+      wsMessagesUrl:
+        process.env.NUXT_PUBLIC_WS_MESSAGES_URL || "ws://localhost:8082",
+      wsPresenceUrl:
+        process.env.NUXT_PUBLIC_WS_PRESENCE_URL || "ws://localhost:8085",
     },
   },
   vite: {

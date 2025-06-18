@@ -14,7 +14,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'estree-walker';
 import 'source-map-js';
 import '@vue/runtime-dom';
 import 'node:stream';
@@ -494,4 +493,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=friends-gS9kmXCt.mjs.map
+//# sourceMappingURL=friends-C9RXKOYW.mjs.map

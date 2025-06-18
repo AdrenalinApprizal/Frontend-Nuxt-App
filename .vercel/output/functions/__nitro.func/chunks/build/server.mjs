@@ -1,5 +1,4 @@
 import { p as publicAssetsURL, l as lib, b as baseURL } from '../routes/renderer.mjs';
-import estreeWalker__default from 'estree-walker';
 import sourceMapJs__default from 'source-map-js';
 import { n as parseQuery$1, o as hasProtocol, q as joinURL, t as getContext, v as withQuery, x as withTrailingSlash, y as withoutTrailingSlash, z as isScriptProtocol, A as sanitizeStatusCode, $ as $fetch, B as createHooks, C as executeAsync, k as createError$1, D as toRouteMatcher, E as createRouter$1, F as defu } from '../nitro/nitro.mjs';
 import { defineStore, createPinia, setActivePinia, shouldHydrate } from 'pinia';
@@ -1063,6 +1062,238 @@ function requireDecode() {
   })(decode$1);
   return decode$1;
 }
+var estreeWalker$1 = { exports: {} };
+var estreeWalker = estreeWalker$1.exports;
+var hasRequiredEstreeWalker;
+function requireEstreeWalker() {
+  if (hasRequiredEstreeWalker) return estreeWalker$1.exports;
+  hasRequiredEstreeWalker = 1;
+  (function(module, exports) {
+    (function(global2, factory) {
+      factory(exports);
+    })(estreeWalker, function(exports2) {
+      class WalkerBase {
+        constructor() {
+          this.should_skip = false;
+          this.should_remove = false;
+          this.replacement = null;
+          this.context = {
+            skip: () => this.should_skip = true,
+            remove: () => this.should_remove = true,
+            replace: (node) => this.replacement = node
+          };
+        }
+        /**
+         *
+         * @param {any} parent
+         * @param {string} prop
+         * @param {number} index
+         * @param {BaseNode} node
+         */
+        replace(parent, prop, index, node) {
+          if (parent) {
+            if (index !== null) {
+              parent[prop][index] = node;
+            } else {
+              parent[prop] = node;
+            }
+          }
+        }
+        /**
+         *
+         * @param {any} parent
+         * @param {string} prop
+         * @param {number} index
+         */
+        remove(parent, prop, index) {
+          if (parent) {
+            if (index !== null) {
+              parent[prop].splice(index, 1);
+            } else {
+              delete parent[prop];
+            }
+          }
+        }
+      }
+      class SyncWalker extends WalkerBase {
+        /**
+         *
+         * @param {SyncHandler} enter
+         * @param {SyncHandler} leave
+         */
+        constructor(enter, leave) {
+          super();
+          this.enter = enter;
+          this.leave = leave;
+        }
+        /**
+         *
+         * @param {BaseNode} node
+         * @param {BaseNode} parent
+         * @param {string} [prop]
+         * @param {number} [index]
+         * @returns {BaseNode}
+         */
+        visit(node, parent, prop, index) {
+          if (node) {
+            if (this.enter) {
+              const _should_skip = this.should_skip;
+              const _should_remove = this.should_remove;
+              const _replacement = this.replacement;
+              this.should_skip = false;
+              this.should_remove = false;
+              this.replacement = null;
+              this.enter.call(this.context, node, parent, prop, index);
+              if (this.replacement) {
+                node = this.replacement;
+                this.replace(parent, prop, index, node);
+              }
+              if (this.should_remove) {
+                this.remove(parent, prop, index);
+              }
+              const skipped = this.should_skip;
+              const removed = this.should_remove;
+              this.should_skip = _should_skip;
+              this.should_remove = _should_remove;
+              this.replacement = _replacement;
+              if (skipped) return node;
+              if (removed) return null;
+            }
+            for (const key in node) {
+              const value = node[key];
+              if (typeof value !== "object") {
+                continue;
+              } else if (Array.isArray(value)) {
+                for (let i = 0; i < value.length; i += 1) {
+                  if (value[i] !== null && typeof value[i].type === "string") {
+                    if (!this.visit(value[i], node, key, i)) {
+                      i--;
+                    }
+                  }
+                }
+              } else if (value !== null && typeof value.type === "string") {
+                this.visit(value, node, key, null);
+              }
+            }
+            if (this.leave) {
+              const _replacement = this.replacement;
+              const _should_remove = this.should_remove;
+              this.replacement = null;
+              this.should_remove = false;
+              this.leave.call(this.context, node, parent, prop, index);
+              if (this.replacement) {
+                node = this.replacement;
+                this.replace(parent, prop, index, node);
+              }
+              if (this.should_remove) {
+                this.remove(parent, prop, index);
+              }
+              const removed = this.should_remove;
+              this.replacement = _replacement;
+              this.should_remove = _should_remove;
+              if (removed) return null;
+            }
+          }
+          return node;
+        }
+      }
+      class AsyncWalker extends WalkerBase {
+        /**
+         *
+         * @param {AsyncHandler} enter
+         * @param {AsyncHandler} leave
+         */
+        constructor(enter, leave) {
+          super();
+          this.enter = enter;
+          this.leave = leave;
+        }
+        /**
+         *
+         * @param {BaseNode} node
+         * @param {BaseNode} parent
+         * @param {string} [prop]
+         * @param {number} [index]
+         * @returns {Promise<BaseNode>}
+         */
+        async visit(node, parent, prop, index) {
+          if (node) {
+            if (this.enter) {
+              const _should_skip = this.should_skip;
+              const _should_remove = this.should_remove;
+              const _replacement = this.replacement;
+              this.should_skip = false;
+              this.should_remove = false;
+              this.replacement = null;
+              await this.enter.call(this.context, node, parent, prop, index);
+              if (this.replacement) {
+                node = this.replacement;
+                this.replace(parent, prop, index, node);
+              }
+              if (this.should_remove) {
+                this.remove(parent, prop, index);
+              }
+              const skipped = this.should_skip;
+              const removed = this.should_remove;
+              this.should_skip = _should_skip;
+              this.should_remove = _should_remove;
+              this.replacement = _replacement;
+              if (skipped) return node;
+              if (removed) return null;
+            }
+            for (const key in node) {
+              const value = node[key];
+              if (typeof value !== "object") {
+                continue;
+              } else if (Array.isArray(value)) {
+                for (let i = 0; i < value.length; i += 1) {
+                  if (value[i] !== null && typeof value[i].type === "string") {
+                    if (!await this.visit(value[i], node, key, i)) {
+                      i--;
+                    }
+                  }
+                }
+              } else if (value !== null && typeof value.type === "string") {
+                await this.visit(value, node, key, null);
+              }
+            }
+            if (this.leave) {
+              const _replacement = this.replacement;
+              const _should_remove = this.should_remove;
+              this.replacement = null;
+              this.should_remove = false;
+              await this.leave.call(this.context, node, parent, prop, index);
+              if (this.replacement) {
+                node = this.replacement;
+                this.replace(parent, prop, index, node);
+              }
+              if (this.should_remove) {
+                this.remove(parent, prop, index);
+              }
+              const removed = this.should_remove;
+              this.replacement = _replacement;
+              this.should_remove = _should_remove;
+              if (removed) return null;
+            }
+          }
+          return node;
+        }
+      }
+      function walk(ast, { enter, leave }) {
+        const instance = new SyncWalker(enter, leave);
+        return instance.visit(ast, null);
+      }
+      async function asyncWalk(ast, { enter, leave }) {
+        const instance = new AsyncWalker(enter, leave);
+        return await instance.visit(ast, null);
+      }
+      exports2.asyncWalk = asyncWalk;
+      exports2.walk = walk;
+      Object.defineProperty(exports2, "__esModule", { value: true });
+    });
+  })(estreeWalker$1, estreeWalker$1.exports);
+  return estreeWalker$1.exports;
+}
 var hasRequiredCompilerCore_cjs_prod;
 function requireCompilerCore_cjs_prod() {
   if (hasRequiredCompilerCore_cjs_prod) return compilerCore_cjs_prod;
@@ -1076,7 +1307,7 @@ function requireCompilerCore_cjs_prod() {
   var shared = /* @__PURE__ */ requireShared_cjs_prod();
   var decode_js = /* @__PURE__ */ requireDecode();
   var parser = lib;
-  var estreeWalker = estreeWalker__default;
+  var estreeWalker2 = requireEstreeWalker();
   var sourceMapJs = sourceMapJs__default;
   const FRAGMENT = Symbol(``);
   const TELEPORT = Symbol(``);
@@ -2589,7 +2820,7 @@ Use a v-bind binding combined with a v-on listener that emits update:x event ins
   };
   function walkIdentifiers(root, onIdentifier, includeAll = false, parentStack = [], knownIds = /* @__PURE__ */ Object.create(null)) {
     const rootExp = root.type === "Program" ? root.body[0].type === "ExpressionStatement" && root.body[0].expression : root;
-    estreeWalker.walk(root, {
+    estreeWalker2.walk(root, {
       enter(node, parent) {
         parent && parentStack.push(parent);
         if (parent && parent.type.startsWith("TS") && !TS_NODE_TYPES.includes(parent.type)) {
@@ -20613,45 +20844,45 @@ const _routes = [
   {
     name: "index",
     path: "/",
-    component: () => import('./index-C5kvgkHF.mjs')
+    component: () => import('./index-7C1fDmlJ.mjs')
   },
   {
     name: "auth-login",
     path: "/auth/login",
-    component: () => import('./login-ne9pl9Q3.mjs')
+    component: () => import('./login-B9CPsTOU.mjs')
   },
   {
     name: "chat-groups",
     path: "/chat/groups",
-    component: () => import('./groups-C2eWzkVp.mjs'),
+    component: () => import('./groups-CvTlgNvh.mjs'),
     children: [
       {
         name: "chat-groups-id",
         path: ":id()",
-        component: () => import('./_id_-B0c_Cnxp.mjs')
+        component: () => import('./_id_-XEwlVb0g.mjs')
       }
     ]
   },
   {
     name: "chat-friends",
     path: "/chat/friends",
-    component: () => import('./friends-gS9kmXCt.mjs')
+    component: () => import('./friends-C9RXKOYW.mjs')
   },
   {
     name: "auth-register",
     path: "/auth/register",
-    component: () => import('./register-BuT0t1Sw.mjs')
+    component: () => import('./register-BrJXQgCH.mjs')
   },
   {
     name: "chat-messages",
     path: "/chat/messages",
     meta: { "middleware": ["auth"] },
-    component: () => import('./messages-BO9KWev3.mjs'),
+    component: () => import('./messages-lox4JCMR.mjs'),
     children: [
       {
         name: "chat-messages-id",
         path: ":id()",
-        component: () => import('./_id_-Dng5uQJg.mjs')
+        component: () => import('./_id_-xsm3LLoS.mjs')
       }
     ]
   }
@@ -20779,7 +21010,7 @@ const globalMiddleware = [
   manifest_45route_45rule
 ];
 const namedMiddleware = {
-  auth: () => import('./auth-4trA0407.mjs')
+  auth: () => import('./auth-D-a2ypPP.mjs')
 };
 const plugin$1 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:router",
@@ -24977,8 +25208,8 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = vueExports.defineAsyncComponent(() => import('./error-404-DFI3lney.mjs'));
-    const _Error = vueExports.defineAsyncComponent(() => import('./error-500-umI1RETs.mjs'));
+    const _Error404 = vueExports.defineAsyncComponent(() => import('./error-404-B7YAm2yi.mjs'));
+    const _Error = vueExports.defineAsyncComponent(() => import('./error-500-BfZTXUtW.mjs'));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
       _push(serverRenderer_cjs_prodExports.ssrRenderComponent(vueExports.unref(ErrorTemplate), vueExports.mergeProps({ statusCode: vueExports.unref(statusCode), statusMessage: vueExports.unref(statusMessage), description: vueExports.unref(description), stack: vueExports.unref(stack) }, _attrs), null, _parent));

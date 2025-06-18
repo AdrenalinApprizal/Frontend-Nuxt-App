@@ -22,7 +22,8 @@ export default defineNuxtConfig({
       "destr",
       "ufo",
       "vue",
-      "entities"
+      "entities",
+      "estree-walker"
     ],
   },
 

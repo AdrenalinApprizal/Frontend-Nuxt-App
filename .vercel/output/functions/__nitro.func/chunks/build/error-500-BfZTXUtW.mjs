@@ -11,7 +11,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'estree-walker';
 import 'source-map-js';
 import '@vue/runtime-dom';
 import 'node:stream';
@@ -75,4 +74,4 @@ _sfc_main.setup = (props, ctx) => {
 const error500 = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-4b6f0a29"]]);
 
 export { error500 as default };
-//# sourceMappingURL=error-500-umI1RETs.mjs.map
+//# sourceMappingURL=error-500-BfZTXUtW.mjs.map

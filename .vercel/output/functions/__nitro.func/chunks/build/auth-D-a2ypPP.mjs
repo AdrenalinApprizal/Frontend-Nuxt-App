@@ -9,7 +9,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'estree-walker';
 import 'source-map-js';
 import '@vue/runtime-dom';
 import 'node:stream';
@@ -25,4 +24,4 @@ const auth = defineNuxtRouteMiddleware((to, from) => {
 });
 
 export { auth as default };
-//# sourceMappingURL=auth-4trA0407.mjs.map
+//# sourceMappingURL=auth-D-a2ypPP.mjs.map

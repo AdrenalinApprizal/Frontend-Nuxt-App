@@ -16,7 +16,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'devalue';
 import 'pinia';
 import 'date-fns';
 import 'mitt';
@@ -663,4 +662,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=messages-NqY8Yepn.mjs.map
+//# sourceMappingURL=messages-Bj1FQugL.mjs.map

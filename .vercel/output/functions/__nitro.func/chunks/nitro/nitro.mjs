@@ -2542,8 +2542,7 @@ function createNodeFetch() {
 const fetch = globalThis.fetch ? (...args) => globalThis.fetch(...args) : createNodeFetch();
 const Headers$1 = globalThis.Headers || s$1;
 const AbortController = globalThis.AbortController || i;
-const ofetch = createFetch({ fetch, Headers: Headers$1, AbortController });
-const $fetch = ofetch;
+createFetch({ fetch, Headers: Headers$1, AbortController });
 
 function wrapToPromise(value) {
   if (!value || typeof value.then !== "function") {
@@ -4034,7 +4033,7 @@ function _expandFromEnv(value) {
 const _inlineRuntimeConfig = {
   "app": {
     "baseURL": "/",
-    "buildId": "4881774e-0cfb-4360-be9c-5f594f0dfbda",
+    "buildId": "b76fb949-f338-4805-ac88-3072119aaa83",
     "buildAssetsDir": "/_nuxt/",
     "cdnURL": ""
   },
@@ -4673,5 +4672,5 @@ const listener = function(req, res) {
   return handler(req, res);
 };
 
-export { $fetch as $, isScriptProtocol as A, sanitizeStatusCode as B, executeAsync as C, toRouteMatcher as D, createRouter$1 as E, defu as F, listener as G, getRouterParams as a, getRequestHeaders as b, getQuery as c, defineEventHandler as d, sendProxy as e, createHooks as f, getMethod as g, getResponseStatusText as h, getResponseStatus as i, joinRelativeURL as j, defineRenderHandler as k, createError$1 as l, getRouteRules as m, useNitroApp as n, parseQuery as o, proxyRequest as p, hasProtocol as q, readBody as r, setHeader as s, joinURL as t, useRuntimeConfig as u, getContext as v, withLeadingSlash as w, withQuery as x, withTrailingSlash as y, withoutTrailingSlash as z };
+export { isScriptProtocol as A, sanitizeStatusCode as B, l as C, i as D, s$1 as E, executeAsync as F, withBase as G, destr as H, toRouteMatcher as I, createRouter$1 as J, defu as K, listener as L, getRouterParams as a, getRequestHeaders as b, getQuery as c, defineEventHandler as d, sendProxy as e, createHooks as f, getMethod as g, getResponseStatusText as h, getResponseStatus as i, joinRelativeURL as j, defineRenderHandler as k, createError$1 as l, getRouteRules as m, useNitroApp as n, parseQuery as o, proxyRequest as p, hasProtocol as q, readBody as r, setHeader as s, joinURL as t, useRuntimeConfig as u, getContext as v, withLeadingSlash as w, withQuery as x, withTrailingSlash as y, withoutTrailingSlash as z };
 //# sourceMappingURL=nitro.mjs.map

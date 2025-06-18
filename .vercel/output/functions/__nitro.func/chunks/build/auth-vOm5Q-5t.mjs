@@ -10,7 +10,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'devalue';
 import 'pinia';
 
 const auth = defineNuxtRouteMiddleware((to, from) => {
@@ -19,4 +18,4 @@ const auth = defineNuxtRouteMiddleware((to, from) => {
 });
 
 export { auth as default };
-//# sourceMappingURL=auth-CRHDV48I.mjs.map
+//# sourceMappingURL=auth-vOm5Q-5t.mjs.map

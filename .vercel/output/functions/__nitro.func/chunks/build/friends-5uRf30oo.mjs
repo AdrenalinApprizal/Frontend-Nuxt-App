@@ -15,7 +15,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'devalue';
 import 'pinia';
 
 const _sfc_main$2 = /* @__PURE__ */ vueExports.defineComponent({
@@ -488,4 +487,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=friends-D6cDy8Lz.mjs.map
+//# sourceMappingURL=friends-5uRf30oo.mjs.map

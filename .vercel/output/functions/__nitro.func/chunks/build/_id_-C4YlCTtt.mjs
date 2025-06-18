@@ -16,7 +16,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'devalue';
 import 'mitt';
 
 const _sfc_main$8 = /* @__PURE__ */ vueExports.defineComponent({
@@ -4063,4 +4062,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=_id_-wkPnpng_.mjs.map
+//# sourceMappingURL=_id_-C4YlCTtt.mjs.map

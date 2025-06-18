@@ -14,7 +14,6 @@ import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
 import 'node:stream';
-import 'devalue';
 import 'pinia';
 import './_plugin-vue_export-helper-1tPrXgE0.mjs';
 
@@ -311,4 +310,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=groups-Bdfyk0sa.mjs.map
+//# sourceMappingURL=groups-Cg9hb1Oc.mjs.map

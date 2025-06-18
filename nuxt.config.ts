@@ -23,7 +23,8 @@ export default defineNuxtConfig({
       "ufo",
       "vue",
       "entities",
-      "estree-walker"
+      "estree-walker",
+      "source-map-js"
     ],
   },
 
@@ -41,7 +42,8 @@ export default defineNuxtConfig({
       external: []
     },
     bundledStorage: [],
-    minify: false
+    minify: false,
+    compressPublicAssets: false
   },
 
   app: {

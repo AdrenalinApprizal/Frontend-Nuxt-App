@@ -9,7 +9,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'source-map-js';
 import '@vue/runtime-dom';
 import 'node:stream';
 import 'unhead/server';
@@ -24,4 +23,4 @@ const auth = defineNuxtRouteMiddleware((to, from) => {
 });
 
 export { auth as default };
-//# sourceMappingURL=auth-D-a2ypPP.mjs.map
+//# sourceMappingURL=auth-CRHDV48I.mjs.map

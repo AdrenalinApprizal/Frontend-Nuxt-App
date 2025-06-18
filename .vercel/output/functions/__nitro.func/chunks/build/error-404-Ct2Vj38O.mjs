@@ -11,7 +11,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'source-map-js';
 import '@vue/runtime-dom';
 import 'node:stream';
 import 'unhead/server';
@@ -95,4 +94,4 @@ _sfc_main.setup = (props, ctx) => {
 const error404 = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-06403dcb"]]);
 
 export { error404 as default };
-//# sourceMappingURL=error-404-B7YAm2yi.mjs.map
+//# sourceMappingURL=error-404-Ct2Vj38O.mjs.map

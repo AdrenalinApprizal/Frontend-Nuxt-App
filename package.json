@@ -25,19 +25,20 @@
     "date-fns": "^4.1.0",
     "destr": "^2.0.5",
     "entities": "^6.0.1",
+    "estree-walker": "^2.0.2",
     "js-cookie": "^3.0.5",
     "lodash": "^4.17.21",
     "mitt": "^3.0.1",
     "node-fetch": "^3.3.2",
     "nuxt": "^3.17.2",
     "pinia": "^3.0.2",
+    "source-map-js": "^1.2.1",
     "ufo": "^1.6.1",
     "vue": "^3.5.13",
     "vue-bundle-renderer": "^2.1.1",
     "vue-router": "^4.5.1",
     "vue3-toastify": "^0.2.8",
-    "ws": "^8.18.2",
-    "estree-walker": "^2.0.2"
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@types/js-cookie": "^3.0.6",

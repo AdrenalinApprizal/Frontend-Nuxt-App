@@ -14,7 +14,6 @@ import 'node:fs';
 import 'node:path';
 import 'node:crypto';
 import '../_/shared.cjs.prod.mjs';
-import 'source-map-js';
 import '@vue/runtime-dom';
 import 'node:stream';
 import 'unhead/server';
@@ -493,4 +492,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=friends-C9RXKOYW.mjs.map
+//# sourceMappingURL=friends-D6cDy8Lz.mjs.map

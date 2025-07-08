@@ -127,7 +127,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, computed } from "vue";
-import { formatDistanceToNow } from "date-fns";
+import { safeFormatDistanceToNow } from "~/utils/dateUtils";
 import { useNotifications } from "~/composables/useNotifications";
 import type { Notification } from "~/composables/useNotifications";
 
@@ -159,7 +159,7 @@ const hasMorePages = computed(
 // Format timestamp
 const formatTimestamp = (timestamp: string): string => {
   try {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    return safeFormatDistanceToNow(new Date(timestamp), { addSuffix: true });
   } catch {
     return "Recently";
   }

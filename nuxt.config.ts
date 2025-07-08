@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   modules: ["@nuxtjs/tailwindcss", "@nuxt/icon", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
   build: {
-    transpile: ["vue3-toastify", "vue-router", "date-fns"],
+    transpile: ["vue3-toastify", "vue-router"],
   },
   app: {
     head: {
@@ -49,6 +49,7 @@ export default defineNuxtConfig({
         target: "esnext",
       },
     },
+    bundledStorage: ["redis"],
   },
   vite: {
     resolve: {
@@ -57,7 +58,6 @@ export default defineNuxtConfig({
       },
     },
     optimizeDeps: {
-      include: ["date-fns"],
       exclude: ["estree-walker"],
     },
   },

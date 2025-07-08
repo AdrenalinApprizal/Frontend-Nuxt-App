@@ -387,7 +387,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { formatDistanceToNow, format } from "date-fns";
+import { safeFormatDistanceToNow, safeFormat } from "~/utils/dateUtils";
 import { type Group, useGroupsStore } from "~/composables/useGroups";
 import { useFriendsStore } from "~/composables/useFriends";
 import { useNuxtApp } from "#app";
@@ -480,9 +480,9 @@ const formatTimestamp = (dateString: string) => {
     const isToday = date.toDateString() === now.toDateString();
 
     if (isToday) {
-      return format(date, "h:mm a");
+      return safeFormat(date, "h:mm a");
     } else {
-      return formatDistanceToNow(date, { addSuffix: true });
+      return safeFormatDistanceToNow(date, { addSuffix: true });
     }
   } catch (error) {
     return dateString;

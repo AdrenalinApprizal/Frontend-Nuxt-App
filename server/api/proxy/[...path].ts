@@ -17,10 +17,14 @@ interface EnhancedRequestInit extends RequestInit {
 
 // Base URLs for different services from environment variables
 const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:8081/api";
-const GROUP_API_BASE_URL = process.env.GROUP_API_BASE_URL || "http://localhost:8082/api";
-const NOTIFICATION_API_BASE_URL = process.env.NOTIFICATION_API_BASE_URL || "http://localhost:8083/api";
-const FILE_SERVICE_BASE_URL = process.env.FILE_SERVICE_BASE_URL || "http://localhost:8084"; // File service base URL
-const PRESENCE_SERVICE_BASE_URL = process.env.PRESENCE_SERVICE_BASE_URL || "http://localhost:8085/api"; // Presence service base URL
+const GROUP_API_BASE_URL =
+  process.env.GROUP_API_BASE_URL || "http://localhost:8082/api";
+const NOTIFICATION_API_BASE_URL =
+  process.env.NOTIFICATION_API_BASE_URL || "http://localhost:8083/api";
+const FILE_SERVICE_BASE_URL =
+  process.env.FILE_SERVICE_BASE_URL || "http://localhost:8084"; // File service base URL
+const PRESENCE_SERVICE_BASE_URL =
+  process.env.PRESENCE_SERVICE_BASE_URL || "http://localhost:8085/api"; // Presence service base URL
 
 // Helper function to ensure URLs are properly formatted
 const ensureValidUrl = (url: string): string => {
@@ -284,18 +288,14 @@ export default defineEventHandler(async (event) => {
       let wsTarget = "";
       if (pathString.startsWith("messages/ws")) {
         // Convert HTTP URL to WebSocket URL for GROUP API (messages service)
-        const wsBaseUrl = GROUP_API_BASE_URL.replace(/^http/, 'ws');
+        const wsBaseUrl = GROUP_API_BASE_URL.replace(/^http/, "ws");
         wsTarget = `${wsBaseUrl}/messages/ws`;
-        console.log(
-          "[Server Proxy] Routing WebSocket to MESSAGES service"
-        );
+        console.log("[Server Proxy] Routing WebSocket to MESSAGES service");
       } else if (pathString.startsWith("presence/ws")) {
         // Convert HTTP URL to WebSocket URL for PRESENCE API
-        const wsBaseUrl = PRESENCE_SERVICE_BASE_URL.replace(/^http/, 'ws');
+        const wsBaseUrl = PRESENCE_SERVICE_BASE_URL.replace(/^http/, "ws");
         wsTarget = `${wsBaseUrl}/presence/ws`;
-        console.log(
-          "[Server Proxy] Routing WebSocket to PRESENCE service"
-        );
+        console.log("[Server Proxy] Routing WebSocket to PRESENCE service");
       }
 
       if (wsTarget) {
@@ -385,7 +385,10 @@ export default defineEventHandler(async (event) => {
       }
 
       // Build WebSocket URL using environment variable
-      const wsBaseUrl = PRESENCE_SERVICE_BASE_URL.replace(/^http/, 'ws').replace('/api', '');
+      const wsBaseUrl = PRESENCE_SERVICE_BASE_URL.replace(
+        /^http/,
+        "ws"
+      ).replace("/api", "");
       const wsUrl = `${wsBaseUrl}/presence/ws?token=${token}`;
       console.log("[Server Proxy] WebSocket target URL:", wsUrl);
 

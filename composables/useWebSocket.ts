@@ -138,7 +138,7 @@ export const useWebSocket = defineStore("websocket", () => {
     // Direct connection will preserve WebSocket headers properly
     const { $config } = useNuxtApp();
     const httpBaseUrl = $config.public.groupApiBaseUrl as string;
-    const wsBaseUrl = httpBaseUrl.replace(/^http/, 'ws');
+    const wsBaseUrl = httpBaseUrl.replace(/^http/, "ws");
 
     // Ensure we have a valid token before connecting
     const token = authStore.token;
@@ -155,7 +155,7 @@ export const useWebSocket = defineStore("websocket", () => {
     // Direct connection will preserve WebSocket headers properly
     const { $config } = useNuxtApp();
     const httpBaseUrl = $config.public.presenceServiceBaseUrl as string;
-    const wsBaseUrl = httpBaseUrl.replace(/^http/, 'ws');
+    const wsBaseUrl = httpBaseUrl.replace(/^http/, "ws");
 
     // Ensure we have a valid token before connecting
     const token = authStore.token;

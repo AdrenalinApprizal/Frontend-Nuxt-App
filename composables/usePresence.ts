@@ -361,7 +361,7 @@ export const usePresenceStore = defineStore("presence", () => {
         // This is necessary because WebSocket upgrades require special handling that the HTTP proxy doesn't support
         const { $config } = useNuxtApp();
         const httpBaseUrl = $config.public.presenceServiceBaseUrl as string;
-        const wsBaseUrl = httpBaseUrl.replace(/^http/, 'ws');
+        const wsBaseUrl = httpBaseUrl.replace(/^http/, "ws");
         const wsUrl = `${wsBaseUrl}/presence/ws?token=${token}`;
         console.log("[Presence] Using direct WebSocket URL:", wsUrl);
 

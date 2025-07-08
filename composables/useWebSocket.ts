@@ -136,10 +136,9 @@ export const useWebSocket = defineStore("websocket", () => {
   const getMessagesWebSocketUrl = (): string => {
     // Connect directly to backend WebSocket server instead of using the proxy
     // Direct connection will preserve WebSocket headers properly
-    const wsBaseUrl =
-      process.env.NODE_ENV === "production"
-        ? "wss://your-production-url.com" // Ganti dengan URL production yang sesuai
-        : "ws://localhost:8082";
+    const { $config } = useNuxtApp();
+    const httpBaseUrl = $config.public.groupApiBaseUrl as string;
+    const wsBaseUrl = httpBaseUrl.replace(/^http/, 'ws');
 
     // Ensure we have a valid token before connecting
     const token = authStore.token;
@@ -148,16 +147,15 @@ export const useWebSocket = defineStore("websocket", () => {
     }
 
     // Connect directly to messages WebSocket endpoint
-    return `${wsBaseUrl}/api/messages/ws?token=${token}`;
+    return `${wsBaseUrl}/messages/ws?token=${token}`;
   };
 
   const getPresenceWebSocketUrl = (): string => {
     // Connect directly to backend WebSocket server instead of using the proxy
     // Direct connection will preserve WebSocket headers properly
-    const wsBaseUrl =
-      process.env.NODE_ENV === "production"
-        ? "wss://your-production-url.com" // Ganti dengan URL production yang sesuai
-        : "ws://localhost:8085";
+    const { $config } = useNuxtApp();
+    const httpBaseUrl = $config.public.presenceServiceBaseUrl as string;
+    const wsBaseUrl = httpBaseUrl.replace(/^http/, 'ws');
 
     // Ensure we have a valid token before connecting
     const token = authStore.token;
@@ -167,7 +165,7 @@ export const useWebSocket = defineStore("websocket", () => {
     }
 
     // Connect directly to presence WebSocket endpoint
-    return `${wsBaseUrl}/api/presence/ws?token=${token}`;
+    return `${wsBaseUrl}/presence/ws?token=${token}`;
   };
 
   // Validate token before connecting

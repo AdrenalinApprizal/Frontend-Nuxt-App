@@ -359,7 +359,10 @@ export const usePresenceStore = defineStore("presence", () => {
 
         // WebSocket connections cannot go through the H3 proxy, so we connect directly to the backend service
         // This is necessary because WebSocket upgrades require special handling that the HTTP proxy doesn't support
-        const wsUrl = `ws://localhost:8085/api/presence/ws?token=${token}`;
+        const { $config } = useNuxtApp();
+        const httpBaseUrl = $config.public.presenceServiceBaseUrl as string;
+        const wsBaseUrl = httpBaseUrl.replace(/^http/, 'ws');
+        const wsUrl = `${wsBaseUrl}/presence/ws?token=${token}`;
         console.log("[Presence] Using direct WebSocket URL:", wsUrl);
 
         // Log presence connection attempt

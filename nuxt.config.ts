@@ -30,6 +30,14 @@ export default defineNuxtConfig({
       apiAuthUrl:
         process.env.NUXT_PUBLIC_API_AUTH_URL ||
         "http://localhost:8081/api/auth",
+      groupApiBaseUrl:
+        process.env.NUXT_PUBLIC_GROUP_API_BASE_URL || "http://localhost:8082/api",
+      notificationApiBaseUrl:
+        process.env.NUXT_PUBLIC_NOTIFICATION_API_BASE_URL || "http://localhost:8083/api",
+      fileServiceBaseUrl:
+        process.env.NUXT_PUBLIC_FILE_SERVICE_BASE_URL || "http://localhost:8084",
+      presenceServiceBaseUrl:
+        process.env.NUXT_PUBLIC_PRESENCE_SERVICE_BASE_URL || "http://localhost:8085/api",
     },
   },
   vite: {

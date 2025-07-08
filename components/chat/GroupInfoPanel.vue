@@ -1152,6 +1152,7 @@ const handleShareFile = async () => {
 
   try {
     await shareFile(selectedAttachment.value.file_id, selectedUserIds);
+    // Keep this toast since file sharing confirmation is important
     $toast.success("File shared successfully");
 
     // Reset selection state
@@ -1195,6 +1196,7 @@ const handleAddMembers = async () => {
     });
     showAddMemberPopup.value = false;
 
+    // Keep this toast since adding members confirmation is important
     $toast.success("Members added to group successfully");
     emit("update:group");
   } catch (error: any) {

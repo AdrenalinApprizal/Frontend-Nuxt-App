@@ -178,6 +178,20 @@ export default defineEventHandler(async (event) => {
     let isFileRequest = false;
     let isWebSocketRequest = false;
 
+    // Route ALL message-related endpoints to GROUP_API_BASE_URL (port 8082)
+    // This includes: message/history, messages/history, message/*, messages/*
+    if (
+      pathString.startsWith("message") || // Covers both "message" and "messages"
+      pathString.includes("/message") || // Covers paths like "group/123/messages"
+      pathString.startsWith("groups/messages") ||
+      (pathString.startsWith("group/") && pathString.includes("/messages"))
+    ) {
+      baseUrl = GROUP_API_BASE_URL; // Messages service is on port 8082
+      console.log(
+        `[Server Proxy] MESSAGE ENDPOINT DETECTED: Routing ${pathString} to ${baseUrl}`
+      );
+    }
+
     // Route to notifications service
     if (pathString.startsWith("notifications")) {
       baseUrl = NOTIFICATION_API_BASE_URL;
@@ -235,89 +249,10 @@ export default defineEventHandler(async (event) => {
         }
       }
     }
-    // Route messages and groups to appropriate service
+    // Route other group-specific requests (both "groups" and "group" paths) - only non-message group operations
     else if (
-      pathString.startsWith("messages") ||
-      pathString.startsWith("groups/messages") ||
-      (pathString.startsWith("group/") && pathString.includes("/messages"))
-    ) {
-      baseUrl = GROUP_API_BASE_URL; // Messages service is on port 8082
-      console.log(
-        `[Server Proxy] MESSAGES ROUTING: Setting baseUrl to ${baseUrl} for path: ${pathString}`
-      );
-
-      // Special handling for messages/history endpoint
-      if (pathString === "messages/history") {
-        console.log(
-          `[Server Proxy] Special handling for messages/history endpoint`
-        );
-        // Ensure baseUrl has protocol
-        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
-          baseUrl = `http://${baseUrl}`;
-        }
-      }
-
-      // Special handling for message deletion endpoint
-      else if (pathString.startsWith("messages/") && method === "DELETE") {
-        // Extract the message ID
-        const parts = pathString.split("/");
-        const messageId = parts.length > 1 ? parts[1] : null;
-
-        console.log(`[Server Proxy] Handling message deletion: ${messageId}`);
-
-        // Check if this is a group message deletion (based on query params)
-        const isGroupMessage = query.type === "group" || query.group_id;
-        const groupId = query.group_id || null;
-
-        // Add special logging for message deletion
-        console.log(`[Server Proxy] Message DELETE operation:`, {
-          messageId,
-          originalPath: pathString,
-          isGroupMessage,
-          groupId,
-          method,
-        });
-
-        // Make sure base URL has protocol and is set to the correct service
-        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
-          baseUrl = `http://${baseUrl}`;
-        }
-
-        // Ensure we're using the GROUP_API_BASE_URL for message operations
-        if (baseUrl !== GROUP_API_BASE_URL) {
-          console.log(
-            `[Server Proxy] Setting base URL to GROUP_API_BASE_URL for message deletion`
-          );
-          baseUrl = GROUP_API_BASE_URL;
-
-          // Make sure protocol is included
-          if (
-            !baseUrl.startsWith("http://") &&
-            !baseUrl.startsWith("https://")
-          ) {
-            baseUrl = `http://${baseUrl}`;
-          }
-        }
-
-        // Log the final destination for the deletion request
-        console.log(
-          `[Server Proxy] Will route message deletion to: ${baseUrl}/messages/${messageId}`
-        );
-      }
-
-      // Remove 'groups/' prefix if it exists (for legacy compatibility)
-      if (pathString.startsWith("groups/")) {
-        pathString = pathString.replace("groups/", "");
-        console.log(
-          `[Server Proxy] MESSAGES ROUTING: Cleaned groups prefix, new path: ${pathString}`
-        );
-      }
-      console.log(`[Server Proxy] Routing to MESSAGE_API_BASE_URL: ${baseUrl}`);
-    }
-    // Route other group-specific requests (both "groups" and "group" paths)
-    else if (
-      pathString.startsWith("groups") ||
-      pathString.startsWith("group")
+      (pathString.startsWith("groups") || pathString.startsWith("group")) &&
+      !pathString.includes("message") // Exclude message-related paths as they're handled above
     ) {
       baseUrl = ensureValidUrl(GROUP_API_BASE_URL);
       console.log(`[Server Proxy] Routing to GROUP_API_BASE_URL: ${baseUrl}`);
@@ -457,17 +392,17 @@ export default defineEventHandler(async (event) => {
     // Build target URL - special handling for different services
     let url;
 
-    // Handle messages/history endpoint specially
-    if (pathString === "messages/history") {
+    // Handle messages/history and message/history endpoints specially
+    if (pathString === "messages/history" || pathString === "message/history") {
       // Ensure base URL has protocol
       const baseWithProtocol = baseUrl.startsWith("http")
         ? baseUrl
         : `http://${baseUrl}`;
 
-      // Construct URL with explicit formatting for messages/history
+      // Always use the plural form for the actual API endpoint
       url = `${baseWithProtocol}/messages/history`;
       console.log(
-        `[Server Proxy] Special URL construction for messages/history: ${url}`
+        `[Server Proxy] Special URL construction for message/history: ${url}`
       );
     }
     // Handle presence/users endpoint specially
@@ -527,9 +462,32 @@ export default defineEventHandler(async (event) => {
         }
       }
     }
+    // Handle message/{id} endpoint specially (for getting individual messages)
+    else if (
+      pathString.startsWith("message/") &&
+      pathString.split("/").length === 2 &&
+      method === "GET"
+    ) {
+      // Extract the message ID
+      const parts = pathString.split("/");
+      const messageId = parts[1];
+
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Use the plural form for the actual API endpoint
+      url = `${baseWithProtocol}/messages/${messageId}`;
+
+      console.log(
+        `[Server Proxy] Special URL construction for message/{id}: ${url}`
+      );
+    }
     // Handle message deletion endpoint specially
     else if (
-      pathString.startsWith("messages/") &&
+      (pathString.startsWith("messages/") ||
+        pathString.startsWith("message/")) &&
       pathString.split("/").length >= 2 &&
       method === "DELETE"
     ) {
@@ -542,11 +500,75 @@ export default defineEventHandler(async (event) => {
         ? baseUrl
         : `http://${baseUrl}`;
 
-      // Construct URL specifically for message deletion
+      // Use the plural form for the actual API endpoint
       url = `${baseWithProtocol}/messages/${messageId}`;
 
       console.log(
         `[Server Proxy] Special URL construction for message deletion: ${url}`
+      );
+    }
+    // Handle message update/edit endpoint specially
+    else if (
+      (pathString.startsWith("messages/") ||
+        pathString.startsWith("message/")) &&
+      pathString.split("/").length >= 2 &&
+      (method === "PUT" || method === "PATCH")
+    ) {
+      // Extract the message ID
+      const parts = pathString.split("/");
+      const messageId = parts[1];
+
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Use the plural form for the actual API endpoint
+      url = `${baseWithProtocol}/messages/${messageId}`;
+
+      console.log(
+        `[Server Proxy] Special URL construction for message update: ${url}`
+      );
+    }
+    // Handle message creation endpoint specially
+    else if (
+      (pathString === "messages" || pathString === "message") &&
+      method === "POST"
+    ) {
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Use the plural form for the actual API endpoint
+      url = `${baseWithProtocol}/messages`;
+
+      console.log(
+        `[Server Proxy] Special URL construction for message creation: ${url}`
+      );
+    }
+    // Handle other message endpoints (read, search, unread-count, etc.)
+    else if (
+      (pathString.startsWith("messages/") ||
+        pathString.startsWith("message/")) &&
+      (pathString.includes("/read") ||
+        pathString.includes("/search") ||
+        pathString.includes("/unread-count"))
+    ) {
+      // Ensure base URL has protocol
+      const baseWithProtocol = baseUrl.startsWith("http")
+        ? baseUrl
+        : `http://${baseUrl}`;
+
+      // Convert message/ to messages/ for consistency
+      const normalizedPath = pathString.startsWith("message/")
+        ? pathString.replace("message/", "messages/")
+        : pathString;
+
+      url = `${baseWithProtocol}/${normalizedPath}`;
+
+      console.log(
+        `[Server Proxy] Special URL construction for message endpoint: ${url}`
       );
     }
     // Handle presence endpoints specially

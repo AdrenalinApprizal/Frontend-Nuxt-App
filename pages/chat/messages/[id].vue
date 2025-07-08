@@ -3,12 +3,14 @@
   <div class="h-full flex flex-col w-full">
     <ChatArea
       v-if="!isGroup"
+      :key="`chat-${recipientId}-${refreshKey}`"
       :recipientId="recipientId"
       :recipientName="chatDetails?.name || recipientId"
       :chatMessages="chatMessages"
     />
     <GroupChatArea
       v-else
+      :key="`group-${recipientId}-${refreshKey}`"
       :groupId="recipientId"
       :groupName="chatDetails?.name || recipientId"
     />
@@ -20,7 +22,7 @@ import { useAuthStore } from "@/composables/useAuth";
 import GroupChatArea from "@/components/chat/GroupChatArea.vue";
 import ChatArea from "@/components/chat/ChatArea.vue";
 import { useGroupsStore } from "~/composables/useGroups";
-import { computed, onMounted } from "vue";
+import { computed, onMounted, watch, ref, nextTick } from "vue";
 
 // Define interfaces based on those used in components
 interface Message {
@@ -72,9 +74,94 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
-// Use the URL parameter as the recipient or group ID directly
+// Refresh key to force component re-render on route changes
+const refreshKey = ref(0);
+
+// Get the group ID from the route params
 const recipientId = computed(() => route.params.id as string);
 const isGroup = computed(() => route.query.type === "group");
+
+// Enhanced router refresh functionality for smooth chat switching
+const isRouterRefreshing = ref(false);
+
+// Function to perform comprehensive route refresh similar to router.refresh()
+const performRouterRefresh = async (newId: string, oldId?: string) => {
+  if (isRouterRefreshing.value) return;
+
+  try {
+    isRouterRefreshing.value = true;
+    console.log(
+      `🔄 [ChatMessages] Performing router refresh from ${oldId} to ${newId}`
+    );
+
+    // Step 1: Clear all cached data for previous conversation
+    if (oldId) {
+      // Clear session storage for previous chat
+      try {
+        if (route.query.type === "group") {
+          sessionStorage.removeItem(`group_chat_${oldId}`);
+        } else {
+          sessionStorage.removeItem(`chat_${oldId}`);
+        }
+        console.log(`🧹 [ChatMessages] Cleared cache for ${oldId}`);
+      } catch (e) {
+        console.warn("Failed to clear cache:", e);
+      }
+    }
+
+    // Step 2: Force component refresh by incrementing key
+    refreshKey.value++;
+
+    // Step 3: Wait for DOM update
+    await nextTick();
+
+    // Step 4: Small delay to ensure proper state cleanup
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Step 5: Emit refresh event for other components
+    if (process.client) {
+      window.dispatchEvent(
+        new CustomEvent("chat-switched", {
+          detail: { newId, oldId, timestamp: Date.now() },
+        })
+      );
+    }
+
+    console.log(`✅ [ChatMessages] Router refresh completed for ${newId}`);
+  } catch (error) {
+    console.error("Router refresh failed:", error);
+  } finally {
+    isRouterRefreshing.value = false;
+  }
+};
+
+// Force refresh when recipientId changes (similar to router.refresh())
+watch(
+  () => recipientId.value,
+  async (newId, oldId) => {
+    if (newId !== oldId && oldId !== undefined) {
+      console.log(
+        `🔄 [ChatMessages] Route changed from ${oldId} to ${newId} - performing router refresh`
+      );
+      await performRouterRefresh(newId, oldId);
+    }
+  },
+  { immediate: false }
+);
+
+// Also watch for conversation type changes (friend to group or vice versa)
+watch(
+  () => isGroup.value,
+  async (newType, oldType) => {
+    if (newType !== oldType && oldType !== undefined) {
+      console.log(
+        `🔄 [ChatMessages] Conversation type changed - performing router refresh`
+      );
+      await performRouterRefresh(recipientId.value);
+    }
+  },
+  { immediate: false }
+);
 
 // Middleware-like protection to ensure only authenticated users can access this page
 onMounted(() => {

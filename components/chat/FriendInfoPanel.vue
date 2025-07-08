@@ -1,7 +1,16 @@
 <template>
-  <div class="w-80 border-l border-gray-200 bg-white overflow-y-auto h-full flex-shrink-0">
+  <div
+    class="w-80 border-l border-gray-200 bg-white overflow-y-auto h-full flex-shrink-0 relative"
+  >
+    <!-- Debug overlay to ensure visibility -->
+    <div
+      class="absolute top-0 left-0 w-full h-8 bg-red-100 z-50 flex items-center justify-center text-xs"
+    >
+      🔍 FriendInfoPanel Loaded
+    </div>
+
     <!-- Header -->
-    <div class="p-4 border-b border-gray-200 bg-white shadow-sm">
+    <div class="p-4 border-b border-gray-200 bg-white shadow-sm mt-8">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold text-gray-900">Profile</h3>
         <button
@@ -9,7 +18,7 @@
           class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           title="Close profile"
         >
-          <Icon name="fa:times" class="h-5 w-5" />
+          ✕
         </button>
       </div>
 
@@ -18,12 +27,13 @@
           class="h-24 w-24 rounded-full overflow-hidden bg-gray-200 mb-3 flex items-center justify-center ring-2 ring-gray-100"
         >
           <img
-            v-if="friendDetails?.avatar || friendDetails?.profile_picture_url"
-            :src="friendDetails.avatar || friendDetails.profile_picture_url"
-            :alt="friendDetails.name"
+            v-if="getValidAvatarUrl()"
+            :src="getValidAvatarUrl()"
+            :alt="friendDetails?.name || 'Profile'"
             class="h-full w-full object-cover"
+            @error="avatarError = true"
           />
-          <Icon v-else name="fa:user" class="h-12 w-12 text-gray-400" />
+          <div v-else class="text-gray-400 text-4xl">👤</div>
         </div>
         <h2 class="text-black text-xl font-semibold text-center">
           {{ displayName }}
@@ -43,6 +53,30 @@
             {{ friendDetails?.status || "offline" }}
           </span>
         </div>
+      </div>
+    </div>
+
+    <!-- Temporary Debug Section -->
+    <div class="p-4 border-b border-gray-200 bg-yellow-50">
+      <h4 class="text-sm font-bold text-gray-800 mb-2">🐛 DEBUG INFO</h4>
+      <div class="text-xs space-y-1">
+        <div><strong>Props received:</strong></div>
+        <div>• username: {{ username || "N/A" }}</div>
+        <div>
+          • friendDetails:
+          {{ friendDetails ? "Object received" : "NULL/UNDEFINED" }}
+        </div>
+        <div v-if="friendDetails">
+          <div>• Friend ID: {{ friendDetails.id || "N/A" }}</div>
+          <div>• Friend Name: {{ friendDetails.name || "N/A" }}</div>
+          <div>• Status: {{ friendDetails.status || "N/A" }}</div>
+        </div>
+        <div><strong>Component state:</strong></div>
+        <div>• Display Name: {{ displayName }}</div>
+        <div>• Avatar URL: {{ getValidAvatarUrl() || "N/A" }}</div>
+        <div>• Attachments: {{ attachments.length }}</div>
+        <div>• Is Loading: {{ isLoading }}</div>
+        <div>• Avatar Error: {{ avatarError }}</div>
       </div>
     </div>
 
@@ -74,9 +108,13 @@
 
         <div
           v-if="attachments.length === 0 && !isLoading"
-          class="py-4 text-center text-gray-500"
+          class="py-6 text-center text-gray-500"
         >
-          No attachments
+          <div class="text-3xl mb-2">📎</div>
+          <p class="text-sm">No attachments shared yet</p>
+          <p class="text-xs text-gray-400 mt-1">
+            Files shared in this conversation will appear here
+          </p>
         </div>
 
         <div v-else class="space-y-3">
@@ -108,9 +146,6 @@
               <p class="text-sm font-medium truncate">
                 {{ attachment.filename }}
               </p>
-              <p class="text-xs text-gray-500">
-                {{ formatFileSize(attachment.size) }}
-              </p>
             </div>
             <div class="ml-2 flex">
               <button
@@ -119,13 +154,6 @@
                 title="Download"
               >
                 <Icon name="fa:download" class="h-4 w-4" />
-              </button>
-              <button
-                @click.stop="showShareDialog(attachment)"
-                class="p-1 text-gray-500 hover:text-blue-500"
-                title="Share"
-              >
-                <Icon name="fa:share-alt" class="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -138,7 +166,9 @@
       v-if="showAttachmentsModal"
       class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
     >
-      <div class="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden">
+      <div
+        class="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden"
+      >
         <div class="flex justify-between items-center p-4 border-b">
           <h3 class="font-medium text-lg">All Attachments</h3>
           <button
@@ -149,16 +179,7 @@
           </button>
         </div>
 
-        <div
-          class="overflow-y-auto p-4"
-          style="max-height: calc(90vh - 8rem)"
-        >
-          <div v-if="isLoadingMore" class="flex justify-center py-4">
-            <div
-              class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
-            ></div>
-          </div>
-
+        <div class="overflow-y-auto p-4" style="max-height: calc(90vh - 8rem)">
           <div class="space-y-3">
             <div
               v-for="attachment in attachments"
@@ -188,9 +209,6 @@
                 <p class="text-sm font-medium truncate">
                   {{ attachment.filename }}
                 </p>
-                <p class="text-xs text-gray-500">
-                  {{ formatFileSize(attachment.size) }}
-                </p>
                 <p class="text-xs text-gray-400">
                   {{ new Date(attachment.uploaded_at).toLocaleDateString() }}
                 </p>
@@ -203,109 +221,9 @@
                 >
                   <Icon name="fa:download" class="h-4 w-4" />
                 </button>
-                <button
-                  @click.stop="showShareDialog(attachment)"
-                  class="p-2 text-gray-500 hover:text-blue-500"
-                  title="Share"
-                >
-                  <Icon name="fa:share-alt" class="h-4 w-4" />
-                </button>
               </div>
             </div>
           </div>
-
-          <!-- Load more button -->
-          <div
-            v-if="pagination.has_more_pages"
-            class="flex justify-center mt-4"
-          >
-            <button
-              @click="loadMoreAttachments"
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300"
-              :disabled="isLoadingMore"
-            >
-              {{ isLoadingMore ? "Loading..." : "Load More" }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Share Dialog -->
-    <div
-      v-if="showShareModal"
-      class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
-    >
-      <div class="bg-white rounded-lg p-6 max-w-md w-full">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="font-medium text-lg">Share File</h3>
-          <button
-            @click="closeShareDialog"
-            class="text-gray-500 hover:text-gray-700"
-          >
-            <Icon name="fa:times" class="h-5 w-5" />
-          </button>
-        </div>
-
-        <div v-if="selectedAttachment" class="mb-4 p-3 bg-gray-50 rounded-md flex items-center">
-          <div class="mr-3">
-            <div class="w-10 h-10 rounded-md bg-blue-100 flex items-center justify-center">
-              <Icon name="fa:file" class="h-5 w-5 text-blue-500" />
-            </div>
-          </div>
-          <div>
-            <p class="text-sm font-medium">
-              {{ selectedAttachment.filename }}
-            </p>
-            <p class="text-xs text-gray-500">
-              {{ formatFileSize(selectedAttachment.size) }}
-            </p>
-          </div>
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium mb-2">
-            Share with:
-          </label>
-          <div class="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
-            <div
-              v-for="friend in friendsList"
-              :key="friend.id"
-              :class="`flex items-center justify-between p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                friend.shareSelected ? 'bg-blue-50' : ''
-              }`"
-              @click="toggleShareSelection(friend.id)"
-            >
-              <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-200 mr-2 flex items-center justify-center">
-                  <img
-                    v-if="friend.avatar || friend.profile_picture_url"
-                    :src="friend.avatar || friend.profile_picture_url"
-                    :alt="friend.name"
-                    class="h-full w-full object-cover"
-                  />
-                  <Icon v-else name="fa:user" class="h-4 w-4 text-gray-500" />
-                </div>
-                <span class="text-sm">{{ friend.name }}</span>
-              </div>
-              <div
-                v-if="friend.shareSelected"
-                class="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center"
-              >
-                <Icon name="fa:check" class="h-2 w-2 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            @click="handleShareFile"
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            :disabled="!friendsList.some((friend) => friend.shareSelected)"
-          >
-            Share
-          </button>
         </div>
       </div>
     </div>
@@ -330,19 +248,15 @@
             :alt="selectedAttachment.filename"
             class="max-h-[80vh] max-w-full object-contain"
           />
-          <div
-            v-else
-            class="bg-white rounded-lg p-8 text-center"
-          >
-            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <div v-else class="bg-white rounded-lg p-8 text-center">
+            <div
+              class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4"
+            >
               <Icon name="fa:file" class="h-8 w-8 text-blue-500" />
             </div>
             <h3 class="text-lg font-medium text-gray-900 mb-2">
               {{ selectedAttachment.filename }}
             </h3>
-            <p class="text-sm text-gray-500 mb-4">
-              {{ formatFileSize(selectedAttachment.size) }}
-            </p>
             <p class="text-sm text-gray-600">
               This file type cannot be previewed
             </p>
@@ -355,14 +269,6 @@
             >
               <Icon name="fa:download" class="h-4 w-4 mr-2" />
               Download
-            </button>
-
-            <button
-              @click="showShareDialog(selectedAttachment)"
-              class="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 flex items-center"
-            >
-              <Icon name="fa:share-alt" class="h-4 w-4 mr-2" />
-              Share
             </button>
           </div>
 
@@ -438,7 +344,6 @@ interface FriendDetails {
   full_name?: string;
 }
 
-// Updated interface to match API response from message history
 interface AttachmentItem {
   file_id: string;
   filename: string;
@@ -446,14 +351,6 @@ interface AttachmentItem {
   mime_type: string;
   url: string;
   uploaded_at: string;
-}
-
-interface Pagination {
-  current_page: number;
-  total_pages: number;
-  total_items: number;
-  items_per_page: number;
-  has_more_pages: boolean;
 }
 
 const props = defineProps<{
@@ -464,14 +361,19 @@ const props = defineProps<{
 defineEmits(["close"]);
 
 // Composables
-const { downloadFile: downloadFileAction, shareFile, formatFileSize } = useFiles();
+const {
+  downloadFile: downloadFileAction,
+  shareFile,
+  formatFileSize,
+} = useFiles();
 const { $toast } = useNuxtApp();
 const friendsStore = useFriendsStore();
 
-// State management - simplified to single attachments list
+// State management
 const attachments = ref<AttachmentItem[]>([]);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
+const avatarError = ref(false);
 
 // Modal states
 const showAttachmentsModal = ref(false);
@@ -492,13 +394,33 @@ const pagination = ref<Pagination>({
   has_more_pages: false,
 });
 
+interface Pagination {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+  has_more_pages: boolean;
+}
+
 // Computed values
 const displayName = computed(() => {
   if (!props.friendDetails) return "User";
 
-  return props.friendDetails.first_name && props.friendDetails.last_name
-    ? `${props.friendDetails.first_name} ${props.friendDetails.last_name}`
-    : props.friendDetails.name;
+  // Try different name combinations
+  const firstName = props.friendDetails.first_name?.trim();
+  const lastName = props.friendDetails.last_name?.trim();
+  const fullName = props.friendDetails.full_name?.trim();
+  const displayNameProp = props.friendDetails.display_name?.trim();
+  const name = props.friendDetails.name?.trim();
+
+  // Priority order: display_name, full_name, first_name + last_name, name, fallback
+  if (displayNameProp) return displayNameProp;
+  if (fullName) return fullName;
+  if (firstName && lastName) return `${firstName} ${lastName}`;
+  if (firstName) return firstName;
+  if (name) return name;
+
+  return "User";
 });
 
 const currentAttachmentIndex = computed(() => {
@@ -521,31 +443,87 @@ const isImage = (mimeType: string) => {
   return mimeType.startsWith("image/");
 };
 
-// Initialize friends list
-watch(() => friendsStore.friends, (friends) => {
-  if (friends) {
-    friendsList.value = friends.map((friend) => ({
-      ...friend,
-      name: friend.name || friend.display_name || friend.full_name || 'Unknown User',
-      shareSelected: false,
-    }));
+// Reset avatar error when friendDetails changes
+watch(
+  () => [props.friendDetails?.avatar, props.friendDetails?.profile_picture_url],
+  () => {
+    avatarError.value = false;
+  },
+  { immediate: true }
+);
+
+// Helper function to get proper avatar URL
+const getValidAvatarUrl = (): string => {
+  if (avatarError.value) return "";
+
+  const avatarSources = [
+    props.friendDetails?.profile_picture_url,
+    props.friendDetails?.avatar_url,
+    props.friendDetails?.avatar,
+  ];
+
+  for (const source of avatarSources) {
+    if (source && typeof source === "string" && source.trim()) {
+      return source.trim();
+    }
   }
-}, { immediate: true });
+
+  return "";
+};
+
+// Initialize friends list
+watch(
+  () => friendsStore.friends,
+  (friends) => {
+    if (friends) {
+      friendsList.value = friends.map((friend) => ({
+        ...friend,
+        name:
+          friend.name ||
+          friend.display_name ||
+          friend.full_name ||
+          "Unknown User",
+        shareSelected: false,
+      }));
+    }
+  },
+  { immediate: true }
+);
 
 // Load data when friend details change
-watch(() => props.friendDetails?.id, (friendId) => {
-  if (friendId) {
-    currentPage.value = 1;
-    loadAttachments();
-  }
-}, { immediate: true });
+watch(
+  () => props.friendDetails?.id,
+  (newFriendId, oldFriendId) => {
+    console.log("Friend details ID changed:", {
+      from: oldFriendId,
+      to: newFriendId,
+    });
+
+    if (newFriendId && newFriendId !== oldFriendId) {
+      // Reset state when switching friends
+      attachments.value = [];
+      avatarError.value = false;
+      showAttachmentsModal.value = false;
+      showPreview.value = false;
+      selectedAttachment.value = null;
+
+      // Load new data
+      loadAttachments();
+    }
+  },
+  { immediate: true }
+);
 
 // Load user attachments from message history
 const loadAttachments = async () => {
-  if (!props.friendDetails?.id) return;
+  if (!props.friendDetails?.id) {
+    console.log("No friend ID available for loading attachments");
+    return;
+  }
 
   try {
     isLoading.value = true;
+    console.log(`Loading attachments for friend ID: ${props.friendDetails.id}`);
 
     // Fetch message history to get attachments
     const response = await fetch(
@@ -553,7 +531,14 @@ const loadAttachments = async () => {
     );
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.warn(
+        `Failed to fetch message history: ${response.status} ${response.statusText}`
+      );
+      if (response.status === 404) {
+        // No message history found, set empty attachments
+        attachments.value = [];
+      }
+      return;
     }
 
     const data = await response.json();
@@ -583,14 +568,7 @@ const loadAttachments = async () => {
         let mimeType = "application/octet-stream";
         const extension = filename.split(".").pop()?.toLowerCase();
         if (extension) {
-          const imageExtensions = [
-            "jpg",
-            "jpeg",
-            "png",
-            "gif",
-            "webp",
-            "svg",
-          ];
+          const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg"];
           const documentExtensions = ["pdf", "doc", "docx", "txt"];
 
           if (imageExtensions.includes(extension)) {
@@ -620,23 +598,52 @@ const loadAttachments = async () => {
     );
 
     attachments.value = attachmentData;
-    console.log("Loaded attachments from messages:", attachmentData);
-
-    // Set basic pagination
-    pagination.value = {
-      current_page: 1,
-      total_pages: 1,
-      total_items: attachmentData.length,
-      items_per_page: attachmentData.length,
-      has_more_pages: false,
-    };
-    currentPage.value = 1;
+    console.log(
+      `Loaded ${attachmentData.length} attachments from messages for friend ${props.friendDetails.id}:`,
+      attachmentData
+    );
   } catch (error) {
     console.error("Error loading attachments from messages:", error);
-    // Silently handle error
-    attachments.value = []; // Set empty array as fallback
+    // Set empty array as fallback
+    attachments.value = [];
+
+    // Show user-friendly message if needed
+    if (process.client) {
+      console.warn("Could not load attachment history for this conversation");
+    }
   } finally {
     isLoading.value = false;
+  }
+};
+
+// Download file using attachment URL
+const downloadFile = async (attachment: AttachmentItem) => {
+  try {
+    console.log("Downloading attachment:", attachment.filename);
+
+    // Check if URL is valid
+    if (!attachment.url) {
+      $toast?.error("File URL not available");
+      return;
+    }
+
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement("a");
+    link.href = attachment.url;
+    link.download = attachment.filename;
+    link.target = "_blank";
+
+    // Add to DOM temporarily
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    document.body.removeChild(link);
+
+    $toast?.success(`Downloading ${attachment.filename}`);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    $toast?.error(`Failed to download ${attachment.filename}`);
   }
 };
 
@@ -645,25 +652,6 @@ const loadMoreAttachments = async () => {
   // Since we load all attachments from message history in one request,
   // this function is no longer needed but kept for UI compatibility
   console.log("Load more attachments disabled for message history approach");
-};
-
-// Download file using attachment URL
-const downloadFile = async (attachment: AttachmentItem) => {
-  try {
-    // Create a temporary anchor element to trigger download
-    const link = document.createElement("a");
-    link.href = attachment.url;
-    link.download = attachment.filename;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    $toast.success("File download started");
-  } catch (error) {
-    console.error("Error downloading file:", error);
-    $toast.error("Failed to download file");
-  }
 };
 
 // Show share dialog
@@ -737,15 +725,29 @@ const navigateAttachment = (direction: "prev" | "next") => {
 
   if (direction === "prev" && currentIndex > 0) {
     selectedAttachment.value = attachments.value[currentIndex - 1];
-  } else if (direction === "next" && currentIndex < attachments.value.length - 1) {
+  } else if (
+    direction === "next" &&
+    currentIndex < attachments.value.length - 1
+  ) {
     selectedAttachment.value = attachments.value[currentIndex + 1];
   }
 };
 
 // Initialize on mount
 onMounted(() => {
+  console.log("FriendInfoPanel mounted with props:", {
+    username: props.username,
+    friendDetails: props.friendDetails,
+    friendId: props.friendDetails?.id,
+  });
+
   // Load friends for sharing functionality
   friendsStore.getFriends();
+
+  // Load attachments if we have friend details
+  if (props.friendDetails?.id) {
+    loadAttachments();
+  }
 });
 </script>
 

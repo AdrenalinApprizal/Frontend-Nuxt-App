@@ -82,40 +82,25 @@ const performAutoRefresh = async () => {
   }
 
   try {
-    console.log(`[Auto-Refresh] Performing refresh #${refreshCount.value + 1}`);
     lastRefreshTime.value = new Date();
     refreshCount.value++;
 
     // Refresh data in parallel for better performance
     const refreshPromises = [
       // Refresh friends list
-      friendsStore.getFriends().catch((error: any) => {
-        console.warn("[Auto-Refresh] Failed to refresh friends:", error);
-      }),
+      friendsStore.getFriends().catch((error: any) => {}),
 
       // Refresh groups list
-      groupsStore.getGroups().catch((error: any) => {
-        console.warn("[Auto-Refresh] Failed to refresh groups:", error);
-      }),
+      groupsStore.getGroups().catch((error: any) => {}),
 
       // Refresh notifications count
-      notifications.getUnreadCount().catch((error: any) => {
-        console.warn("[Auto-Refresh] Failed to refresh notifications:", error);
-      }),
+      notifications.getUnreadCount().catch((error: any) => {}),
     ];
 
     await Promise.allSettled(refreshPromises);
 
-    console.log(`[Auto-Refresh] Completed refresh #${refreshCount.value}`);
-
-    // Show subtle success indicator (optional)
-    if (refreshCount.value % 5 === 0) {
-      // Every 5th refresh
-      $toast.success("Data refreshed");
-    }
+    // Remove excessive success indicators - auto-refresh should be silent
   } catch (error: any) {
-    console.error("[Auto-Refresh] Error during auto-refresh:", error);
-
     // Show error notification less frequently
     if (refreshCount.value % 3 === 0) {
       $toast.error("Failed to refresh data");
@@ -137,8 +122,6 @@ const startAutoRefresh = () => {
 
   refreshInterval.value = setInterval(performAutoRefresh, interval);
   isAutoRefreshEnabled.value = true;
-
-  console.log(`[Auto-Refresh] Started with ${interval}ms interval`);
 };
 
 // Stop auto-refresh functionality
@@ -148,37 +131,30 @@ const stopAutoRefresh = () => {
     refreshInterval.value = null;
   }
   isAutoRefreshEnabled.value = false;
-  console.log("[Auto-Refresh] Stopped");
 };
 
 // Toggle auto-refresh (for manual control)
 const toggleAutoRefresh = () => {
   if (isAutoRefreshEnabled.value) {
     stopAutoRefresh();
-    $toast.info("Auto-refresh disabled");
   } else {
     startAutoRefresh();
-    $toast.success("Auto-refresh enabled");
   }
 };
 
 // Manual refresh function
 const manualRefresh = async () => {
-  $toast.info("Refreshing data...");
   await performAutoRefresh();
-  $toast.success("Data refreshed successfully");
 };
 
 // Handle visibility change (pause auto-refresh when tab is not visible)
 const handleVisibilityChange = () => {
   if (document.visibilityState === "hidden") {
-    console.log("[Auto-Refresh] Tab hidden, stopping auto-refresh");
     stopAutoRefresh();
   } else if (
     document.visibilityState === "visible" &&
     authStore.isAuthenticated
   ) {
-    console.log("[Auto-Refresh] Tab visible, resuming auto-refresh");
     // Perform immediate refresh when tab becomes visible
     performAutoRefresh();
     startAutoRefresh();
@@ -188,10 +164,8 @@ const handleVisibilityChange = () => {
 // Handle WebSocket connection changes
 const handleWebSocketConnection = () => {
   if (webSocket.isConnected) {
-    console.log("[Auto-Refresh] WebSocket connected, starting auto-refresh");
     startAutoRefresh();
   } else {
-    console.log("[Auto-Refresh] WebSocket disconnected, stopping auto-refresh");
     stopAutoRefresh();
   }
 };
@@ -202,17 +176,152 @@ const checkForFreshLogin = () => {
     route.query.fromLogin === "true" ||
     sessionStorage.getItem("freshLogin") === "true";
 
-  if (isFromLogin) {
-    console.log(
-      "[Auto-Refresh] Fresh login detected, performing initial refresh"
-    );
+  const shouldForceRefresh = route.query.refresh === "true";
+
+  if (isFromLogin || shouldForceRefresh) {
     // Clear the fresh login indicators
     sessionStorage.removeItem("freshLogin");
+
+    // Force a complete component refresh to ensure fresh state (similar to router.refresh)
+    if (process.client) {
+      // Trigger window resize to refresh layout
+      window.dispatchEvent(new Event("resize"));
+
+      // Clear all component caches (similar to router.refresh behavior)
+      if (shouldForceRefresh) {
+        console.log("[Router-Refresh] Executing complete app state refresh...");
+
+        // Clear any cached data
+        sessionStorage.clear();
+
+        // Reset fresh login flag after clearing
+        sessionStorage.setItem("freshLogin", "true");
+        sessionStorage.setItem("loginTimestamp", Date.now().toString());
+
+        // Force refresh all reactive stores immediately
+        Promise.all([
+          authStore.getUserInfo(),
+          friendsStore.getFriends(),
+          groupsStore.getGroups(),
+          notifications.getUnreadCount(),
+        ])
+          .then(() => {
+            console.log("[Router-Refresh] All stores refreshed successfully");
+          })
+          .catch((error) => {
+            console.error("[Router-Refresh] Error refreshing stores:", error);
+          });
+      } else {
+        // Standard fresh login handling
+        nextTick(() => {
+          // Refresh friends store
+          friendsStore.getFriends().catch(console.warn);
+
+          // Refresh groups store
+          groupsStore.getGroups().catch(console.warn);
+
+          // Refresh notifications
+          notifications.getUnreadCount().catch(console.warn);
+        });
+      }
+    }
+
     // Perform immediate refresh on fresh login
-    setTimeout(performAutoRefresh, 1000); // Small delay to let components mount
+    setTimeout(performAutoRefresh, shouldForceRefresh ? 500 : 1000); // Faster refresh for forced refresh
     return true;
   }
   return false;
+};
+
+// Listen for custom login refresh events
+const handleLoginRefresh = (event: CustomEvent) => {
+  console.log(
+    "[Login-Refresh] Custom login refresh event received:",
+    event.detail
+  );
+
+  // Force refresh all stores and data
+  if (process.client) {
+    Promise.all([
+      authStore.getUserInfo(),
+      friendsStore.getFriends(),
+      groupsStore.getGroups(),
+      notifications.getUnreadCount(),
+    ])
+      .then(() => {
+        console.log("[Login-Refresh] All stores refreshed successfully");
+      })
+      .catch((error) => {
+        console.error("[Login-Refresh] Error refreshing stores:", error);
+      });
+
+    // Trigger auto-refresh
+    performAutoRefresh();
+  }
+};
+
+// Handle chat refresh events from ChatArea component
+const handleChatRefresh = (event: any) => {
+  console.log("[Messages] Chat refresh event received:", event);
+
+  // Trigger a refresh of message lists to ensure they're in sync
+  if (event?.newRecipientId || event?.detail?.newRecipientId) {
+    // Refresh message list to update last message timestamps, etc.
+    performAutoRefresh();
+  }
+};
+
+// Listen for route changes to trigger refresh
+watch(
+  () => route.params.id,
+  (newId, oldId) => {
+    if (newId !== oldId && oldId !== undefined) {
+      console.log(
+        `🔄 [Messages] Route changed from ${oldId} to ${newId} - refreshing data`
+      );
+      // Small delay to allow the new component to mount
+      setTimeout(() => {
+        performAutoRefresh();
+      }, 200);
+    }
+  },
+  { immediate: false }
+);
+
+// Handle auth state changes (similar to router.refresh effect)
+const handleAuthStateChanged = (event: CustomEvent) => {
+  console.log("[Auth-State-Changed] Auth state change detected:", event.detail);
+
+  if (event.detail?.authenticated && process.client) {
+    console.log(
+      "[Auth-State-Changed] User authenticated, performing comprehensive refresh..."
+    );
+
+    // Force complete refresh of all data (similar to router.refresh)
+    Promise.all([
+      authStore.getUserInfo(),
+      friendsStore.getFriends(),
+      groupsStore.getGroups(),
+      notifications.getUnreadCount(),
+    ])
+      .then(() => {
+        console.log("[Auth-State-Changed] Complete app refresh successful");
+
+        // Clear any router refresh parameters
+        if (window.location.search.includes("refresh=true")) {
+          const newUrl = window.location.pathname + "?fromLogin=true";
+          window.history.replaceState({}, "", newUrl);
+        }
+
+        // Start auto-refresh
+        if (!isAutoRefreshEnabled.value) {
+          startAutoRefresh();
+        }
+      })
+      .catch((error) => {
+        console.error("[Auth-State-Changed] Error during app refresh:", error);
+      });
+  }
 };
 
 // Enhanced auth check with auto-refresh initialization
@@ -248,10 +357,6 @@ onMounted(async () => {
     // Initialize auto-refresh functionality
     await nextTick(); // Wait for components to mount
 
-    if (isFreshLogin) {
-      $toast.success("Welcome! Loading your messages...");
-    }
-
     // Start auto-refresh if WebSocket is connected or after a short delay
     if (webSocket.isConnected) {
       startAutoRefresh();
@@ -266,6 +371,23 @@ onMounted(async () => {
 
     // Set up event listeners
     document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Add event listener for login refresh
+    if (process.client) {
+      window.addEventListener(
+        "login-refresh",
+        handleLoginRefresh as EventListener
+      );
+
+      // Add event listener for auth state changes (similar to router.refresh trigger)
+      window.addEventListener(
+        "auth-state-changed",
+        handleAuthStateChanged as EventListener
+      );
+
+      // Add event listener for chat refresh events from ChatArea component
+      eventBus.on("chat-refreshed", handleChatRefresh);
+    }
 
     // Watch WebSocket connection status
     watch(() => webSocket.isConnected, handleWebSocketConnection);
@@ -286,7 +408,6 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error("Error during auth check and auto-refresh setup:", error);
-    $toast.error("Failed to initialize chat page");
   } finally {
     isAuthChecked.value = true;
   }
@@ -296,6 +417,21 @@ onMounted(async () => {
 onUnmounted(() => {
   stopAutoRefresh();
   document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+  // Clean up custom event listeners
+  if (process.client) {
+    window.removeEventListener(
+      "login-refresh",
+      handleLoginRefresh as EventListener
+    );
+    window.removeEventListener(
+      "auth-state-changed",
+      handleAuthStateChanged as EventListener
+    );
+
+    // Clean up chat refresh event listener
+    eventBus.off("chat-refreshed", handleChatRefresh);
+  }
 
   // Clean up global debug functions
   if (process.dev && (window as any).chatRefresh) {

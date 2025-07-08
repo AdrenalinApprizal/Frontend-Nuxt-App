@@ -1,62 +1,9 @@
 <template>
   <div class="h-full flex flex-col p-6 bg-white">
-    <!-- Header with title and action buttons -->
+    <!-- Header with title and notification button -->
     <div class="mb-6 flex justify-between items-center">
-      <div class="flex items-center">
-        <h1 class="text-xl font-bold text-gray-800">Messages</h1>
-        <button
-          @click="refreshData"
-          :disabled="isRefreshing"
-          class="ml-2 p-1.5 text-gray-400 hover:text-blue-500 rounded-full focus:outline-none transition-colors"
-          title="Refresh Messages"
-        >
-          <Icon
-            name="lucide:refresh-cw"
-            class="h-4 w-4"
-            :class="{ 'animate-spin': isRefreshing }"
-          />
-        </button>
-        <!-- Auto-refresh indicator -->
-        <div
-          v-if="autoRefreshEnabled"
-          class="ml-2 flex items-center text-xs text-green-600"
-          :title="`Auto-refresh enabled. Last refresh: ${lastRefreshTime}`"
-        >
-          <div
-            class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"
-          ></div>
-          <span class="hidden sm:inline">Auto</span>
-        </div>
-      </div>
-      <div class="flex items-center space-x-2">
-        <!-- Auto-refresh toggle button -->
-        <button
-          @click="toggleAutoRefresh"
-          :class="`p-1.5 rounded-full focus:outline-none transition-colors ${
-            autoRefreshEnabled
-              ? 'text-green-500 hover:text-green-600'
-              : 'text-gray-400 hover:text-gray-500'
-          }`"
-          :title="
-            autoRefreshEnabled ? 'Disable Auto-refresh' : 'Enable Auto-refresh'
-          "
-        >
-          <Icon
-            :name="
-              autoRefreshEnabled ? 'lucide:refresh-cw' : 'lucide:pause-circle'
-            "
-            class="h-4 w-4"
-          />
-        </button>
-        <NotificationDropdown />
-        <button
-          @click="showNewChatPopup = true"
-          class="p-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors"
-          title="New Chat"
-        >
-          <Icon name="lucide:plus" class="h-4 w-4" />
-        </button>
-      </div>
+      <h1 class="text-xl font-bold text-gray-800">Messages</h1>
+      <NotificationDropdown />
     </div>
 
     <!-- Tabs -->
@@ -236,204 +183,6 @@
         </NuxtLink>
       </div>
     </div>
-
-    <!-- New Chat Options Popup -->
-    <div
-      v-if="showNewChatPopup"
-      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-    >
-      <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-md mx-4">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">Start New Chat</h3>
-          <button
-            @click="showNewChatPopup = false"
-            class="text-gray-500 hover:text-gray-700"
-          >
-            <Icon name="fa:times" class="h-5 w-5" />
-          </button>
-        </div>
-
-        <div class="space-y-3">
-          <button
-            @click="handleOption('friend')"
-            class="flex items-center w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <div class="p-2 bg-blue-100 rounded-full mr-3">
-              <Icon name="lucide:user-plus" class="h-5 w-5 text-blue-600" />
-            </div>
-            <div class="text-left">
-              <div class="font-medium text-black">Add a Friend</div>
-              <div class="text-xs text-gray-600">Find and add new friends</div>
-            </div>
-          </button>
-
-          <button
-            @click="handleOption('group')"
-            class="flex items-center w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <div class="p-2 bg-green-100 rounded-full mr-3">
-              <Icon name="lucide:users" class="h-5 w-5 text-green-600" />
-            </div>
-            <div class="text-left">
-              <div class="font-medium text-black">Create a Group</div>
-              <div class="text-xs text-gray-600">
-                Start a group conversation
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add Friend Popup -->
-    <div
-      v-if="showAddFriendPopup"
-      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-    >
-      <div
-        class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
-      >
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">Add a Friend</h2>
-          <button
-            @click="showAddFriendPopup = false"
-            class="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            <Icon name="fa:times" class="h-4 w-4" />
-          </button>
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2"
-            >Username</label
-          >
-          <input
-            type="text"
-            v-model="friendUsername"
-            placeholder="Enter username"
-            class="w-full p-2 text-black border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          />
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            @click="showAddFriendPopup = false"
-            class="px-4 py-2 mr-2 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            @click="handleAddFriend"
-            :disabled="!friendUsername.trim() || isAddingFriend"
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300 transition-colors"
-          >
-            <div v-if="isAddingFriend" class="flex items-center">
-              <div
-                class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
-              ></div>
-              Adding...
-            </div>
-            <span v-else>Add Friend</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Create Group Popup -->
-    <div
-      v-if="showCreateGroupPopup"
-      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-    >
-      <div
-        class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
-      >
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">Create a Group</h2>
-          <button
-            @click="showCreateGroupPopup = false"
-            class="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            <Icon name="fa:times" class="h-4 w-4" />
-          </button>
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2"
-            >Group Name</label
-          >
-          <input
-            type="text"
-            v-model="groupName"
-            placeholder="Enter group name"
-            class="w-full p-2 text-black border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          />
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2"
-            >Description</label
-          >
-          <textarea
-            v-model="groupDescription"
-            placeholder="Enter group description"
-            class="w-full p-2 text-black border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"
-            rows="2"
-          ></textarea>
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2"
-            >Select Friends</label
-          >
-          <div
-            class="max-h-40 text-black overflow-y-auto border border-gray-200 rounded-lg"
-          >
-            <div
-              v-for="friend in availableFriendsForGroup"
-              :key="friend.id"
-              :class="`flex items-center p-2 cursor-pointer hover:bg-gray-50 transition-colors ${
-                friend.selected ? 'bg-blue-50' : ''
-              }`"
-              @click="toggleFriendSelection(friend.id)"
-            >
-              <OptimizedAvatar
-                :src="friend.profile_picture_url"
-                :alt="friend.name"
-                size="sm"
-                class="mr-2 flex-shrink-0"
-                fallback-icon="fa:user"
-              />
-              <div class="flex-1">
-                <p class="font-medium text-sm text-black">{{ friend.name }}</p>
-                <p class="text-gray-700 text-xs">@{{ friend.username }}</p>
-              </div>
-              <input
-                type="checkbox"
-                :checked="!!friend.selected"
-                class="h-4 w-4 text-blue-600"
-                @click.stop
-              />
-            </div>
-          </div>
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            @click="showCreateGroupPopup = false"
-            class="px-4 py-2 mr-2 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            @click="handleCreateGroup"
-            :disabled="!groupName.trim() || !selectedFriendsCount"
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300 transition-colors"
-          >
-            Create Group
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -543,25 +292,9 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const activeTab = ref<TabType>("all");
 const searchQuery = ref("");
-const showNewChatPopup = ref(false);
-const showAddFriendPopup = ref(false);
-const showCreateGroupPopup = ref(false);
-const friendUsername = ref("");
-const isAddingFriend = ref(false);
-const groupName = ref("");
-const groupDescription = ref("");
-const isRefreshing = ref(false);
 const isTyping = ref<Record<string, boolean>>({});
 const friendSelections = ref<Record<string, boolean>>({});
 const unsubscribeConnectionWatch = ref<WatchStopHandle | null>(null);
-
-// Auto-refresh state
-const autoRefreshEnabled = ref(false);
-const lastRefreshTime = ref("");
-const autoRefreshInterval = ref<NodeJS.Timeout | null>(null);
-const refreshAttempts = ref(0);
-const maxRefreshAttempts = ref(50);
-const isTabVisible = ref(true);
 
 // Computed properties
 const filteredMessages = computed(() => {
@@ -600,6 +333,27 @@ const sortedMessages = computed(() => {
 
     if (aHasMessages !== bHasMessages) {
       return bHasMessages - aHasMessages; // Those with messages first
+    }
+
+    // For messages with same message status, sort by timestamp priority like React
+    const getTimePriority = (timestamp: string) => {
+      if (!timestamp) return 10;
+      if (timestamp.includes("now") || timestamp.includes("Just now")) return 1;
+      if (timestamp.includes("minute")) return 2;
+      if (timestamp.includes("hour")) return 3;
+      if (timestamp.includes("day")) return 4;
+      if (timestamp.includes("week")) return 5;
+      if (timestamp === "Online") return 6;
+      if (timestamp === "Offline") return 7;
+      return 8;
+    };
+
+    // Use timestamp priority for sorting
+    const aPriority = getTimePriority(a.timestamp);
+    const bPriority = getTimePriority(b.timestamp);
+
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
     }
 
     // Finally sort by last activity time (most recent first)
@@ -655,26 +409,196 @@ const getLastMessageForConversation = async (
   type: "friend" | "group"
 ) => {
   try {
+    console.log(
+      `[MessagesList] Fetching last message for ${type} ${conversationId}`
+    );
+
     if (type === "group") {
+      // For groups, use the group messages API
       const response = await groupsStore.getGroupMessages(conversationId, 1, 1);
-      if (response && response.data && response.data.length > 0) {
-        return response.data[0];
+      console.log(
+        `[MessagesList] Group messages response for ${conversationId}:`,
+        response
+      );
+
+      // Handle different response structures
+      let messagesArray = null;
+      if (response && Array.isArray(response)) {
+        messagesArray = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        messagesArray = response.data;
+      } else if (
+        response &&
+        (response as any).messages &&
+        Array.isArray((response as any).messages)
+      ) {
+        messagesArray = (response as any).messages;
+      }
+
+      if (messagesArray && messagesArray.length > 0) {
+        const lastMessage = messagesArray[0];
+        console.log(
+          `[MessagesList] Found last message for group ${conversationId}:`,
+          lastMessage
+        );
+        return lastMessage;
       }
     } else {
+      // For friends, use the unified messages API with correct type
       const response = await messagesStore.getMessages({
         target_id: conversationId,
         type: "private",
         limit: 1,
         page: 1,
       });
-      if (response && response.data && response.data.length > 0) {
-        return response.data[0];
+      console.log(
+        `[MessagesList] Friend messages response for ${conversationId}:`,
+        response
+      );
+
+      // Handle different response structures
+      let messagesArray = null;
+      if (response && Array.isArray(response)) {
+        messagesArray = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        messagesArray = response.data;
+      } else if (
+        response &&
+        (response as any).messages &&
+        Array.isArray((response as any).messages)
+      ) {
+        messagesArray = (response as any).messages;
+      }
+
+      if (messagesArray && messagesArray.length > 0) {
+        const lastMessage = messagesArray[0];
+        console.log(
+          `[MessagesList] Found last message for friend ${conversationId}:`,
+          lastMessage
+        );
+        return lastMessage;
+      } else {
+        // Try alternative methods if main method failed
+        console.log(
+          `[MessagesList] Main method failed for friend ${conversationId}, trying alternatives...`
+        );
+        const altResult = await tryAlternativeMessageFetch(
+          conversationId,
+          type
+        );
+        if (altResult) {
+          console.log(
+            `[MessagesList] Alternative method succeeded for friend ${conversationId}:`,
+            altResult
+          );
+          return altResult;
+        }
       }
     }
+
+    console.log(
+      `[MessagesList] No messages found for ${type} ${conversationId}`
+    );
     return null;
   } catch (error) {
     console.error(
       `[MessagesList] Failed to get last message for ${type} ${conversationId}:`,
+      error
+    );
+
+    // Try alternative methods on error
+    if (type === "friend") {
+      console.log(
+        `[MessagesList] Trying alternatives after error for friend ${conversationId}...`
+      );
+      const altResult = await tryAlternativeMessageFetch(conversationId, type);
+      if (altResult) {
+        console.log(
+          `[MessagesList] Alternative method succeeded after error for friend ${conversationId}:`,
+          altResult
+        );
+        return altResult;
+      }
+    }
+
+    return null;
+  }
+};
+
+// Helper function to try alternative methods for getting messages
+const tryAlternativeMessageFetch = async (
+  conversationId: string,
+  type: "friend" | "group"
+) => {
+  try {
+    console.log(
+      `[MessagesList] Trying alternative fetch for ${type} ${conversationId}`
+    );
+
+    if (type === "friend") {
+      // Try different API endpoints or parameters
+      const alternatives = [
+        // Try with group type (sometimes friend messages are returned as group type)
+        () =>
+          messagesStore.getMessages({
+            target_id: conversationId,
+            type: "group",
+            limit: 1,
+            page: 1,
+          }),
+        // Try with different page
+        () =>
+          messagesStore.getMessages({
+            target_id: conversationId,
+            type: "private",
+            limit: 5,
+            page: 1,
+          }),
+      ];
+
+      for (const [index, altMethod] of alternatives.entries()) {
+        try {
+          console.log(
+            `[MessagesList] Trying alternative ${
+              index + 1
+            } for friend ${conversationId}`
+          );
+          const response = await altMethod();
+
+          if (
+            response &&
+            ((response.data && response.data.length > 0) ||
+              (Array.isArray(response) && response.length > 0))
+          ) {
+            const messagesArray = Array.isArray(response)
+              ? response
+              : response.data;
+            console.log(
+              `[MessagesList] Alternative ${
+                index + 1
+              } succeeded for friend ${conversationId}:`,
+              messagesArray[0]
+            );
+            return messagesArray[0];
+          }
+        } catch (altError) {
+          console.log(
+            `[MessagesList] Alternative ${
+              index + 1
+            } failed for friend ${conversationId}:`,
+            altError
+          );
+        }
+      }
+    }
+
+    console.log(
+      `[MessagesList] All alternatives failed for ${type} ${conversationId}`
+    );
+    return null;
+  } catch (error) {
+    console.error(
+      `[MessagesList] Alternative fetch failed for ${type} ${conversationId}:`,
       error
     );
     return null;
@@ -690,12 +614,19 @@ const transformGroupsToMessages = async (groups: any[]): Promise<Message[]> => {
         let lastMessage = group.last_message || {};
 
         console.log(
-          `[MessagesList] Group ${group.name || group.id} last_message:`,
+          `[MessagesList] Group ${
+            group.name || group.id
+          } initial last_message:`,
           lastMessage
         );
 
         // If no last_message from group data, try to fetch from messages API
         if (!lastMessage || !Object.keys(lastMessage).length) {
+          console.log(
+            `[MessagesList] No last_message for group ${
+              group.name || group.id
+            }, fetching from API...`
+          );
           lastMessage = await getLastMessageForConversation(group.id, "group");
         }
 
@@ -703,14 +634,41 @@ const transformGroupsToMessages = async (groups: any[]): Promise<Message[]> => {
         let hasMessage = false;
 
         if (lastMessage && typeof lastMessage === "object") {
+          // Try multiple possible content fields for groups
           messageContent =
             lastMessage.content ||
             lastMessage.message_content ||
             lastMessage.text ||
             lastMessage.message ||
+            lastMessage.body ||
             "";
 
-          hasMessage = !!(messageContent && messageContent.trim() !== "");
+          // Also check if the content is actually a string and not empty
+          if (typeof messageContent === "string") {
+            messageContent = messageContent.trim();
+            hasMessage = messageContent.length > 0;
+          }
+
+          console.log(
+            `[MessagesList] Group ${
+              group.name || group.id
+            } - Content: "${messageContent}", HasMessage: ${hasMessage}, LastMessage fields:`,
+            {
+              content: lastMessage.content,
+              message_content: lastMessage.message_content,
+              text: lastMessage.text,
+              message: lastMessage.message,
+              body: lastMessage.body,
+              sender_name: lastMessage.sender_name,
+              all_keys: Object.keys(lastMessage),
+            }
+          );
+        } else {
+          console.log(
+            `[MessagesList] Group ${
+              group.name || group.id
+            } - No valid lastMessage object`
+          );
         }
 
         const lastActivity =
@@ -720,8 +678,10 @@ const transformGroupsToMessages = async (groups: any[]): Promise<Message[]> => {
           group.created_at ||
           new Date().toISOString();
 
+        // Format content properly with sender name if it's a group message
         let content;
         if (hasMessage) {
+          // Include sender name in the preview if available
           content = lastMessage.sender_name
             ? `${lastMessage.sender_name}: ${messageContent}`
             : messageContent;
@@ -785,11 +745,17 @@ const transformFriendsToMessages = async (
       console.log(
         `[MessagesList] Friend ${
           friend.username || friend.name || friend.id
-        } last_message:`,
+        } initial last_message:`,
         lastMessage
       );
 
+      // If no last_message from friend data, try to fetch from messages API
       if (!lastMessage || !Object.keys(lastMessage).length) {
+        console.log(
+          `[MessagesList] No last_message for friend ${
+            friend.username || friend.name || friend.id
+          }, fetching from API...`
+        );
         lastMessage = await getLastMessageForConversation(friend.id, "friend");
       }
 
@@ -797,14 +763,40 @@ const transformFriendsToMessages = async (
       let hasMessage = false;
 
       if (lastMessage && typeof lastMessage === "object") {
+        // Try multiple possible content fields for friends
         messageContent =
           lastMessage.content ||
           lastMessage.message_content ||
           lastMessage.text ||
           lastMessage.message ||
+          lastMessage.body ||
           "";
 
-        hasMessage = !!(messageContent && messageContent.trim() !== "");
+        // Also check if the content is actually a string and not empty
+        if (typeof messageContent === "string") {
+          messageContent = messageContent.trim();
+          hasMessage = messageContent.length > 0;
+        }
+
+        console.log(
+          `[MessagesList] Friend ${
+            friend.username || friend.name || friend.id
+          } - Content: "${messageContent}", HasMessage: ${hasMessage}, LastMessage fields:`,
+          {
+            content: lastMessage.content,
+            message_content: lastMessage.message_content,
+            text: lastMessage.text,
+            message: lastMessage.message,
+            body: lastMessage.body,
+            all_keys: Object.keys(lastMessage),
+          }
+        );
+      } else {
+        console.log(
+          `[MessagesList] Friend ${
+            friend.username || friend.name || friend.id
+          } - No valid lastMessage object`
+        );
       }
 
       const lastActivity =
@@ -864,192 +856,49 @@ const transformFriendsToMessages = async (
   });
 };
 
-// Event handlers
-const toggleFriendSelection = (id: string): void => {
-  friendSelections.value = {
-    ...friendSelections.value,
-    [id]: !friendSelections.value[id],
-  };
-};
-
-const handleOption = (option: NewChatType): void => {
-  if (option === "friend") {
-    showAddFriendPopup.value = true;
-    showNewChatPopup.value = false;
-    friendUsername.value = "";
-  } else {
-    showCreateGroupPopup.value = true;
-    showNewChatPopup.value = false;
-    groupName.value = "";
-    groupDescription.value = "";
-    friendSelections.value = {};
-  }
-};
-
-// Add friend handler
-const handleAddFriend = async () => {
-  if (!friendUsername.value.trim()) {
-    $toast.error("Please enter a username");
-    return;
-  }
-
-  isAddingFriend.value = true;
-  try {
-    await friendsStore.sendFriendRequest(friendUsername.value.trim());
-    $toast.success(`Friend request sent to ${friendUsername.value}`);
-    showAddFriendPopup.value = false;
-    friendUsername.value = "";
-  } catch (err: any) {
-    $toast.error(err.message || "Failed to send friend request");
-  } finally {
-    isAddingFriend.value = false;
-  }
-};
-
-// Create group handler
-const handleCreateGroup = async () => {
-  if (!groupName.value.trim()) {
-    $toast.error("Please enter a group name");
-    return;
-  }
-
-  const selectedFriendIds = Object.entries(friendSelections.value)
-    .filter(([_, selected]) => selected)
-    .map(([id]) => id);
-
-  if (selectedFriendIds.length === 0) {
-    $toast.error("Please select at least one friend");
-    return;
-  }
-
-  try {
-    await groupsStore.createGroup({
-      name: groupName.value.trim(),
-      description: groupDescription.value.trim(),
-      members: selectedFriendIds,
-    });
-
-    $toast.success(`Group "${groupName.value}" created successfully!`);
-    showCreateGroupPopup.value = false;
-
-    // Reset form
-    groupName.value = "";
-    groupDescription.value = "";
-    friendSelections.value = {};
-
-    // Refresh data to show the new group
-    await refreshData();
-  } catch (err: any) {
-    $toast.error(err.message || "Failed to create group");
-  }
-};
-
-// Auto-refresh functionality
-const toggleAutoRefresh = () => {
-  autoRefreshEnabled.value = !autoRefreshEnabled.value;
-
-  if (autoRefreshEnabled.value) {
-    startAutoRefresh();
-    $toast.success("Auto-refresh enabled");
-  } else {
-    stopAutoRefresh();
-    $toast.info("Auto-refresh disabled");
-  }
-};
-
-const startAutoRefresh = () => {
-  if (autoRefreshInterval.value) {
-    clearInterval(autoRefreshInterval.value);
-  }
-
-  const intervalTime =
-    refreshAttempts.value >= maxRefreshAttempts.value ? 60000 : 30000; // 30s or 60s
-
-  autoRefreshInterval.value = setInterval(() => {
-    if (isTabVisible.value && autoRefreshEnabled.value) {
-      performAutoRefresh();
-    }
-  }, intervalTime);
-};
-
-const stopAutoRefresh = () => {
-  if (autoRefreshInterval.value) {
-    clearInterval(autoRefreshInterval.value);
-    autoRefreshInterval.value = null;
-  }
-};
-
-const performAutoRefresh = async () => {
-  if (isRefreshing.value) return;
-
-  try {
-    refreshAttempts.value++;
-    await refreshData();
-    lastRefreshTime.value = new Date().toLocaleTimeString();
-
-    // Restart interval if we hit max attempts (switch to slower interval)
-    if (
-      refreshAttempts.value >= maxRefreshAttempts.value &&
-      autoRefreshEnabled.value
-    ) {
-      startAutoRefresh();
-    }
-  } catch (error) {
-    console.error("[MessagesList] Auto-refresh failed:", error);
-
-    // Stop auto-refresh on repeated failures
-    if (refreshAttempts.value >= maxRefreshAttempts.value * 2) {
-      stopAutoRefresh();
-      autoRefreshEnabled.value = false;
-      $toast.error("Auto-refresh stopped due to repeated failures");
-    }
-  }
-};
-
-const handleVisibilityChange = () => {
-  isTabVisible.value = !document.hidden;
-
-  if (isTabVisible.value && autoRefreshEnabled.value) {
-    // Refresh immediately when tab becomes visible
-    performAutoRefresh();
-  }
-};
-
-// Initialize auto-refresh on fresh login
-const initializeAutoRefreshOnLogin = () => {
-  try {
-    const freshLogin = sessionStorage.getItem("freshLogin");
-    if (freshLogin === "true") {
-      // Clear the flag
-      sessionStorage.removeItem("freshLogin");
-
-      // Enable auto-refresh
-      autoRefreshEnabled.value = true;
-      startAutoRefresh();
-      lastRefreshTime.value = new Date().toLocaleTimeString();
-
-      $toast.success("Auto-refresh enabled after login");
-    }
-  } catch (error) {
-    console.error("[MessagesList] Failed to initialize auto-refresh:", error);
-  }
-};
-
 // Enhanced refresh data function
 const refreshData = async () => {
   const isInitialLoad = !messages.value.length;
 
   if (isInitialLoad) {
     isLoading.value = true;
-  } else {
-    isRefreshing.value = true;
   }
 
   error.value = null;
 
   try {
+    console.log("[MessagesList] Starting data refresh...");
+
     // Fetch friends and groups in parallel
     await Promise.all([friendsStore.getFriends(), groupsStore.getGroups()]);
+
+    console.log("[MessagesList] Friends and groups fetched:", {
+      friends: friendsStore.friends?.length || 0,
+      groups: groupsStore.groups?.length || 0,
+    });
+
+    // Only log detailed sample data in development or when needed for debugging
+    if (
+      process.dev &&
+      friendsStore.friends &&
+      friendsStore.friends.length > 0
+    ) {
+      console.log("[MessagesList] Sample friend data:", {
+        first_friend: friendsStore.friends[0],
+        friend_keys: Object.keys(friendsStore.friends[0] || {}),
+        has_last_message: !!(friendsStore.friends[0] as any)?.last_message,
+        last_message_content: (friendsStore.friends[0] as any)?.last_message,
+      });
+    }
+
+    if (process.dev && groupsStore.groups && groupsStore.groups.length > 0) {
+      console.log("[MessagesList] Sample group data:", {
+        first_group: groupsStore.groups[0],
+        group_keys: Object.keys(groupsStore.groups[0] || {}),
+        has_last_message: !!(groupsStore.groups[0] as any)?.last_message,
+        last_message_content: (groupsStore.groups[0] as any)?.last_message,
+      });
+    }
 
     // Transform and combine the data
     const friendMessages = await transformFriendsToMessages(
@@ -1065,13 +914,19 @@ const refreshData = async () => {
       friendMessages: friendMessages.length,
       groupMessages: groupMessages.length,
       total: messages.value.length,
+      messagesWithContent: messages.value.filter((m) => m.hasMessages).length,
+      sampleMessages: messages.value.slice(0, 3).map((m) => ({
+        name: m.sender.name,
+        content: m.content,
+        hasMessages: m.hasMessages,
+        type: m.type,
+      })),
     });
   } catch (err: any) {
     error.value = err.message || "Failed to load conversations";
     console.error("Error loading conversations data:", err);
   } finally {
     isLoading.value = false;
-    isRefreshing.value = false;
   }
 };
 
@@ -1113,6 +968,12 @@ const formatMessageContent = (message: Message): string => {
       : "No messages in this group";
   }
 
+  // If the message already contains sender info (for groups), return as is
+  if (message.type === "group" && message.content.includes(":")) {
+    return message.content;
+  }
+
+  // For individual messages, just return the content
   return message.content;
 };
 
@@ -1162,12 +1023,6 @@ onMounted(async () => {
     await refreshData();
     handleWebSocketUpdates();
 
-    // Initialize auto-refresh on fresh login
-    initializeAutoRefreshOnLogin();
-
-    // Add visibility change listener
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
     // Watch for websocket connection changes
     unsubscribeConnectionWatch.value = watch(
       () => webSocket.isConnected,
@@ -1189,10 +1044,6 @@ onUnmounted(() => {
   eventBus.off("group-message");
   eventBus.off("refresh-messages");
 
-  // Clean up auto-refresh
-  stopAutoRefresh();
-  document.removeEventListener("visibilitychange", handleVisibilityChange);
-
   if (unsubscribeConnectionWatch.value) {
     unsubscribeConnectionWatch.value();
   }
@@ -1203,6 +1054,8 @@ watch(
   () => friendsStore.friends,
   async (newFriends) => {
     if (newFriends && Array.isArray(newFriends)) {
+      // Reduced logging - only log count
+      console.log("[MessagesList] Friends store updated:", newFriends.length);
       const friendMessages = await transformFriendsToMessages(newFriends);
       messages.value = [
         ...messages.value.filter((msg) => msg.type !== "friend"),
@@ -1210,13 +1063,15 @@ watch(
       ];
     }
   },
-  { immediate: true }
+  { immediate: false, deep: true }
 );
 
 watch(
   () => groupsStore.groups,
   async (newGroups) => {
     if (newGroups && Array.isArray(newGroups)) {
+      // Reduced logging - only log count
+      console.log("[MessagesList] Groups store updated:", newGroups.length);
       const groupMessages = await transformGroupsToMessages(newGroups);
       messages.value = [
         ...messages.value.filter((msg) => msg.type !== "group"),
@@ -1224,7 +1079,7 @@ watch(
       ];
     }
   },
-  { immediate: true }
+  { immediate: false, deep: true }
 );
 </script>
 

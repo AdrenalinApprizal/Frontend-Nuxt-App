@@ -79,7 +79,7 @@ const iconSizes = {
 
 // Validate and optimize image URL
 const optimizedSrc = computed(() => {
-  console.log("[OptimizedAvatar] Processing src:", {
+ ({
     hasSrc: !!props.src,
     srcType: typeof props.src,
     srcLength: props.src?.length || 0,
@@ -88,36 +88,25 @@ const optimizedSrc = computed(() => {
   });
 
   if (!props.src) {
-    console.log("[OptimizedAvatar] No src provided, returning undefined");
     return undefined;
   }
 
   // Check if it's a data URL
   if (props.src.startsWith("data:")) {
-    console.log("[OptimizedAvatar] Processing data URL...");
 
     // Validate data URL format
     const dataUrlRegex =
       /^data:image\/(jpeg|jpg|png|gif|webp|svg\+xml);base64,/;
     if (!dataUrlRegex.test(props.src)) {
-      console.warn(
-        "[OptimizedAvatar] Invalid data URL format:",
-        props.src.substring(0, 100)
-      );
+      
       return undefined;
     }
 
-    console.log("[OptimizedAvatar] Data URL format is valid");
 
     // Check size limit (2MB for safety across browsers)
     const maxSize = 2 * 1024 * 1024;
     if (props.src.length > maxSize) {
-      console.warn(
-        "[OptimizedAvatar] Avatar too large:",
-        props.src.length,
-        "bytes, max:",
-        maxSize
-      );
+      
 
       // Try to compress or return undefined
       try {
@@ -125,43 +114,28 @@ const optimizedSrc = computed(() => {
         // For now, we'll just reject them
         return undefined;
       } catch (error) {
-        console.error(
-          "[OptimizedAvatar] Error processing large image:",
-          error
-        );
+        
         return undefined;
       }
     }
 
-    console.log("[OptimizedAvatar] Size check passed:", props.src.length, "bytes");
 
     // Check if base64 data appears to be corrupted (very short or has invalid characters)
     const base64Data = props.src.split(",")[1];
     if (!base64Data || base64Data.length < 100) {
-      console.warn(
-        "[OptimizedAvatar] Base64 data too short or missing, length:",
-        base64Data?.length || 0
-      );
+      
       return undefined;
     }
 
-    console.log(
-      "[OptimizedAvatar] Base64 data length check passed:",
-      base64Data.length
-    );
+    
 
     // Test if base64 is valid
     try {
       atob(base64Data.substring(0, 100)); // Test decode a small portion
-      console.log("[OptimizedAvatar] Base64 validation passed");
     } catch (error) {
-      console.warn("[OptimizedAvatar] Invalid base64 data:", error);
       return undefined;
     }
 
-    console.log(
-      "[OptimizedAvatar] ✅ All validations passed, returning data URL"
-    );
     return props.src;
   }
 

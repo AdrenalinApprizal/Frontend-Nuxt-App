@@ -461,6 +461,7 @@ async function handleProfileUpdate() {
     // Fetch the updated user profile
     await loadUserProfile();
 
+    // Keep this toast since profile update confirmation is important
     $toast.success("Profile updated successfully");
     setEditing(false);
   } catch (error: any) {

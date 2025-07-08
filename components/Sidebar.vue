@@ -140,8 +140,7 @@ const handleLogout = async () => {
     // Clear user session data
     await authStore.logout();
 
-    // Display success message
-    $toast.success("Successfully logged out");
+    // Remove success toast - logout redirect will indicate success
 
     // Add delay before navigation to ensure toast is visible and state is updated
     await new Promise((resolve) => setTimeout(resolve, 1500));

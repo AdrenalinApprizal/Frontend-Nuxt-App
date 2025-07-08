@@ -38,6 +38,12 @@ export type EventTypes = {
     timestamp: string;
     formattedTimestamp?: string;
   };
+  // Chat refresh event for navigation handling
+  "chat-refreshed": {
+    newRecipientId: string;
+    oldRecipientId?: string;
+    timestamp: string;
+  };
 };
 
 export const eventBus = mitt<EventTypes>();

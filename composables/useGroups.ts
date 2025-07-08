@@ -777,11 +777,14 @@ export const useGroupsStore = defineStore("groups", () => {
     error.value = null;
 
     try {
-      console.log(`[useGroups] Making API call to /groups/${groupId}/messages`);
+      console.log(
+        `[useGroups] Making API call to unified /message/history endpoint`
+      );
       const startTime = performance.now();
 
+      // Use the unified /message/history endpoint for group messages
       const data = await $api.get(
-        `/groups/${groupId}/messages?page=${page}&limit=${limit}`
+        `/message/history?type=group&target_id=${groupId}&page=${page}&limit=${limit}`
       );
 
       const endTime = performance.now();
@@ -884,12 +887,13 @@ export const useGroupsStore = defineStore("groups", () => {
     error.value = null;
 
     try {
-      console.log(`[useGroups] Making API call to /groups/${groupId}/messages`);
+      console.log(`[useGroups] Making API call to unified /message endpoint`);
       const startTime = performance.now();
 
-      const data = await $api.post(`/groups/${groupId}/messages`, {
+      const data = await $api.post(`/message`, {
         content,
         type,
+        group_id: groupId,
       });
 
       const endTime = performance.now();
@@ -938,13 +942,11 @@ export const useGroupsStore = defineStore("groups", () => {
       const formData = new FormData();
       formData.append("content", content);
       formData.append("type", type);
+      formData.append("group_id", groupId);
       formData.append("attachment", attachment);
 
-      // Use raw fetch for FormData
-      const response = await $api.raw.post(
-        `/groups/${groupId}/messages`,
-        formData
-      );
+      // Use raw fetch for FormData with unified endpoint
+      const response = await $api.raw.post(`/message`, formData);
       const data = await response.json();
 
       return data;

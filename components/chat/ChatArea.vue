@@ -1,25 +1,25 @@
 <template>
-  <div class="h-full flex bg-gray-50">
-    <!-- Main chat area -->
-    <div class="flex-1 flex flex-col h-full">
+  <div class="flex h-full bg-white">
+    <!-- Main chat area with smooth transition -->
+    <div
+      class="flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out"
+      :class="[
+        showInfo ? 'lg:mr-80' : '',
+        isLoading ? 'opacity-75' : 'opacity-100',
+      ]"
+    >
       <!-- Header with recipient info -->
       <div
         class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between"
       >
         <div class="flex items-center">
           <div class="relative mr-3">
-            <div
-              class="h-12 w-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center"
-            >
-              <img
-                v-if="validatedRecipientAvatar"
-                :src="validatedRecipientAvatar"
-                :alt="recipient.name"
-                class="h-full w-full object-cover"
-                @error="handleRecipientAvatarError"
-              />
-              <Icon v-else name="fa:user" class="h-6 w-6 text-gray-500" />
-            </div>
+            <OptimizedAvatar
+              :src="validatedRecipientAvatar"
+              :alt="recipient.name || 'Contact'"
+              size="lg"
+              class="flex-shrink-0"
+            />
             <span
               v-if="recipient.status === 'online'"
               class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"
@@ -27,7 +27,7 @@
           </div>
           <div>
             <h2 class="font-semibold text-gray-800">
-              {{ recipient.first_name }} {{ recipient.last_name }}
+              {{ recipient.name || "Contact" }}
             </h2>
             <p class="text-xs text-gray-500">
               {{ recipient.status === "online" ? "Online" : "Offline" }}
@@ -36,21 +36,21 @@
           </div>
         </div>
 
-        <div class="flex items-center">
+        <div class="flex items-center space-x-2">
           <button
             @click="showSearch = true"
-            class="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
+            class="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200"
             title="Search in conversation"
           >
             <Icon name="fa:search" class="h-4 w-4" />
           </button>
           <button
             @click="showInfo = !showInfo"
-            class="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200"
-            :class="{ 'text-blue-500': showInfo }"
-            title="View info"
+            class="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+            :class="{ 'bg-blue-50 text-blue-500': showInfo }"
+            title="Friend info"
           >
-            <Icon name="fa:info-circle" class="h-4 w-4" />
+            <Icon name="lucide:info" class="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -79,16 +79,25 @@
           </span>
         </div>
 
-        <!-- Loading state -->
+        <!-- Loading state with conversation switching indicator -->
         <div
           v-if="isLoading"
-          class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 z-10"
+          class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-20"
         >
           <div class="flex flex-col items-center">
             <div
-              class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
+              class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"
             ></div>
-            <p class="mt-2 text-sm text-gray-500">Loading messages...</p>
+            <p class="text-sm text-gray-600 font-medium">
+              {{
+                recipient.name
+                  ? `Loading conversation with ${recipient.name}...`
+                  : "Loading messages..."
+              }}
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+              Please wait while we refresh the chat
+            </p>
           </div>
         </div>
 
@@ -217,9 +226,8 @@
             <div class="relative">
               <button
                 type="button"
-                @click="isAttachmentMenuOpen = !isAttachmentMenuOpen"
+                @click="handleFileUpload"
                 class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-500 transition-colors duration-200 mr-2"
-                :class="{ 'bg-blue-100 text-blue-600': isAttachmentMenuOpen }"
                 title="Attach file"
                 :disabled="isSending || isUploading"
               >
@@ -230,58 +238,17 @@
                 />
                 <Icon v-else name="lucide:paperclip" class="h-5 w-5" />
               </button>
-              <div
-                v-if="isAttachmentMenuOpen"
-                class="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 animate-fadeIn"
-                style="min-width: 150px"
-              >
-                <button
-                  type="button"
-                  @click="handleFileUpload"
-                  class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 mb-2 w-full text-left px-4 py-2 rounded transition-all duration-200"
-                  :disabled="isSending || isUploading"
-                >
-                  <Icon name="fa:file" class="mr-2" />
-                  <span>File</span>
-                  <Icon
-                    v-if="isUploading"
-                    name="svg-spinners:270-ring"
-                    class="ml-auto h-4 w-4 text-blue-500"
-                  />
-                </button>
-                <button
-                  type="button"
-                  @click="handleImageUpload"
-                  class="flex items-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 w-full text-left px-4 py-2 rounded transition-all duration-200"
-                  :disabled="isSending || isUploading"
-                >
-                  <Icon name="fa:image" class="mr-2" />
-                  <span>Image</span>
-                  <Icon
-                    v-if="isUploading"
-                    name="svg-spinners:270-ring"
-                    class="ml-auto h-4 w-4 text-blue-500"
-                  />
-                </button>
-              </div>
+              <!-- Hidden file input for all file types -->
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept="image/*,video/*,audio/*,application/*,text/*"
+                class="hidden"
+                multiple
+                @change="handleFileChange"
+                :disabled="isSending || isUploading"
+              />
             </div>
-            <input
-              ref="fileInputRef"
-              type="file"
-              class="hidden"
-              multiple
-              @change="handleFileChange"
-              :disabled="isSending || isUploading"
-            />
-            <input
-              ref="imageInputRef"
-              type="file"
-              accept="image/*"
-              class="hidden"
-              multiple
-              @change="handleImageChange"
-              :disabled="isSending || isUploading"
-            />
             <div
               v-if="isSending"
               class="fixed top-0 left-0 right-0 bg-blue-500 h-1 z-50"
@@ -316,48 +283,6 @@
               <Icon v-else name="fa:paper-plane" class="h-4 w-4" />
             </button>
           </div>
-
-          <!-- WebSocket connection indicator -->
-          <div class="mt-1 flex justify-end">
-            <span
-              v-if="webSocketStore.isConnected"
-              class="text-xs text-green-500 flex items-center"
-              title="Connected to real-time messaging"
-            >
-              <span
-                class="inline-block h-2 w-2 rounded-full bg-green-500 mr-1"
-              ></span>
-              Live
-            </span>
-            <span
-              v-else-if="webSocketStore.isConnecting"
-              class="text-xs text-yellow-500 flex items-center"
-              title="Connecting to real-time messaging"
-            >
-              <span
-                class="inline-block h-2 w-2 rounded-full bg-yellow-500 mr-1 animate-pulse"
-              ></span>
-              Connecting...
-            </span>
-            <span
-              v-else
-              class="text-xs text-red-500 flex items-center cursor-pointer"
-              title="Click to reconnect"
-              @click="reconnectWebSocket"
-            >
-              <span
-                class="inline-block h-2 w-2 rounded-full bg-red-500 mr-1"
-              ></span>
-              Offline (Click to reconnect)
-            </span>
-            <span
-              v-if="webSocketStore.connectionError"
-              class="text-xs text-red-500 ml-2"
-              :title="webSocketStore.connectionError"
-            >
-              {{ getConnectionErrorMessage() }}
-            </span>
-          </div>
         </form>
       </div>
     </div>
@@ -368,6 +293,7 @@
       :username="recipient.name"
       :friendDetails="adaptRecipientToFriendDetails(recipient)"
       @close="showInfo = false"
+      class="absolute lg:relative right-0 top-0 bottom-0 w-80 bg-white border-l border-gray-200 z-10 lg:z-auto"
     />
   </div>
 </template>
@@ -499,7 +425,6 @@ const dropdownRef = ref<HTMLElement | null>(null);
 const messagesEndRef = ref<HTMLElement | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
-const imageInputRef = ref<HTMLInputElement | null>(null);
 
 // Validate recipient avatar - similar to React implementation
 const validatedRecipientAvatar = computed(() => {
@@ -534,6 +459,39 @@ const validatedRecipientAvatar = computed(() => {
   }
 
   return avatarUrl;
+});
+
+// Messages state
+const messages = ref<Message[]>([]);
+
+// Computed property to determine which messages to display
+const displayMessages = computed(() => {
+  if (!messages.value || !Array.isArray(messages.value)) {
+    console.warn(
+      `🔍 [ChatArea] displayMessages: messages.value is not an array:`,
+      messages.value
+    );
+    return [];
+  }
+
+  // If there's a search query active, show filtered messages
+  if (isSearching.value && searchQuery.value) {
+    return filteredMessages.value;
+  }
+
+  // Otherwise show all messages
+  const sorted = [...messages.value].sort((a, b) => {
+    const dateA = new Date(a.created_at || a.timestamp || 0).getTime();
+    const dateB = new Date(b.created_at || b.timestamp || 0).getTime();
+    return dateA - dateB;
+  });
+
+  console.log(
+    `🔍 [ChatArea] displayMessages computed: ${sorted.length} messages`,
+    sorted.slice(0, 2)
+  );
+
+  return sorted;
 });
 
 // Enhanced message grouping by date with better formatting - React style
@@ -914,307 +872,28 @@ const handleSendMessage = async () => {
   }
 };
 
-// Handle recipient avatar error
-const handleRecipientAvatarError = () => {
-  console.warn("[ChatArea] Recipient avatar failed to load");
+// Helper to get appropriate emoji based on file type
+const getFileEmoji = (mimeType: string): string => {
+  if (mimeType.startsWith("image/")) return "🖼️";
+  if (mimeType.startsWith("video/")) return "🎥";
+  if (mimeType.startsWith("audio/")) return "🎵";
+  if (mimeType.startsWith("application/pdf")) return "📄";
+  if (mimeType.includes("document") || mimeType.includes("text/")) return "📝";
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel"))
+    return "📊";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
+    return "📑";
+  if (mimeType.includes("zip") || mimeType.includes("compressed")) return "🗜️";
+  return "📎"; // Default
 };
 
-// Simplified fetch function - no complex merging logic
-async function fetchPrivateMessages(page = 1, limit = 20) {
-  console.log(
-    `📡 [ChatArea] Fetching messages for chat with ${props.recipientId}`
-  );
-
-  try {
-    const response = await messagesStore.getMessages({
-      target_id: props.recipientId,
-      type: "private",
-      page,
-      limit,
-    });
-
-    // The getMessages function returns the messages array directly, not in a data property
-    if (response && Array.isArray(response) && response.length > 0) {
-      console.log(
-        `📩 [ChatArea] Received ${response.length} messages from API`
-      );
-
-      // Simple message processing - normalize essential fields
-      const processedMessages = response.map((message: any) => {
-        const isCurrentUserMsg = isCurrentUserMessage(message);
-        console.log(`🔍 [ChatArea] Processing message:`, {
-          id: message.id,
-          sender_id: message.sender_id,
-          recipient_id: message.recipient_id,
-          currentUserId: currentUser.value?.id,
-          isCurrentUser: isCurrentUserMsg,
-          content: message.content?.substring(0, 30),
-        });
-
-        return {
-          ...message,
-          id: message.id || message.message_id,
-          isCurrentUser: isCurrentUserMsg,
-          timestamp: formatTimestamp(
-            message.timestamp || message.sent_at || message.created_at
-          ),
-          raw_timestamp: message.sent_at || message.created_at,
-        };
-      });
-
-      // Simple replacement - no complex merging
-      if (page === 1) {
-        messages.value = processedMessages;
-      } else {
-        messages.value = [...processedMessages, ...messages.value];
-      }
-
-      // Validate and fix message bubble positioning after loading
-      const fixedCount = validateMessageBubbles();
-      if (fixedCount > 0) {
-        console.log(
-          `🛠️ [ChatArea] Fixed ${fixedCount} message bubble positions after fetch`
-        );
-      }
-
-      // Save to storage
-      saveToSessionStorage(messages.value);
-
-      console.log(
-        `✅ [ChatArea] Messages loaded: ${messages.value.length} total`
-      );
-    } else {
-      console.log(
-        `📭 [ChatArea] No messages returned from API - response:`,
-        response
-      );
-      // Set empty array if no messages
-      if (page === 1) {
-        messages.value = [];
-      }
-    }
-
-    return response;
-  } catch (error: any) {
-    console.error(`❌ [ChatArea] Error fetching messages:`, error);
-    if ($toast) {
-      $toast.error("Failed to load messages");
-    }
-    throw error;
-  }
-}
-
-// Handle clicks outside dropdown to close it
-const handleClickOutside = (event: MouseEvent) => {
-  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
-    showDropdown.value = null;
-  }
-};
-
-// Simplified WebSocket message handling
-const handleWebSocketMessages = () => {
-  if (!webSocketStore.isConnected) {
-    return;
-  }
-
-  // Listen for new private messages via WebSocket
-  eventBus.on("private-message", (newMessage: any) => {
-    // Check if message is for current conversation
-    const isForCurrentChat =
-      (newMessage.sender_id === props.recipientId &&
-        newMessage.recipient_id === currentUser.value?.id) ||
-      (newMessage.sender_id === currentUser.value?.id &&
-        newMessage.recipient_id === props.recipientId);
-
-    if (isForCurrentChat) {
-      console.log(`📩 [ChatArea] New WebSocket message received`);
-
-      const messageId = newMessage.id || `ws-${Date.now()}`;
-
-      // Check if message already exists
-      const existingIndex = messages.value.findIndex(
-        (msg) => msg.id === messageId
-      );
-
-      if (existingIndex === -1) {
-        // Add new message
-        const formattedMessage = {
-          ...newMessage,
-          id: messageId,
-          isCurrentUser: isCurrentUserMessage(newMessage),
-          timestamp: formatTimestamp(
-            newMessage.timestamp ||
-              newMessage.sent_at ||
-              newMessage.created_at ||
-              new Date().toISOString()
-          ),
-          receivedViaWebSocket: true,
-        };
-
-        messages.value.push(formattedMessage);
-
-        // Validate bubble positioning after adding WebSocket message
-        const fixedCount = validateMessageBubbles();
-        if (fixedCount > 0) {
-          console.log(
-            `🛠️ [ChatArea] Fixed ${fixedCount} message bubble positions after WebSocket message`
-          );
-        }
-
-        saveToSessionStorage(messages.value);
-
-        // Scroll to bottom
-        nextTick(() => {
-          if (messagesEndRef.value) {
-            messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-          }
-        });
-
-        // Show notification for messages from others
-        if (!formattedMessage.isCurrentUser && $toast) {
-          $toast.info(`New message from ${recipient.value.name || "contact"}`);
-        }
-      }
-    }
-  });
-
-  // Handle temp message replacements
-  wsListener.listenToWSEvent("temp-message-replaced", (data) => {
-    const tempIndex = messages.value.findIndex((msg) => msg.id === data.tempId);
-
-    if (tempIndex !== -1) {
-      messages.value[tempIndex] = {
-        ...messages.value[tempIndex],
-        id: data.realId,
-        pending: false,
-        failed: false,
-      };
-
-      saveToSessionStorage(messages.value);
-      console.log(
-        `✅ [ChatArea] Replaced temp message ${data.tempId} with ${data.realId}`
-      );
-    }
-  });
-};
-
-// Handle advanced search
-const handleAdvancedSearch = (query: string) => {
-  searchQuery.value = query;
-  if (query.trim()) {
-    filteredMessages.value = messages.value.filter((msg) =>
-      msg.content.toLowerCase().includes(query.toLowerCase())
-    );
-  } else {
-    filteredMessages.value = [];
-  }
-};
-
-// Clear search
-const clearSearch = () => {
-  searchQuery.value = "";
-  filteredMessages.value = [];
-  showSearch.value = false;
-};
-
-// Handle scroll for loading more messages
-const handleScroll = (event: Event) => {
-  const container = event.target as HTMLElement;
-  if (container.scrollTop === 0 && !isLoadingMore.value) {
-    // Load more messages when scrolled to top
-    loadMoreMessages();
-  }
-};
-
-// Load more messages (pagination)
-const loadMoreMessages = async () => {
-  try {
-    isLoadingMore.value = true;
-
-    // Implementation for loading older messages would go here
-    // For now, we'll skip this as it requires backend pagination support
-  } catch (error) {
-    // Error handled silently - could add toast notification in the future
-  } finally {
-    isLoadingMore.value = false;
-  }
-};
-
-// Toggle dropdown menu
-const toggleDropdown = (messageId: string) => {
-  showDropdown.value = showDropdown.value === messageId ? null : messageId;
-};
-
-// Handle edit message
-const handleEditMessage = (messageId: string) => {
-  const message = messages.value.find((msg) => msg.id === messageId);
-  if (message) {
-    editingMessageId.value = messageId;
-    inputMessage.value = message.content;
-    showDropdown.value = null;
-
-    // Focus on input
-    nextTick(() => {
-      const inputElement = document.querySelector(
-        "input.flex-1"
-      ) as HTMLInputElement;
-      if (inputElement) {
-        inputElement.focus();
-      }
-    });
-  }
-};
-
-// Handle unsend message
-const handleUnsendMessage = async (messageId: string) => {
-  try {
-    const response = await messagesStore.deleteMessage(messageId);
-    if (response.message) {
-      // Update local state
-      const messageIndex = messages.value.findIndex(
-        (msg) => msg.id === messageId
-      );
-      if (messageIndex !== -1) {
-        messages.value[messageIndex] = {
-          ...messages.value[messageIndex],
-          isDeleted: true,
-          content: "This message was deleted",
-        };
-      }
-
-      $toast?.success("Message deleted successfully");
-      showDropdown.value = null;
-      saveToSessionStorage(messages.value);
-    }
-  } catch (error) {
-    $toast?.error("Failed to delete message");
-  }
-};
-
-// Handle cancel edit
-const handleCancelEdit = () => {
-  editingMessageId.value = null;
-  inputMessage.value = "";
-};
-
-// Enhanced file upload handling with fileUploadHelper - React style
+// Enhanced unified file upload handling
 const handleFileUpload = () => {
   if (fileInputRef.value) {
-    $toast?.info("Select a file to upload", { autoClose: 2000 });
+    $toast?.info("Select files to upload", { autoClose: 2000 });
     fileInputRef.value.click();
-    isAttachmentMenuOpen.value = false;
   }
 };
-
-const handleImageUpload = () => {
-  if (imageInputRef.value) {
-    $toast?.info("Select an image to upload", { autoClose: 2000 });
-    imageInputRef.value.click();
-    isAttachmentMenuOpen.value = false;
-  }
-};
-
-// Enhanced file change handler with validation and progress tracking
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const files = Array.from(target.files || []);
@@ -1237,6 +916,8 @@ const handleFileChange = async (event: Event) => {
     }
 
     isUploading.value = true;
+
+    // Create upload progress tracking objects
     uploadProgress.value = files.map((file, index) => ({
       id: `file-${index}-${Date.now()}`,
       file,
@@ -1249,175 +930,143 @@ const handleFileChange = async (event: Event) => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const progressItem = uploadProgress.value[i];
+      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
 
       try {
         progressItem.status = "uploading";
-        progressItem.progress = 0;
+        progressItem.progress = 5;
+
+        // Generate temp ID for optimistic update
+        const tempId = `temp-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        const nowIsoString = new Date().toISOString();
+
+        // Create optimistic message immediately
+        const optimisticMessage: Message = {
+          id: tempId,
+          sender_id: currentUser.value?.id || "",
+          recipient_id: props.recipientId,
+          content: `${getFileEmoji(file.type)} ${file.name}`,
+          timestamp: formatTimestamp(nowIsoString),
+          raw_timestamp: nowIsoString,
+          created_at: nowIsoString,
+          updated_at: nowIsoString,
+          isCurrentUser: true,
+          pending: true,
+          sent: false,
+          attachment: {
+            mediaType: file.type, // Store the actual MIME type
+            url: URL.createObjectURL(file),
+            name: file.name,
+            size: formatFileSize(file.size),
+            isOptimistic: true,
+          },
+        };
+
+        // Add optimistic message to UI immediately
+        messages.value.push(optimisticMessage);
+        saveToSessionStorage(messages.value);
+
+        // Scroll to show the new message
+        nextTick(() => {
+          if (messagesEndRef.value) {
+            messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+          }
+        });
+
+        // Progress increment for better user feedback
+        setTimeout(() => {
+          progressItem.progress = 25;
+        }, 200);
 
         // Enhanced upload with progress tracking
         const result = await uploadFileAndSendMessage(
           file,
           props.recipientId,
-          `📎 ${file.name}`,
+          `${getFileEmoji(file.type)} ${file.name}`,
           false, // isGroup = false for private chat
           // Progress callback
           (progress: number) => {
-            progressItem.progress = progress;
+            progressItem.progress = Math.max(30, progress); // Start at 30% min for better UX
           }
         );
 
-        // Create optimistic message for successful upload
-        const tempId = `temp-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        const nowIsoString = new Date().toISOString();
+        // Update the optimistic message with real data
+        const messageIndex = messages.value.findIndex((m) => m.id === tempId);
+        if (messageIndex !== -1) {
+          messages.value[messageIndex] = {
+            ...messages.value[messageIndex],
+            id: result.messageId || tempId,
+            pending: false,
+            sent: true,
+            attachment: {
+              mediaType: result.fileType, // Simpan MIME type langsung
+              url: result.fileUrl,
+              name: result.fileName,
+              size: formatFileSize(result.fileSize),
+              isOptimistic: false,
+            },
+          };
+        }
 
-        const fileMessage: Message = {
-          id: result.messageId || tempId,
-          sender_id: currentUser.value?.id || "",
-          recipient_id: props.recipientId,
-          content: `📎 ${result.fileName}`,
-          timestamp: formatTimestamp(nowIsoString),
-          raw_timestamp: nowIsoString,
-          created_at: nowIsoString,
-          updated_at: nowIsoString,
-          isCurrentUser: true,
-          pending: false,
-          sent: true,
-          attachment: {
-            type: getMediaType(result.fileType) === "image" ? "image" : "file",
-            url: result.fileUrl,
-            name: result.fileName,
-            size: formatFileSize(result.fileSize),
-          },
-        };
-
-        messages.value.push(fileMessage);
         progressItem.status = "success";
         progressItem.progress = 100;
-        $toast?.success(`${result.fileName} uploaded successfully`);
+
+        // Subtle notification for success
+        $toast?.success(`${result.fileName} sent successfully`);
+
+        // Listen for WebSocket confirmation - uncomment and update this when the WebSocket API supports it
+        // wsListener.listenToWSEvent("message-received", (data) => {
+        //   if (data.id === result.messageId) {
+        //     console.log(`[ChatArea] Message received confirmation for ${result.messageId}`);
+        //     // Could update read status here
+        //   }
+        // });
       } catch (error) {
+        // Update UI to show failed message
+        const failedIndex = messages.value.findIndex(
+          (m) => m.content.includes(file.name) && m.pending === true
+        );
+
+        if (failedIndex !== -1) {
+          messages.value[failedIndex] = {
+            ...messages.value[failedIndex],
+            pending: false,
+            failed: true,
+            errorMessage:
+              error instanceof Error ? error.message : "Upload failed",
+          };
+        }
+
         progressItem.status = "error";
         progressItem.error =
           error instanceof Error ? error.message : "Upload failed";
+        progressItem.progress = 100; // Complete the progress bar, but in error state
+
         $toast?.error(`Failed to upload ${file.name}: ${progressItem.error}`);
+        console.error("[ChatArea] File upload error:", error);
       }
     }
 
-    // Save to session storage and scroll to bottom
+    // Save to session storage after all uploads
     saveToSessionStorage(messages.value);
-    nextTick(() => {
-      if (messagesEndRef.value) {
-        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-      }
-    });
   } catch (error) {
     console.error("[ChatArea] File upload error:", error);
     $toast?.error("Failed to upload files");
   } finally {
-    isUploading.value = false;
-    uploadProgress.value = [];
-    target.value = ""; // Reset file input
+    // Keep progress visible for a moment so users can see completion
+    setTimeout(() => {
+      isUploading.value = false;
+      uploadProgress.value = [];
+    }, 1500);
+
+    // Reset file input immediately
+    if (target) target.value = "";
   }
 };
 
-// Enhanced image change handler
-const handleImageChange = async (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const files = Array.from(target.files || []);
-
-  if (!files.length) return;
-
-  // Filter for images only
-  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-  if (!imageFiles.length) {
-    $toast?.error("Please select valid image files");
-    return;
-  }
-
-  try {
-    // Use the same enhanced upload logic as files
-    isUploading.value = true;
-    uploadProgress.value = imageFiles.map((file, index) => ({
-      id: `image-${index}-${Date.now()}`,
-      file,
-      progress: 0,
-      status: "pending" as const,
-      error: null,
-    }));
-
-    // Process images sequentially
-    for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i];
-      const progressItem = uploadProgress.value[i];
-
-      try {
-        progressItem.status = "uploading";
-        progressItem.progress = 0;
-
-        const result = await uploadFileAndSendMessage(
-          file,
-          props.recipientId,
-          `🖼️ ${file.name}`,
-          false, // isGroup = false for private chat
-          // Progress callback
-          (progress: number) => {
-            progressItem.progress = progress;
-          }
-        );
-
-        const tempId = `temp-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        const nowIsoString = new Date().toISOString();
-
-        const imageMessage: Message = {
-          id: result.messageId || tempId,
-          sender_id: currentUser.value?.id || "",
-          recipient_id: props.recipientId,
-          content: `🖼️ ${result.fileName}`,
-          timestamp: formatTimestamp(nowIsoString),
-          raw_timestamp: nowIsoString,
-          created_at: nowIsoString,
-          updated_at: nowIsoString,
-          isCurrentUser: true,
-          pending: false,
-          sent: true,
-          attachment: {
-            type: "image",
-            url: result.fileUrl,
-            name: result.fileName,
-            size: formatFileSize(result.fileSize),
-          },
-        };
-
-        messages.value.push(imageMessage);
-        progressItem.status = "success";
-        progressItem.progress = 100;
-        $toast?.success(`${result.fileName} uploaded successfully`);
-      } catch (error) {
-        progressItem.status = "error";
-        progressItem.error =
-          error instanceof Error ? error.message : "Upload failed";
-        $toast?.error(`Failed to upload ${file.name}: ${progressItem.error}`);
-      }
-    }
-
-    saveToSessionStorage(messages.value);
-    nextTick(() => {
-      if (messagesEndRef.value) {
-        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-      }
-    });
-  } catch (error) {
-    console.error("[ChatArea] Image upload error:", error);
-    $toast?.error("Failed to upload images");
-  } finally {
-    isUploading.value = false;
-    uploadProgress.value = [];
-    target.value = "";
-  }
-};
+// Removed separate handleImageChange function - now all file types are handled by handleFileChange
 
 // Handle typing indicator
 const handleTyping = () => {
@@ -1537,300 +1186,197 @@ const defaultMessages = [
   },
 ];
 
-// Track active messages - simplified state management
-const messages = ref<Message[]>([]);
+// Missing function implementations
+const handleAdvancedSearch = (query: string) => {
+  searchQuery.value = query;
+  isSearching.value = !!query;
 
-// Improved helper to determine if message is from current user
-const isCurrentUserMessage = (message: any): boolean => {
-  if (!currentUser.value?.id) return false;
-
-  const currentUserId = String(currentUser.value.id);
-
-  // Temp messages are always from current user
-  if (message.id?.startsWith("temp-")) return true;
-
-  // Check multiple possible sender ID fields
-  const senderId = String(
-    message.sender_id ||
-      message.sender?.id ||
-      message.from_id ||
-      message.user_id ||
-      message.author_id ||
-      ""
-  );
-
-  // Primary check: If sender is current user, then message IS from current user
-  if (senderId === currentUserId) return true;
-
-  // Secondary check: If sender is NOT current user, then message is NOT from current user
-  if (senderId && senderId !== currentUserId) return false;
-
-  console.log(`🔍 [ChatArea] Message bubble positioning:`, {
-    messageId: message.id,
-    currentUserId,
-    senderId,
-    recipientId: props.recipientId,
-    isCurrentUser: senderId === currentUserId,
-  });
-
-  return false; // Default to false if we can't determine
-};
-
-// Simple validation to ensure correct message bubble positioning
-const validateMessageBubbles = (): number => {
-  let fixedCount = 0;
-  messages.value.forEach((msg, index) => {
-    const correctIsCurrentUser = isCurrentUserMessage(msg);
-    if (msg.isCurrentUser !== correctIsCurrentUser) {
-      messages.value[index].isCurrentUser = correctIsCurrentUser;
-      fixedCount++;
-    }
-  });
-  return fixedCount;
-};
-
-/**
- * Sort messages by timestamp to ensure proper chronological order
- * Uses raw_timestamp when available for more precise sorting
- */
-const sortMessagesByTimestamp = (msgs: Message[]) => {
-  return [...msgs].sort((a, b) => {
-    // Use raw_timestamp for sorting if available
-    if (a.raw_timestamp && b.raw_timestamp) {
-      return (
-        new Date(a.raw_timestamp).getTime() -
-        new Date(b.raw_timestamp).getTime()
-      );
-    }
-
-    // Fall back to regular timestamp parsing
-    const aTime = new Date(a.timestamp).getTime();
-    const bTime = new Date(b.timestamp).getTime();
-
-    // If timestamps are equal (unlikely but possible), sort by ID
-    if (aTime === bTime) {
-      return a.id.localeCompare(b.id);
-    }
-
-    return aTime - bTime;
-  });
-};
-
-// Simplified displayed messages - no complex filtering that could hide messages
-const displayMessages = computed(() => {
-  if (!messages.value || !Array.isArray(messages.value)) {
-    console.log(
-      `🔍 [ChatArea] displayMessages: messages.value is not an array:`,
-      messages.value
-    );
-    return [];
+  if (!query) {
+    filteredMessages.value = [];
+    return;
   }
 
-  let messagesToDisplay = messages.value;
-
-  // Apply search filtering if active
-  if (isSearching.value && filteredMessages.value.length > 0) {
-    messagesToDisplay = filteredMessages.value;
-  }
-
-  // Simple sort by timestamp - oldest first
-  const sorted = messagesToDisplay.sort((a, b) => {
-    const timeA = new Date(
-      a.created_at || a.sent_at || a.timestamp || 0
-    ).getTime();
-    const timeB = new Date(
-      b.created_at || b.sent_at || b.timestamp || 0
-    ).getTime();
-    return timeA - timeB;
-  });
-
-  console.log(
-    `🔍 [ChatArea] displayMessages computed: ${sorted.length} messages`,
-    {
-      rawMessages: messages.value.length,
-      isSearching: isSearching.value,
-      firstMessage: sorted[0]
-        ? {
-            id: sorted[0].id,
-            content: sorted[0].content?.substring(0, 50),
-            isCurrentUser: sorted[0].isCurrentUser,
-            sender_id: sorted[0].sender_id,
-          }
-        : null,
-    }
+  // Filter messages based on search query
+  filteredMessages.value = messages.value.filter(
+    (message) =>
+      message.content &&
+      message.content.toLowerCase().includes(query.toLowerCase())
   );
 
-  return sorted;
-});
+  $toast?.info(`Found ${filteredMessages.value.length} matching messages`);
+};
 
-// Simplified WebSocket connection handling
+// Function to clear search results
+const clearSearch = () => {
+  searchQuery.value = "";
+  isSearching.value = false;
+  filteredMessages.value = [];
+};
+
+// Handle scroll events for loading more messages
+const handleScroll = (event: Event) => {
+  const container = event.target as HTMLElement;
+  if (container.scrollTop === 0 && !isLoadingMore.value) {
+    // Load more messages when scrolled to top
+    loadMoreMessages();
+  }
+};
+
+// Load more messages function
+const loadMoreMessages = async () => {
+  if (isLoadingMore.value) return;
+
+  isLoadingMore.value = true;
+  try {
+    // Implement pagination logic here
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Placeholder
+  } catch (error) {
+    console.error("Failed to load more messages:", error);
+  } finally {
+    isLoadingMore.value = false;
+  }
+};
+
+// Handle recipient avatar error
+const handleRecipientAvatarError = (event: Event) => {
+  console.warn("Recipient avatar failed to load");
+  const img = event.target as HTMLImageElement;
+  img.style.display = "none";
+};
+
+// Handle cancel edit
+const handleCancelEdit = () => {
+  editingMessageId.value = null;
+  inputMessage.value = "";
+};
+
+// Handle edit message
+const handleEditMessage = (messageId: string) => {
+  const message = messages.value.find((m) => m.id === messageId);
+  if (message) {
+    editingMessageId.value = messageId;
+    inputMessage.value = message.content;
+  }
+};
+
+// Handle unsend message
+const handleUnsendMessage = async (messageId: string) => {
+  try {
+    await messagesStore.deleteMessage(messageId);
+    const messageIndex = messages.value.findIndex((m) => m.id === messageId);
+    if (messageIndex !== -1) {
+      messages.value[messageIndex].isDeleted = true;
+      messages.value[messageIndex].content = "This message was deleted";
+    }
+    saveToSessionStorage(messages.value);
+    $toast?.success("Message deleted");
+  } catch (error) {
+    console.error("Failed to delete message:", error);
+    $toast?.error("Failed to delete message");
+  }
+};
+
+// WebSocket connection functions
 const connectWebSocket = async () => {
-  if (webSocketStore.isConnected || webSocketStore.isConnecting) return;
-
   try {
-    // First make sure we have valid auth
-    const valid = await webSocketStore.validateToken();
-    if (valid) {
-      await webSocketStore.connect();
-    } else {
-      if ($toast) {
-        $toast.warning("Connection issue - authenticating...");
-      }
-    }
+    await webSocketStore.connect();
   } catch (error) {
-    if ($toast) {
-      $toast.error("Failed to connect to messaging service");
-    }
+    console.error("Failed to connect WebSocket:", error);
   }
 };
 
-// Add new function to reconnect with visual feedback
-const reconnectWebSocket = async () => {
-  try {
-    if ($toast) {
-      $toast.info("Attempting to reconnect...");
-    }
-
-    // First verify authentication
-    if (!authStore.isAuthenticated) {
-      try {
-        await authStore.getUserInfo();
-      } catch (error) {
-        console.error("Failed to refresh authentication:", error);
-        if ($toast) {
-          $toast.error("Authentication failed. Redirecting to login...");
-        }
-        // Use the auth error handler to redirect to login
-        if (authStore.handleAuthError) {
-          authStore.handleAuthError();
-        }
-        return;
-      }
-    }
-
-    // Disconnect first to clear any existing connection
-    webSocketStore.disconnect();
-    webSocketStore.clear();
-
-    // Then try to reconnect
-    await connectWebSocket();
-  } catch (error) {
-    console.error("Error reconnecting:", error);
-    if ($toast) {
-      $toast.error("Reconnection failed. Please refresh the page.");
-    }
-  }
+const reconnectWebSocket = () => {
+  webSocketStore.reconnect();
 };
 
-// Add helper function to format connection errors
 const getConnectionErrorMessage = () => {
-  if (!webSocketStore.connectionError) return "";
-
-  const error = webSocketStore.connectionError.toLowerCase();
-  if (error.includes("authentication") || error.includes("token")) {
-    return "Auth error";
-  } else if (error.includes("timeout")) {
-    return "Connection timeout";
-  } else {
-    return "Connection error";
-  }
+  return webSocketStore.connectionError || "Connection error";
 };
 
-// Manual refresh function to force reload messages from API
-const manualRefresh = async () => {
-  try {
-    $toast?.info("Refreshing messages...");
+// Handle WebSocket messages
+const handleWebSocketMessages = () => {
+  eventBus.on("private-message", (data: any) => {
+    if (
+      data.sender_id === props.recipientId ||
+      data.recipient_id === props.recipientId
+    ) {
+      const newMessage: Message = {
+        id: data.id,
+        content: data.content,
+        sender_id: data.sender_id,
+        recipient_id: data.recipient_id,
+        timestamp: formatTimestamp(data.created_at),
+        raw_timestamp: data.created_at,
+        created_at: data.created_at,
+        isCurrentUser: data.sender_id === currentUser.value?.id,
+        read: false,
+        sent: true,
+        receivedViaWebSocket: true,
+      };
 
-    // Clear existing messages to ensure we get a fresh load
-    messages.value = [];
+      messages.value.push(newMessage);
+      saveToSessionStorage(messages.value);
 
-    // Force reload from API
-    await fetchPrivateMessages();
-
-    // Show toast with message count
-    if (messages.value.length > 0) {
-      $toast?.success(`Loaded ${messages.value.length} messages`);
-    } else {
-      $toast?.warning("No messages found");
-    }
-
-    // Scroll to bottom after refresh
-    nextTick(() => {
-      if (messagesEndRef.value) {
-        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
-      }
-    });
-  } catch (error) {
-    $toast?.error("Failed to refresh messages");
-  }
-};
-
-// Add watch for WebSocket errors
-watch(
-  () => webSocketStore.connectionError,
-  (error) => {
-    // Silent error handling - errors are displayed in the UI already
-  }
-);
-
-// Added ref to track if component is already initialized
-const isComponentInitialized = ref(false);
-
-// Initialize with WebSocket connection first, then load messages
-// Set production mode - diagnostics are now fully disabled
-
-onMounted(async () => {
-  console.log(
-    `🚀 [ChatArea] Component mounted for recipientId: ${props.recipientId}`
-  );
-
-  // Simple message loading priority: props -> session storage -> API
-  if (props.chatMessages && props.chatMessages.length > 0) {
-    console.log(
-      `📨 [ChatArea] Using prop messages (${props.chatMessages.length})`
-    );
-    messages.value = props.chatMessages;
-  } else {
-    const storedMessages = loadFromSessionStorage();
-    if (storedMessages.length > 0) {
-      console.log(
-        `💾 [ChatArea] Using stored messages (${storedMessages.length})`
-      );
-      messages.value = storedMessages;
-    } else {
-      console.log(`📡 [ChatArea] Fetching messages from API`);
-      isLoading.value = true;
-      try {
-        await fetchPrivateMessages();
-      } catch (error) {
-        console.error("Failed to fetch messages:", error);
-      } finally {
-        isLoading.value = false;
-      }
-    }
-  }
-
-  // Fix message bubble positioning
-  validateMessageBubbles();
-
-  // Initial scroll to bottom
-  nextTick(() => {
-    if (messagesEndRef.value) {
-      messagesEndRef.value.scrollIntoView();
+      nextTick(() => {
+        if (messagesEndRef.value) {
+          messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+        }
+      });
     }
   });
+};
 
-  // Set up event listeners
-  document.addEventListener("mousedown", handleClickOutside);
+// Fetch private messages from API
+const fetchPrivateMessages = async () => {
+  try {
+    const response = await messagesStore.getMessages({
+      target_id: props.recipientId,
+      type: "private",
+    });
+    if (response?.data) {
+      const apiMessages = response.data.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        sender_id: msg.sender_id,
+        recipient_id: msg.recipient_id,
+        timestamp: formatTimestamp(msg.created_at),
+        raw_timestamp: msg.created_at,
+        created_at: msg.created_at,
+        updated_at: msg.updated_at,
+        isCurrentUser: msg.sender_id === currentUser.value?.id,
+        read: msg.is_read || false,
+        sent: true,
+        isEdited: msg.is_edited || false,
+        isDeleted: msg.is_deleted || false,
+        attachment: msg.attachment || null,
+      }));
 
-  // Connect WebSocket for real-time updates
-  await connectWebSocket();
-  handleWebSocketMessages();
+      messages.value = apiMessages;
+      saveToSessionStorage(messages.value);
+    }
+  } catch (error) {
+    console.error("Failed to fetch messages:", error);
+    throw error;
+  }
+};
 
-  console.log(
-    `✅ [ChatArea] Initialization complete with ${messages.value.length} messages`
-  );
-});
+// Validate message bubbles positioning
+const validateMessageBubbles = () => {
+  messages.value.forEach((message) => {
+    if (message.sender_id === currentUser.value?.id) {
+      message.isCurrentUser = true;
+    } else {
+      message.isCurrentUser = false;
+    }
+  });
+};
+
+// Handle click outside dropdown
+const handleClickOutside = (event: MouseEvent) => {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+    showDropdown.value = null;
+  }
+};
 
 // Simple session storage management
 const saveToSessionStorage = (messagesList: Message[]) => {
@@ -1948,6 +1494,253 @@ const loadFromSessionStorage = (): Message[] => {
   }
 };
 
+// Clean up blob URLs to prevent memory leaks
+const cleanupBlobUrls = () => {
+  messages.value.forEach((message) => {
+    if (message.attachment?.isOptimistic && message.attachment?.url) {
+      try {
+        if (message.attachment.url.startsWith("blob:")) {
+          URL.revokeObjectURL(message.attachment.url);
+          console.log(`[ChatArea] Revoked blob URL for message ${message.id}`);
+        }
+      } catch (err) {
+        console.warn("[ChatArea] Failed to revoke blob URL:", err);
+      }
+    }
+  });
+};
+
+// Component lifecycle management with enhanced initialization
+onMounted(async () => {
+  console.log(
+    `🚀 [ChatArea] Component mounted for recipient: ${props.recipientId}`
+  );
+
+  // Perform full initialization using the same refresh logic
+  await performChatRefresh(props.recipientId);
+});
+
+// Enhanced initialization and router refresh handling
+const isRouterRefreshing = ref(false);
+
+// Listen for chat switching events from router
+if (process.client) {
+  const handleChatSwitched = (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { newId, oldId } = customEvent.detail;
+    if (newId === props.recipientId) {
+      console.log(`🎯 [ChatArea] Received chat switch event for ${newId}`);
+      // Force refresh of this component's state
+      nextTick(() => {
+        performChatRefresh(newId, oldId);
+      });
+    }
+  };
+
+  window.addEventListener("chat-switched", handleChatSwitched as EventListener);
+
+  // Cleanup listener
+  onUnmounted(() => {
+    window.removeEventListener(
+      "chat-switched",
+      handleChatSwitched as EventListener
+    );
+  });
+}
+
+// Enhanced watch for recipient changes with router refresh functionality
+watch(
+  () => props.recipientId,
+  async (newRecipientId, oldRecipientId) => {
+    if (
+      newRecipientId &&
+      newRecipientId !== oldRecipientId &&
+      !isRouterRefreshing.value
+    ) {
+      console.log(
+        `🔄 [ChatArea] Recipient changed from ${oldRecipientId} to ${newRecipientId} - performing enhanced refresh`
+      );
+
+      // Set router refreshing state
+      isRouterRefreshing.value = true;
+
+      try {
+        // Perform complete state cleanup and refresh with enhanced error handling
+        await performChatRefresh(newRecipientId, oldRecipientId);
+      } catch (error) {
+        console.error("Enhanced chat refresh failed:", error);
+        // Fallback: try basic initialization
+        try {
+          await fetchPrivateMessages();
+        } catch (fallbackError) {
+          console.error("Fallback refresh also failed:", fallbackError);
+          $toast?.error("Failed to load chat. Please refresh the page.");
+        }
+      } finally {
+        isRouterRefreshing.value = false;
+      }
+    }
+  },
+  { immediate: false }
+);
+
+// Enhanced chat refresh function with router-like behavior
+const performChatRefresh = async (
+  newRecipientId: string,
+  oldRecipientId?: string
+) => {
+  try {
+    isLoading.value = true;
+
+    // Step 1: Complete state cleanup (similar to router refresh)
+    console.log(`🧹 [ChatArea] Cleaning up state for recipient change`);
+
+    // Clear all current state
+    messages.value = [];
+    filteredMessages.value = [];
+    uploadProgress.value = [];
+    showSearch.value = false;
+    showInfo.value = false;
+    showDropdown.value = null;
+    editingMessageId.value = null;
+    inputMessage.value = "";
+    searchQuery.value = "";
+    isSearching.value = false;
+    isTyping.value = false;
+    isUploading.value = false;
+    isSending.value = false;
+    dragActive.value = false;
+
+    // Clear any pending timers
+    if (typingTimeout.value) {
+      clearTimeout(typingTimeout.value);
+      typingTimeout.value = null;
+    }
+
+    // Clean up blob URLs from previous conversation
+    cleanupBlobUrls();
+
+    // Step 2: Clear file input state
+    if (fileInputRef.value) {
+      fileInputRef.value.value = "";
+    }
+
+    // Step 3: Force DOM update and reset scroll position
+    await nextTick();
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = 0;
+    }
+
+    // Step 4: Disconnect and reconnect WebSocket events for clean state
+    eventBus.off("private-message");
+
+    // Step 5: Small delay to ensure cleanup is complete (router refresh simulation)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Step 6: Fresh initialization for new recipient
+    console.log(
+      `🚀 [ChatArea] Initializing fresh state for recipient: ${newRecipientId}`
+    );
+
+    // Initialize WebSocket connection if needed
+    if (!webSocketStore.isConnected) {
+      await connectWebSocket();
+    }
+
+    // Load cached messages for new recipient first (for immediate UI feedback)
+    const cachedMessages = loadFromSessionStorage();
+    if (cachedMessages.length > 0) {
+      messages.value = cachedMessages;
+      console.log(
+        `📦 [ChatArea] Loaded ${cachedMessages.length} cached messages for new recipient`
+      );
+    }
+
+    // Reconnect WebSocket message handlers for new conversation
+    handleWebSocketMessages();
+
+    // Fetch fresh messages from API
+    try {
+      await fetchPrivateMessages();
+      console.log(
+        `🔄 [ChatArea] Fetched fresh messages from API for recipient: ${newRecipientId}`
+      );
+    } catch (error) {
+      console.warn(
+        `⚠️ [ChatArea] Failed to fetch fresh messages for new recipient, using cached data:`,
+        error
+      );
+      // If we have cached messages, continue with those
+      if (cachedMessages.length === 0) {
+        // Show user-friendly message for complete failure
+        $toast?.warning(
+          "Unable to load chat history. Please refresh the page."
+        );
+      }
+    }
+
+    // Validate message ownership for proper bubble positioning
+    validateMessageBubbles();
+
+    // Step 7: Auto-scroll to bottom with smooth animation
+    await nextTick();
+    if (messagesEndRef.value) {
+      messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Step 8: Emit refresh event for parent components (similar to router refresh)
+    eventBus.emit("chat-refreshed", {
+      newRecipientId,
+      oldRecipientId,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(
+      `✅ [ChatArea] Chat refresh completed successfully for recipient: ${newRecipientId}`
+    );
+  } catch (error) {
+    console.error(
+      `❌ [ChatArea] Chat refresh failed for recipient ${newRecipientId}:`,
+      error
+    );
+    $toast?.error("Failed to switch conversation. Please refresh the page.");
+  } finally {
+    isLoading.value = false;
+    isRouterRefreshing.value = false;
+  }
+};
+
+// Expose refresh function for external use (like manual refresh button)
+const refreshChat = async () => {
+  console.log(
+    `🔄 [ChatArea] Manual chat refresh requested for recipient: ${props.recipientId}`
+  );
+  await performChatRefresh(props.recipientId);
+};
+
+// Expose functions for parent components
+defineExpose({
+  refreshChat,
+  performChatRefresh,
+  clearMessages: () => {
+    messages.value = [];
+    sessionStorage.removeItem(`chat_${props.recipientId}`);
+  },
+});
+
+// Auto-scroll to bottom when new messages arrive (but not during initial load)
+watch(
+  () => messages.value.length,
+  async (newLength, oldLength) => {
+    if (newLength > oldLength && !isLoading.value) {
+      await nextTick();
+      if (messagesEndRef.value) {
+        messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }
+);
+
 // Cleanup when component is unmounted
 onUnmounted(() => {
   console.log("🧹 [ChatArea] Component unmounting - cleaning up");
@@ -1959,6 +1752,9 @@ onUnmounted(() => {
   if (typingTimeout.value) {
     clearTimeout(typingTimeout.value);
   }
+
+  // Clean up any blob URLs that might be in use
+  cleanupBlobUrls();
 
   console.log("✅ [ChatArea] Cleanup completed");
 });

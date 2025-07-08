@@ -271,3 +271,69 @@ export const formatFileSize = (bytes: number): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
+
+/**
+ * Get file type from URL
+ */
+export const getFileTypeFromUrl = (url: string): "image" | "file" => {
+  const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
+  return imageExtensions.some((ext) => url.toLowerCase().includes(ext))
+    ? "image"
+    : "file";
+};
+
+/**
+ * Get file name from URL
+ */
+export const getFileNameFromUrl = (url: string): string => {
+  const urlParts = url.split("/");
+  return urlParts[urlParts.length - 1] || "attachment";
+};
+
+/**
+ * Transform backend file URLs to frontend proxy URLs
+ */
+export const transformFileUrl = (
+  backendUrl: string,
+  groupId?: string
+): string => {
+  if (!backendUrl) return "";
+
+  // If it's already a full URL with proxy, return as is
+  if (backendUrl.includes("/api/proxy/")) {
+    return backendUrl;
+  }
+
+  // Extract file ID from various backend URL formats
+  let fileId = "";
+
+  if (backendUrl.includes("/files/")) {
+    // Handle URLs like "/files/{fileId}" or "http://backend:8084/api/files/{fileId}"
+    const matches = backendUrl.match(/\/files\/([^/?]+)/);
+    if (matches && matches[1]) {
+      fileId = matches[1];
+    }
+  } else if (backendUrl.match(/^[a-f0-9-]{36}$/)) {
+    // If it's just a UUID, use it directly
+    fileId = backendUrl;
+  } else {
+    // For other formats, try to extract the last part of the path
+    const urlParts = backendUrl.split("/");
+    const lastPart = urlParts[urlParts.length - 1];
+    if (lastPart && lastPart.match(/^[a-f0-9-]{36}$/)) {
+      fileId = lastPart;
+    } else {
+      console.warn(
+        `[FileUpload] Could not extract file ID from URL: ${backendUrl}`
+      );
+      return backendUrl; // Return original if we can't parse it
+    }
+  }
+
+  // Construct the proper proxy URL
+  if (groupId) {
+    return `/api/proxy/files/group/${groupId}/${fileId}`;
+  } else {
+    return `/api/proxy/files/${fileId}`;
+  }
+};

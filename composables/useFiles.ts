@@ -676,13 +676,12 @@ export const useFilesStore = defineStore("files", () => {
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("recipient_id", recipientId);
+      formData.append("receiver_id", recipientId);
       formData.append("content", messageText);
       formData.append("type", getFileTypeCategory(file.type));
 
-      const endpoint = `${FILE_SERVICE_PATH}/chat/messages/media`;
-
-      const response = await callApi(endpoint, "POST", formData);
+      // Use the unified message endpoint for consistency
+      const response = await $api.raw.post("/message", formData);
 
       // Handle response from raw fetch
       let data;
@@ -729,9 +728,8 @@ export const useFilesStore = defineStore("files", () => {
       formData.append("content", messageText);
       formData.append("type", getFileTypeCategory(file.type));
 
-      const endpoint = `${FILE_SERVICE_PATH}/groups/${groupId}/messages`;
-
-      const response = await callApi(endpoint, "POST", formData);
+      // Use the unified message endpoint for consistency
+      const response = await $api.raw.post("/message", formData);
 
       // Handle response from raw fetch
       let data;

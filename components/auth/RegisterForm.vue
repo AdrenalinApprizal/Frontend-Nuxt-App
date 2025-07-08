@@ -299,6 +299,7 @@ const handleSubmit = async () => {
     const result = await authStore.register(registerData);
 
     if (result.success) {
+      // Only show toast for registration since user needs to know to login
       $toast.success(
         result.message || "Registration successful! Please login."
       );

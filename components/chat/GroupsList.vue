@@ -180,10 +180,10 @@
     <!-- Create Group Modal -->
     <div
       v-if="showCreateGroupModal"
-      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in"
+      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in p-4"
     >
       <div
-        class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
+        class="bg-white rounded-xl p-6 max-w-md w-full max-h-[85vh] overflow-y-auto shadow-2xl transform transition-all"
       >
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-semibold text-gray-800">Create a Group</h2>
@@ -301,7 +301,7 @@
             </div>
 
             <div
-              class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg"
+              class="max-h-32 overflow-y-auto border border-gray-200 rounded-lg"
             >
               <div
                 v-for="friend in filteredFriends"
@@ -323,7 +323,7 @@
                   <Icon v-else name="fa:user" class="h-4 w-4 text-gray-500" />
                 </div>
                 <div class="flex-1">
-                  <p class="font-medium text-sm">
+                  <p class="font-medium text-sm text-black">
                     {{ friend.name || "Unknown" }}
                   </p>
                   <p class="text-xs text-gray-500">
@@ -525,9 +525,7 @@ async function directAPICall() {
     if (groupsData.length > 0) {
       groupsStore.groups = groupsData;
 
-      if ($toast) {
-        $toast.success(`Found ${groupsData.length} groups`);
-      }
+      // Remove excessive success toast - groups loading should be silent
     } else {
       if ($toast) {
         $toast.warning("No groups found");

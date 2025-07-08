@@ -155,12 +155,12 @@ export const useMessagesStore = defineStore("messages", () => {
       console.log(`[useMessages] Query parameters:`, queryParams.toString());
       console.log(
         `[useMessages] Full URL:`,
-        `/messages/history?${queryParams.toString()}`
+        `/message/history?${queryParams.toString()}`
       );
 
-      // Use unified /messages/history endpoint for consistency
+      // Use unified /message/history endpoint for consistency
       // Escape any special characters in query params that might cause issues
-      const endpoint = `/messages/history?${queryParams
+      const endpoint = `/message/history?${queryParams
         .toString()
         .replace(/\+/g, "%2B")}`;
 
@@ -296,14 +296,10 @@ export const useMessagesStore = defineStore("messages", () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await $fetch(`${proxyUrl}/group/${groupId}/messages`, {
-        method: "GET",
-        params: {
-          page,
-          limit,
-        },
-        credentials: "include",
-      });
+      // Use the unified /message/history endpoint for consistency
+      const response = await $api.get(
+        `/message/history?type=group&target_id=${groupId}&page=${page}&limit=${limit}`
+      );
 
       if (page === 1 || page <= 0) {
         messages.value = response.data || [];
@@ -347,8 +343,8 @@ export const useMessagesStore = defineStore("messages", () => {
         attachment_url: attachmentUrl,
       };
 
-      // Use $api instead of $fetch for consistent error handling
-      const response = await $api.post("/messages", messageData);
+      // Use unified /message endpoint for sending messages
+      const response = await $api.post("/message", messageData);
 
       // Add message to the messages array if successful
       if (response.data) {
@@ -386,8 +382,8 @@ export const useMessagesStore = defineStore("messages", () => {
         attachment_url: attachmentUrl,
       };
 
-      // Use $api for consistent error handling
-      const response = await $api.post("/groups/messages", messageData);
+      // Use unified /message endpoint for sending group messages
+      const response = await $api.post("/message", messageData);
 
       // Add message to the messages array if successful
       if (response.data) {
@@ -457,12 +453,12 @@ export const useMessagesStore = defineStore("messages", () => {
         }
       }
 
-      // Use the messages endpoint instead of groups/messages for consistency
+      // Use the message endpoint instead of messages for consistency
       console.log(
         `[useMessages] Sending edit request for message ${messageId} with content:`,
         content
       );
-      const response = await $api.put(`/messages/${messageId}`, {
+      const response = await $api.put(`/message/${messageId}`, {
         content,
       });
       console.log(`[useMessages] Edit API response:`, response);
@@ -588,13 +584,13 @@ export const useMessagesStore = defineStore("messages", () => {
       console.log(`[useMessages] Deleting message with ID: ${messageId}`);
 
       // Determine the proper endpoint based on whether it's a group message
-      let deleteEndpoint = `/messages/${messageId}`;
+      let deleteEndpoint = `/message/${messageId}`;
 
       // If it's explicitly a group message, use the group-specific endpoint format
       if (isGroupMessage) {
         console.log(`[useMessages] Using group message deletion endpoint`);
-        // Still use /messages/{id} format as the proxy will handle routing properly
-        deleteEndpoint = `/messages/${messageId}`;
+        // Still use /message/{id} format as the proxy will handle routing properly
+        deleteEndpoint = `/message/${messageId}`;
       }
 
       // Enhanced logging for deletion
@@ -662,8 +658,8 @@ export const useMessagesStore = defineStore("messages", () => {
         return { message: "No valid messages to mark as read" };
       }
 
-      // Use the messages endpoint for consistency
-      const response = await $api.put(`/messages/read`, {
+      // Use the message endpoint for consistency
+      const response = await $api.put(`/message/read`, {
         message_ids: finalMessageIds,
       });
 
@@ -691,7 +687,7 @@ export const useMessagesStore = defineStore("messages", () => {
 
   /**
    * Upload media (image, file) with a message
-   * Uses the /messages/media endpoint to upload media files
+   * Uses the /message/media endpoint to upload media files
    */
   async function sendMessageWithMedia(
     recipientId: string,
@@ -899,7 +895,7 @@ export const useMessagesStore = defineStore("messages", () => {
       });
 
       const response = await $api.get(
-        `/groups/search/messages?${queryParams.toString()}`
+        `/message/search?${queryParams.toString()}`
       );
       return response;
     } catch (err: any) {
@@ -935,7 +931,7 @@ export const useMessagesStore = defineStore("messages", () => {
   }
 
   /**
-   * Send a new message using the /messages POST endpoint
+   * Send a new message using the unified /message POST endpoint
    */
   async function postMessage(
     messageData: SendMessageRequest
@@ -944,7 +940,7 @@ export const useMessagesStore = defineStore("messages", () => {
     error.value = null;
 
     try {
-      const response = await $api.post(`/groups/messages`, messageData);
+      const response = await $api.post(`/message`, messageData);
       return response;
     } catch (err: any) {
       const errorMsg = err.message || "Failed to post message";
@@ -964,10 +960,8 @@ export const useMessagesStore = defineStore("messages", () => {
     error.value = null;
 
     try {
-      const response = await $fetch(`${proxyUrl}/messages/unread-count`, {
-        method: "GET",
-        credentials: "include",
-      });
+      // Use the unified endpoint structure
+      const response = await $api.get(`/message/unread-count`);
       return response;
     } catch (err: any) {
       const errorMsg = err.message || "Failed to get unread count";

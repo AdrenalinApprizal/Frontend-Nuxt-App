@@ -242,6 +242,7 @@ const handleSubmit = async () => {
 
     // Set fresh login flag for auto-refresh
     sessionStorage.setItem("freshLogin", "true");
+    sessionStorage.setItem("loginTimestamp", Date.now().toString());
 
     // Make sure user data is loaded before navigation
     await authStore.getUserInfo().catch((error) => {
@@ -258,15 +259,82 @@ const handleSubmit = async () => {
     // Use nextTick to ensure Vue state is updated
     await nextTick();
 
-    // Force the document to refresh with updated state
-    // This helps resolve sidebar rendering issues
+    // Enhanced refresh strategy - similar to router.refresh()
+    console.log(
+      "Implementing comprehensive page refresh similar to router.refresh..."
+    );
+
+    // Strategy 1: Clear any cached data
+    if (process.client) {
+      // Clear browser cache for this session
+      sessionStorage.clear();
+
+      // Reset flags after clearing to maintain login state
+      sessionStorage.setItem("freshLogin", "true");
+      sessionStorage.setItem("loginTimestamp", Date.now().toString());
+    }
+
+    // Strategy 2: Force refresh of all app state
     window.dispatchEvent(new Event("resize"));
+    window.dispatchEvent(
+      new CustomEvent("auth-state-changed", {
+        detail: { authenticated: true, timestamp: Date.now() },
+      })
+    );
 
-    // Add a slightly longer delay before navigation to ensure state is fully propagated
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Display navigation message
+    $toast.success("Login successful! Redirecting to chat...");
 
-    // Navigate to protected area with fresh login indicator
-    router.push("/chat/messages?fromLogin=true");
+    // Strategy 3: Enhanced navigation with multiple fallbacks
+    console.log(
+      "Navigating to chat/messages with router.refresh-like behavior..."
+    );
+
+    try {
+      // Primary navigation strategy - replace current history
+      await navigateTo("/chat/messages?fromLogin=true&refresh=true", {
+        replace: true,
+        external: false,
+      });
+
+      // Strategy 4: Post-navigation refresh (similar to router.refresh effect)
+      setTimeout(() => {
+        if (process.client && window.location.pathname === "/chat/messages") {
+          console.log("Executing post-navigation refresh...");
+
+          // Force complete app state refresh
+          window.dispatchEvent(
+            new CustomEvent("login-refresh", {
+              detail: {
+                timestamp: Date.now(),
+                type: "post-navigation-refresh",
+              },
+            })
+          );
+
+          // Force Nuxt app to refresh - similar to router.refresh()
+          if (window.location.search.includes("refresh=true")) {
+            // Remove refresh parameter and trigger page reload for complete refresh
+            const newUrl = window.location.pathname + "?fromLogin=true";
+            window.history.replaceState({}, "", newUrl);
+
+            // Complete page reload as ultimate refresh
+            window.location.reload();
+          }
+        }
+      }, 1500);
+    } catch (navigationError) {
+      console.error(
+        "Navigation error, using fallback refresh strategy:",
+        navigationError
+      );
+
+      // Fallback strategy: Direct window.location with refresh
+      if (process.client) {
+        // This simulates router.refresh by doing a complete page reload
+        window.location.href = "/chat/messages?fromLogin=true";
+      }
+    }
   } catch (error: any) {
     // Handle login errors
     console.error("Login error:", error);

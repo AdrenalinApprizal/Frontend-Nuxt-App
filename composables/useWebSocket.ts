@@ -371,8 +371,8 @@ export const useWebSocket = defineStore("websocket", () => {
     // Process any queued messages
     processMessageQueue();
 
-    if ($toast) {
-      $toast.success("Connected to messaging service");
+    if ($toast && reconnectAttempts.value > 0) {
+      // Only show toast for reconnections, not initial connections
     }
   };
 
@@ -389,8 +389,8 @@ export const useWebSocket = defineStore("websocket", () => {
       });
     }
 
-    if ($toast) {
-      $toast.success("Connected to presence service");
+    if ($toast && reconnectAttempts.value > 0) {
+      // Only show toast for presence reconnections
     }
   };
 
@@ -509,7 +509,6 @@ export const useWebSocket = defineStore("websocket", () => {
             message.data
           );
           if ($toast) {
-            $toast.error(message.data.message || "Error from messaging server");
           }
           break;
 
@@ -543,7 +542,6 @@ export const useWebSocket = defineStore("websocket", () => {
             message.data
           );
           if ($toast) {
-            $toast.error(message.data.message || "Error from presence server");
           }
           break;
 
@@ -682,7 +680,6 @@ export const useWebSocket = defineStore("websocket", () => {
       }
 
       if ($toast) {
-        $toast.error("Authentication failed. Please log in again.");
       }
     }
   };
@@ -810,9 +807,6 @@ export const useWebSocket = defineStore("websocket", () => {
         console.log("[WebSocket Presence] Max reconnection attempts reached");
         connectionError.value = "Failed to connect after multiple attempts";
         if ($toast) {
-          $toast.error(
-            "Failed to connect to presence service. Please refresh the page."
-          );
         }
       }
       return;

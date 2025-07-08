@@ -2,7 +2,6 @@
   "framework": "nuxt",
   "buildCommand": "npm run build",
   "outputDirectory": ".output/public",
-  "serverFiles": [".output/**"],
   "functions": {
     "server/api/proxy/[...path].ts": {
       "maxDuration": 30

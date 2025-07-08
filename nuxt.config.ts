@@ -99,22 +99,17 @@ export default defineNuxtConfig({
     public: {
       dev: process.env.NODE_ENV !== "production",
       apiBaseUrl:
-        process.env.NUXT_PUBLIC_API_BASE_URL || "http://localhost:8081/api",
+        process.env.NUXT_PUBLIC_API_BASE_URL,
       apiAuthUrl:
-        process.env.NUXT_PUBLIC_API_AUTH_URL ||
-        "http://localhost:8081/api/auth",
+        process.env.NUXT_PUBLIC_API_AUTH_URL,
       groupApiBaseUrl:
-        process.env.NUXT_PUBLIC_GROUP_API_BASE_URL ||
-        "http://localhost:8082/api",
+        process.env.NUXT_PUBLIC_GROUP_API_BASE_URL,
       notificationApiBaseUrl:
-        process.env.NUXT_PUBLIC_NOTIFICATION_API_BASE_URL ||
-        "http://localhost:8083/api",
+        process.env.NUXT_PUBLIC_NOTIFICATION_API_BASE_URL,
       fileServiceBaseUrl:
-        process.env.NUXT_PUBLIC_FILE_SERVICE_BASE_URL ||
-        "http://localhost:8084",
+        process.env.NUXT_PUBLIC_FILE_SERVICE_BASE_URL,
       presenceServiceBaseUrl:
-        process.env.NUXT_PUBLIC_PRESENCE_SERVICE_BASE_URL ||
-        "http://localhost:8085/api",
+        process.env.NUXT_PUBLIC_PRESENCE_SERVICE_BASE_URL,
     },
   },
   nitro: {

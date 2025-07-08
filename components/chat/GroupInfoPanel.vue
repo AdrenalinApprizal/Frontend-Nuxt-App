@@ -921,14 +921,14 @@ const isImage = (mimeType: string) => {
 
 const getFileIcon = (mimeType: string) => {
   if (mimeType.startsWith("image/")) return "fa:image";
-  if (mimeType.startsWith("video/")) return "fa:video";
+  if (mimeType.startsWith("video/")) return "lucide:video";
   if (mimeType.startsWith("audio/")) return "fa:music";
-  if (mimeType.includes("pdf")) return "fa:file-pdf";
-  if (mimeType.includes("word")) return "fa:file-word";
+  if (mimeType.includes("pdf")) return "lucide:file-text";
+  if (mimeType.includes("word")) return "lucide:file-text";
   if (mimeType.includes("excel") || mimeType.includes("sheet"))
-    return "fa:file-excel";
+    return "lucide:file-spreadsheet";
   if (mimeType.includes("powerpoint") || mimeType.includes("presentation"))
-    return "fa:file-powerpoint";
+    return "lucide:file-text";
   if (mimeType.includes("zip") || mimeType.includes("archive"))
     return "fa:file-archive";
   return "fa:file";

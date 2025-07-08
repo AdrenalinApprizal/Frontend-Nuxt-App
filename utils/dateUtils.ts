@@ -1,6 +1,6 @@
 /**
  * Date utilities wrapper that provides reliable date formatting without external dependencies
- * This is a production-safe fallback that doesn't rely on date-fns loading correctly
+ * This is a production-safe fallback using native date operations
  */
 
 /**

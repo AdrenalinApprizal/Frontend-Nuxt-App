@@ -1,6 +1,6 @@
 /**
  * Date utilities plugin for Nuxt
- * Ensures date formatting functions are available even if date-fns fails to load
+ * Ensures date formatting functions are available without external dependencies
  */
 
 export default defineNuxtPlugin(() => {

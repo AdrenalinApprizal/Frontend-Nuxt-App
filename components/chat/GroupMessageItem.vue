@@ -161,7 +161,7 @@
           <div v-if="isDefinitelyCurrentUser" class="ml-1">
             <Icon
               v-if="message.pending"
-              name="fa:clock"
+              name="lucide:clock"
               class="h-3 w-3 opacity-75"
             />
             <div

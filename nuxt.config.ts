@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   modules: ["@nuxtjs/tailwindcss", "@nuxt/icon", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
   build: {
-    transpile: ["vue3-toastify", "vue-router"],
+    transpile: ["vue3-toastify", "vue-router", "date-fns"],
   },
   app: {
     head: {
@@ -40,6 +40,16 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_PRESENCE_SERVICE_BASE_URL || "http://localhost:8085/api",
     },
   },
+  nitro: {
+    experimental: {
+      wasm: true,
+    },
+    esbuild: {
+      options: {
+        target: "esnext",
+      },
+    },
+  },
   vite: {
     resolve: {
       alias: {
@@ -47,6 +57,7 @@ export default defineNuxtConfig({
       },
     },
     optimizeDeps: {
+      include: ["date-fns"],
       exclude: ["estree-walker"],
     },
   },

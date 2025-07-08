@@ -318,8 +318,8 @@ const handleSubmit = async () => {
             const newUrl = window.location.pathname + "?fromLogin=true";
             window.history.replaceState({}, "", newUrl);
 
-            // Complete page reload as ultimate refresh
-            window.location.reload();
+            // Use router-based reload instead of hard page reload
+            router.go(0);
           }
         }
       }, 1500);
@@ -329,10 +329,10 @@ const handleSubmit = async () => {
         navigationError
       );
 
-      // Fallback strategy: Direct window.location with refresh
+      // Fallback strategy: Direct router navigation with refresh
       if (process.client) {
-        // This simulates router.refresh by doing a complete page reload
-        window.location.href = "/chat/messages?fromLogin=true";
+        // Use router-based navigation instead of direct window.location
+        await router.push("/chat/messages?fromLogin=true");
       }
     }
   } catch (error: any) {

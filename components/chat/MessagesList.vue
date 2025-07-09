@@ -856,6 +856,21 @@ const transformFriendsToMessages = async (
   });
 };
 
+// Handle login refresh events
+const handleLoginRefresh = async (event: Event) => {
+  console.log("[MessagesList] Login refresh event received, refreshing data...");
+  await refreshData();
+};
+
+// Handle auth state change events  
+const handleAuthStateChanged = async (event: Event) => {
+  console.log("[MessagesList] Auth state changed, refreshing data...");
+  const customEvent = event as CustomEvent;
+  if (customEvent.detail?.authenticated) {
+    await refreshData();
+  }
+};
+
 // Enhanced refresh data function
 const refreshData = async () => {
   const isInitialLoad = !messages.value.length;
@@ -1023,6 +1038,12 @@ onMounted(async () => {
     await refreshData();
     handleWebSocketUpdates();
 
+    // Listen for login refresh events
+    if (process.client) {
+      window.addEventListener('login-refresh', handleLoginRefresh);
+      window.addEventListener('auth-state-changed', handleAuthStateChanged);
+    }
+
     // Watch for websocket connection changes
     unsubscribeConnectionWatch.value = watch(
       () => webSocket.isConnected,
@@ -1043,6 +1064,11 @@ onUnmounted(() => {
   eventBus.off("private-message");
   eventBus.off("group-message");
   eventBus.off("refresh-messages");
+
+  if (process.client) {
+    window.removeEventListener('login-refresh', handleLoginRefresh);
+    window.removeEventListener('auth-state-changed', handleAuthStateChanged);
+  }
 
   if (unsubscribeConnectionWatch.value) {
     unsubscribeConnectionWatch.value();

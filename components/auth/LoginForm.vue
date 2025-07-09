@@ -250,6 +250,24 @@ const handleSubmit = async () => {
       // Continue even if this fails
     });
 
+    // Import and use friends and groups stores to preload data
+    const { useFriendsStore } = await import("@/composables/useFriends");
+    const { useGroupsStore } = await import("@/composables/useGroups");
+    const { useNotifications } = await import("@/composables/useNotifications");
+    
+    const friendsStore = useFriendsStore();
+    const groupsStore = useGroupsStore();
+    const notifications = useNotifications();
+
+    // Preload essential data before navigation
+    await Promise.allSettled([
+      friendsStore.getFriends(),
+      groupsStore.getGroups(),
+      notifications.getUnreadCount()
+    ]);
+
+    console.log("Essential data preloaded successfully");
+
     // Force a state refresh to ensure isAuthenticated is properly updated
     console.log(
       "Login successful, authenticated status:",
@@ -259,75 +277,37 @@ const handleSubmit = async () => {
     // Use nextTick to ensure Vue state is updated
     await nextTick();
 
-    // Enhanced refresh strategy - similar to router.refresh()
-    console.log(
-      "Implementing comprehensive page refresh similar to router.refresh..."
-    );
-
-    // Strategy 1: Clear any cached data
+    // Dispatch auth state changed event for components to refresh
     if (process.client) {
-      // Clear browser cache for this session
-      sessionStorage.clear();
-
-      // Reset flags after clearing to maintain login state
-      sessionStorage.setItem("freshLogin", "true");
-      sessionStorage.setItem("loginTimestamp", Date.now().toString());
+      window.dispatchEvent(
+        new CustomEvent("auth-state-changed", {
+          detail: { authenticated: true, timestamp: Date.now() },
+        })
+      );
     }
-
-    // Strategy 2: Force refresh of all app state
-    window.dispatchEvent(new Event("resize"));
-    window.dispatchEvent(
-      new CustomEvent("auth-state-changed", {
-        detail: { authenticated: true, timestamp: Date.now() },
-      })
-    );
 
     // Display navigation message
     $toast.success("Login successful! Redirecting to chat...");
 
-    // Strategy 3: Enhanced navigation with multiple fallbacks
-    console.log(
-      "Navigating to chat/messages with router.refresh-like behavior..."
-    );
+    // Dispatch auth state changed event for components to refresh
+    if (process.client) {
+      window.dispatchEvent(
+        new CustomEvent("auth-state-changed", {
+          detail: { authenticated: true, timestamp: Date.now() },
+        })
+      );
+    }
 
+    // Navigate directly without complex refresh strategies
     try {
-      // Primary navigation strategy - replace current history
       await navigateTo("/chat/messages", {
         replace: true,
         external: false,
       });
-
-      // Strategy 4: Post-navigation refresh (similar to router.refresh effect)
-      setTimeout(() => {
-        if (process.client && window.location.pathname === "/chat/messages") {
-          console.log("Executing post-navigation refresh...");
-
-          // Force complete app state refresh
-          window.dispatchEvent(
-            new CustomEvent("login-refresh", {
-              detail: {
-                timestamp: Date.now(),
-                type: "post-navigation-refresh",
-              },
-            })
-          );
-
-          // Simple navigation without refresh parameters
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, "", newUrl);
-        }
-      }, 1500);
     } catch (navigationError) {
-      console.error(
-        "Navigation error, using fallback refresh strategy:",
-        navigationError
-      );
-
-      // Fallback strategy: Direct router navigation with refresh
-      if (process.client) {
-        // Use router-based navigation instead of direct window.location
-        await router.push("/chat/messages");
-      }
+      console.error("Navigation error:", navigationError);
+      // Fallback: use router
+      await router.push("/chat/messages");
     }
   } catch (error: any) {
     // Handle login errors

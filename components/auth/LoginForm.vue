@@ -292,7 +292,7 @@ const handleSubmit = async () => {
 
     try {
       // Primary navigation strategy - replace current history
-      await navigateTo("/chat/messages?fromLogin=true&refresh=true", {
+      await navigateTo("/chat/messages", {
         replace: true,
         external: false,
       });
@@ -312,23 +312,9 @@ const handleSubmit = async () => {
             })
           );
 
-          // Force Nuxt app to refresh - similar to router.refresh()
-          if (window.location.search.includes("refresh=true")) {
-            // Remove refresh parameter and trigger page reload for complete refresh
-            const newUrl = window.location.pathname + "?fromLogin=true";
-            window.history.replaceState({}, "", newUrl);
-
-            // Check if this is a WebPageTest or Lighthouse environment
-            const isWebPageTest =
-              navigator.userAgent.includes("WebPageTest") ||
-              navigator.userAgent.includes("Chrome-Lighthouse");
-
-            if (!isWebPageTest) {
-              // Use router-based reload for normal environments
-              router.go(0);
-            }
-            // If it's WebPageTest, skip the reload to avoid issues
-          }
+          // Simple navigation without refresh parameters
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, "", newUrl);
         }
       }, 1500);
     } catch (navigationError) {
@@ -340,7 +326,7 @@ const handleSubmit = async () => {
       // Fallback strategy: Direct router navigation with refresh
       if (process.client) {
         // Use router-based navigation instead of direct window.location
-        await router.push("/chat/messages?fromLogin=true");
+        await router.push("/chat/messages");
       }
     }
   } catch (error: any) {
